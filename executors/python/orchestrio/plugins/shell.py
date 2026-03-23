@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from datetime import datetime, timezone
 from typing import Any
 
@@ -34,13 +35,15 @@ class ShellPlugin(StepPlugin):
 
         started = datetime.now(timezone.utc)
 
+        merged_env = {**os.environ, **env_vars} if env_vars else None
+
         try:
             proc = await asyncio.create_subprocess_shell(
                 command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=cwd,
-                env=env_vars,
+                env=merged_env,
             )
             stdout, stderr = await asyncio.wait_for(
                 proc.communicate(), timeout=timeout

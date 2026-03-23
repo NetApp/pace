@@ -26,6 +26,7 @@ from orchestrio.models import (
     WorkflowStatus,
 )
 from orchestrio.plugins.base import get_plugin
+from orchestrio.utils import walk_path
 
 logger = logging.getLogger("orchestrio.engine")
 
@@ -39,23 +40,8 @@ _ENV_RE = re.compile(r"\{\{\s*env\.(\w+)\s*\}\}")
 
 
 def _resolve_ref(context: dict[str, Any], step_name: str, dotted_path: str) -> Any:
-    """Walk a dotted path inside a step's stored output.
-
-    Supports both dict keys and list indices, e.g.
-    ``records.0.cluster_interfaces.0.ip.address``.
-    """
-    value: Any = context.get(step_name, {})
-    for key in dotted_path.strip(".").split("."):
-        if isinstance(value, dict):
-            value = value.get(key)
-        elif isinstance(value, list):
-            try:
-                value = value[int(key)]
-            except (ValueError, IndexError):
-                return None
-        else:
-            return None
-    return value
+    """Walk a dotted path inside a step's stored output."""
+    return walk_path(context.get(step_name, {}), dotted_path)
 
 
 def _resolve_templates(obj: Any, context: dict[str, Any]) -> Any:
@@ -133,24 +119,23 @@ async def _run_step(step: StepDefinition, context: dict[str, Any]) -> StepResult
 
 
 def _dry_run_workflow(workflow: WorkflowDefinition) -> None:
-    """Print what each step would execute without running anything."""
-    import json
+    """Display what each step would execute without running anything."""
+    import click
 
     context: dict[str, Any] = {"env": workflow.env}
-    print(f"\n🔍 Dry-run: {workflow.name} ({len(workflow.steps)} steps)\n")
+    click.echo(f"\nDry-run: {workflow.name} ({len(workflow.steps)} steps)\n")
 
     for idx, step in enumerate(workflow.steps):
         resolved_config = _resolve_templates(step.config, context)
-        print(f"  [{idx + 1}/{len(workflow.steps)}] {step.name}  ({step.type})")
-        print(f"      config : {json.dumps(resolved_config, indent=14)}")
+        click.echo(f"  [{idx + 1}/{len(workflow.steps)}] {step.name}  ({step.type})")
+        click.echo(f"      config : {json.dumps(resolved_config, indent=14)}")
         if step.retry.attempts > 1:
-            print(f"      retry  : {step.retry.attempts} attempts, {step.retry.delay_seconds}s delay")
-        print(f"      on_failure: {step.on_failure.value}")
-        print()
-        # Stub output so downstream templates show their resolved form
+            click.echo(f"      retry  : {step.retry.attempts} attempts, {step.retry.delay_seconds}s delay")
+        click.echo(f"      on_failure: {step.on_failure.value}")
+        click.echo()
         context[step.name] = {"status_code": 200, "body": {}, "stdout": "", "stderr": "", "exit_code": 0}
 
-    print("⚠️  No steps were executed.")
+    click.echo("No steps were executed (dry-run).")
 
 
 # ── Workflow execution ─────────────────────────────────────────────

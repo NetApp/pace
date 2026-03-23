@@ -2,6 +2,7 @@
 
 from fastapi import FastAPI
 
+from orchestrio import __version__
 from orchestrio.api.routes import router
 
 
@@ -10,7 +11,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Orchestrio",
         description="Language-agnostic REST API workflow executor",
-        version="0.1.0",
+        version=__version__,
     )
     app.include_router(router, prefix="/api/v1")
     return app

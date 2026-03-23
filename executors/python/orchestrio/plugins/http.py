@@ -13,6 +13,7 @@ import httpx
 
 from orchestrio.models import StepDefinition, StepResult, StepStatus
 from orchestrio.plugins.base import StepPlugin
+from orchestrio.utils import walk_path
 
 logger = logging.getLogger("orchestrio.http")
 
@@ -33,11 +34,10 @@ class HttpPlugin(StepPlugin):
         password   — Password for Basic auth (used with username)
         poll       — Optional polling block.  When present the request is
                      repeated on ``interval_seconds`` cadence until the
-                     ``until`` condition is satisfied.  Each response is
-                     printed to stdout (only when it changes from the
-                     previous one).  Config shape:
+                     ``until`` condition is satisfied.  Config shape:
                        poll:
                          interval_seconds: 10
+                         max_attempts: 60        # safety cap (default 60)
                          until:
                            field: state          # dotted path in body
                            equals: success       # stop when equal  — OR —
@@ -138,21 +138,6 @@ class HttpPlugin(StepPlugin):
 
     # ── Polling helper ─────────────────────────────────────────────
 
-    @staticmethod
-    def _walk(obj: Any, dotted_path: str) -> Any:
-        """Walk a dotted path through nested dicts/lists."""
-        for key in dotted_path.split("."):
-            if isinstance(obj, dict):
-                obj = obj.get(key)
-            elif isinstance(obj, list):
-                try:
-                    obj = obj[int(key)]
-                except (ValueError, IndexError):
-                    return None
-            else:
-                return None
-        return obj
-
     async def _poll(
         self,
         client: httpx.AsyncClient,
@@ -165,11 +150,11 @@ class HttpPlugin(StepPlugin):
     ) -> Any:
         """Repeat the request until the ``until`` condition is met.
 
-        Prints each response to stdout, but only when it differs from
-        the previous one (avoids flooding the console with identical lines).
+        Logs each response when it differs from the previous one.
         Returns the final response body so downstream steps can reference it.
         """
         interval: float = poll_cfg.get("interval_seconds", 10)
+        max_attempts: int = poll_cfg.get("max_attempts", 60)
         until_cfg: dict[str, Any] = poll_cfg.get("until", {})
         field      = until_cfg.get("field", "")
         eq_val     = until_cfg.get("equals")
@@ -178,7 +163,7 @@ class HttpPlugin(StepPlugin):
         prev_text: str | None = None
         last_body: Any = {}
 
-        while True:
+        for attempt in range(1, max_attempts + 1):
             response = await client.request(
                 method=method,
                 url=url,
@@ -195,20 +180,14 @@ class HttpPlugin(StepPlugin):
                 resp_body = response.text
                 resp_text = resp_body
 
-            # Print only when the response changes
             if resp_text != prev_text:
-                ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-                if isinstance(resp_body, dict):
-                    print(f"{ts}  [JOB] {json.dumps(resp_body, indent=2)}")
-                else:
-                    print(f"{ts}  [JOB] {resp_text}")
+                logger.info("[poll %d/%d] %s", attempt, max_attempts, resp_text)
                 prev_text = resp_text
                 last_body = resp_body
 
-            logger.debug("   ← %s (poll)", response.status_code)
+            logger.debug("   <- %s (poll)", response.status_code)
 
-            # Check exit condition
-            current_val = self._walk(resp_body, field) if field else None
+            current_val = walk_path(resp_body, field) if field else None
             done = False
             if eq_val is not None and current_val == eq_val:
                 done = True
@@ -216,8 +195,12 @@ class HttpPlugin(StepPlugin):
                 done = True
 
             if done:
-                ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-                print(f"{ts}  ✓ Poll complete — {field}={current_val!r}")
+                logger.info("Poll complete — %s=%r", field, current_val)
                 return last_body
 
             await asyncio.sleep(interval)
+
+        raise TimeoutError(
+            f"Polling did not satisfy condition after {max_attempts} attempts "
+            f"({max_attempts * interval:.0f}s)"
+        )

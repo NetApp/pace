@@ -10,6 +10,7 @@ from pathlib import Path
 import click
 
 from orchestrio.engine import run_workflow
+from orchestrio.models import WorkflowStatus
 from orchestrio.parser import load_workflow
 
 
@@ -28,16 +29,13 @@ def cli(verbose: bool) -> None:
 @cli.command()
 @click.argument("file", type=click.Path(exists=True, path_type=Path))
 @click.option("--dry-run", is_flag=True, default=False, help="Resolve templates and print steps without executing.")
-@click.option("--verbose", "-v", is_flag=True, default=False, help="Enable debug logging.")
-def run(file: Path, dry_run: bool, verbose: bool) -> None:
+def run(file: Path, dry_run: bool) -> None:
     """Execute a workflow from a YAML / JSON file."""
-    if verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
     workflow = load_workflow(file)
     result = asyncio.run(run_workflow(workflow, dry_run=dry_run))
     if not dry_run:
         click.echo(result.model_dump_json(indent=2))
-    sys.exit(0 if result.status == "success" else 1)
+    sys.exit(0 if result.status == WorkflowStatus.SUCCESS else 1)
 
 
 @cli.command()
@@ -59,7 +57,7 @@ def serve(host: str, port: int) -> None:
     """Start the REST API server."""
     import uvicorn
 
-    uvicorn.run("orchestrio.api.app:app", host=host, port=port, reload=True)
+    uvicorn.run("orchestrio.api.app:app", host=host, port=port)
 
 
 if __name__ == "__main__":
