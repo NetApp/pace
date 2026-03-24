@@ -29,7 +29,7 @@ steps:
       url: "https://{{ env.ONTAP_HOST }}/api/cluster/nodes?fields=name,model,state,ha,version,serial_number,membership,cluster_interfaces,management_interfaces,metrocluster,disaggregated,san_optimized&membership=available&return_timeout=120"
       headers:
         Accept: "application/hal+json"
-        X-Dot-Client-App: "SMv4"
+        X-Dot-Client-App: "orchestrio"
       username: "{{ env.ONTAP_USER }}"
       password: "{{ env.ONTAP_PASS }}"
       timeout: 150
@@ -48,7 +48,7 @@ steps:
       headers:
         Accept:       "application/hal+json"
         Content-Type: "application/json"
-        X-Dot-Client-App: "SMv4"
+        X-Dot-Client-App: "orchestrio"
       username: "{{ env.ONTAP_USER }}"
       password: "{{ env.ONTAP_PASS }}"
       timeout: 60
@@ -89,7 +89,7 @@ steps:
       url: "https://{{ env.ONTAP_HOST }}/api/cluster/jobs/{{ steps.create_cluster.body.job.uuid }}?fields=code,description,end_time,error,_links,message,start_time,state,svm,uuid,arguments&return_timeout=120"
       headers:
         Accept: "application/hal+json"
-        X-Dot-Client-App: "SMv4"
+        X-Dot-Client-App: "orchestrio"
       username: "{{ env.ONTAP_USER }}"
       password: "{{ env.ONTAP_PASS }}"
       timeout: 30

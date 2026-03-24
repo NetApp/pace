@@ -18,7 +18,7 @@ steps:
       url: "https://{{ env.ONTAP_HOST }}/api/cluster?fields=version&return_timeout=120"
       headers:
         Accept: "application/hal+json"
-        X-Dot-Client-App: "SMv4"
+        X-Dot-Client-App: "orchestrio"
       username: "{{ env.ONTAP_USER }}"
       password: "{{ env.ONTAP_PASS }}"
       timeout: 30
@@ -39,7 +39,7 @@ steps:
       url: "https://{{ env.ONTAP_HOST }}/api/cluster/nodes?fields=name,serial_number&return_timeout=120"
       headers:
         Accept: "application/hal+json"
-        X-Dot-Client-App: "SMv4"
+        X-Dot-Client-App: "orchestrio"
       username: "{{ env.ONTAP_USER }}"
       password: "{{ env.ONTAP_PASS }}"
       timeout: 30
