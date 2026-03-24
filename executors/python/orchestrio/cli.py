@@ -17,7 +17,7 @@ from orchestrio.parser import load_workflow
 @click.group()
 @click.option("--verbose", "-v", is_flag=True, help="Enable debug logging.")
 def cli(verbose: bool) -> None:
-    """Orchestrio — REST API workflow executor."""
+    """Orchestrio — workflow executor."""
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
         level=level,
@@ -48,16 +48,6 @@ def validate(file: Path) -> None:
     except Exception as exc:
         click.echo(f"✗ Invalid: {exc}", err=True)
         sys.exit(1)
-
-
-@cli.command()
-@click.option("--host", default="127.0.0.1", help="Bind address.")
-@click.option("--port", default=8000, type=int, help="Port number.")
-def serve(host: str, port: int) -> None:
-    """Start the REST API server."""
-    import uvicorn
-
-    uvicorn.run("orchestrio.api.app:app", host=host, port=port)
 
 
 if __name__ == "__main__":
