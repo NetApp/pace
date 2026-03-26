@@ -132,6 +132,69 @@ Reference earlier step outputs with `{{ steps.<step_name>.<path> }}`:
 | [cluster_info.yaml](workflows/cluster_info.yaml) | ONTAP cluster info retrieval |
 | [cluster_setup_basic.yaml](workflows/cluster_setup_basic.yaml) | Full cluster setup with polling |
 
+### Real-world example — ONTAP cluster info
+
+```yaml
+name: cluster_info
+version: "1"
+description: >-
+  Get cluster version and list all nodes with serial numbers.
+
+env:
+  ONTAP_HOST: ""       # set via environment or override before running
+  ONTAP_USER: "admin"
+  ONTAP_PASS: ""       # set via environment or override before running
+
+steps:
+
+  # Step 1 — Get cluster version
+  - name: get_cluster
+    type: http
+    config:
+      method: GET
+      url: "https://{{ env.ONTAP_HOST }}/api/cluster?fields=version&return_timeout=120"
+      headers:
+        Accept: "application/hal+json"
+        X-Dot-Client-App: "orchestrio"
+      username: "{{ env.ONTAP_USER }}"
+      password: "{{ env.ONTAP_PASS }}"
+      timeout: 30
+      verify_ssl: false
+
+  # Print cluster name + version
+  - name: print_version
+    type: shell
+    config:
+      command: >-
+        echo "Cluster: {{ steps.get_cluster.body.name }} — {{ steps.get_cluster.body.version.full }}"
+
+  # Step 2 — Get all nodes with name and serial number
+  - name: get_nodes
+    type: http
+    config:
+      method: GET
+      url: "https://{{ env.ONTAP_HOST }}/api/cluster/nodes?fields=name,serial_number&return_timeout=120"
+      headers:
+        Accept: "application/hal+json"
+        X-Dot-Client-App: "orchestrio"
+      username: "{{ env.ONTAP_USER }}"
+      password: "{{ env.ONTAP_PASS }}"
+      timeout: 30
+      verify_ssl: false
+
+  # Print node count
+  - name: print_nodes
+    type: shell
+    config:
+      command: echo "Nodes in cluster- {{ steps.get_nodes.body.num_records }}"
+```
+
+This workflow demonstrates:
+- **`env`** block for credentials — keep secrets out of step configs
+- **HTTP basic auth** via `username` / `password` fields
+- **Template chaining** — `print_version` references `steps.get_cluster.body.*`
+- **`verify_ssl: false`** for self-signed certs (common in lab environments)
+
 ---
 
 ## Custom Plugins
