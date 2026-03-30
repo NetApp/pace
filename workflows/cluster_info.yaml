@@ -4,9 +4,9 @@ description: >-
   Get cluster version and list all nodes with serial numbers.
 
 env:
-  ONTAP_HOST: ""       # set via environment or override before running
+  ONTAP_HOST: ""       # override via --env-file or --env ONTAP_HOST=x
   ONTAP_USER: "admin"
-  ONTAP_PASS: ""       # set via environment or override before running
+  ONTAP_PASS: ""       # override via --env-file or --env ONTAP_PASS=x
 
 steps:
 

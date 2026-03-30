@@ -24,6 +24,7 @@ from pathlib import Path
 import click
 
 from orchestrio.engine import run_workflow
+from orchestrio.env_loader import EnvLoadError, load_env_file, merge_env, parse_env_pairs
 from orchestrio.models import WorkflowStatus
 from orchestrio.parser import load_workflow
 
@@ -43,9 +44,32 @@ def cli(verbose: bool) -> None:
 @cli.command()
 @click.argument("file", type=click.Path(exists=True, path_type=Path))
 @click.option("--dry-run", is_flag=True, default=False, help="Resolve templates and print steps without executing.")
-def run(file: Path, dry_run: bool) -> None:
+@click.option(
+    "--env-file", "-E",
+    multiple=True,
+    type=click.Path(exists=True, path_type=Path),
+    help="Load env vars from a file (.env, .yaml, .json). Repeatable; later files override earlier ones.",
+)
+@click.option(
+    "--env", "-e",
+    multiple=True,
+    metavar="KEY=VALUE",
+    help="Set an env var inline. Repeatable; overrides --env-file and YAML defaults.",
+)
+def run(file: Path, dry_run: bool, env_file: tuple[Path, ...], env: tuple[str, ...]) -> None:
     """Execute a workflow from a YAML / JSON file."""
     workflow = load_workflow(file)
+
+    try:
+        env_file_vars: dict[str, str] = {}
+        for ef in env_file:
+            env_file_vars.update(load_env_file(ef))
+        cli_env_vars = parse_env_pairs(env)
+    except EnvLoadError as exc:
+        raise click.BadParameter(str(exc)) from exc
+
+    workflow.env = merge_env(workflow.env, env_file_vars, cli_env_vars)
+
     result = asyncio.run(run_workflow(workflow, dry_run=dry_run))
     if not dry_run:
         click.echo(result.model_dump_json(indent=2))
@@ -54,11 +78,33 @@ def run(file: Path, dry_run: bool) -> None:
 
 @cli.command()
 @click.argument("file", type=click.Path(exists=True, path_type=Path))
-def validate(file: Path) -> None:
+@click.option(
+    "--env-file", "-E",
+    multiple=True,
+    type=click.Path(exists=True, path_type=Path),
+    help="Load env vars from a file (.env, .yaml, .json). Repeatable.",
+)
+@click.option(
+    "--env", "-e",
+    multiple=True,
+    metavar="KEY=VALUE",
+    help="Set an env var inline. Repeatable.",
+)
+def validate(file: Path, env_file: tuple[Path, ...], env: tuple[str, ...]) -> None:
     """Validate a workflow file without executing it."""
     try:
         workflow = load_workflow(file)
+
+        env_file_vars: dict[str, str] = {}
+        for ef in env_file:
+            env_file_vars.update(load_env_file(ef))
+        cli_env_vars = parse_env_pairs(env)
+        workflow.env = merge_env(workflow.env, env_file_vars, cli_env_vars)
+
         click.echo(f"✓ Valid workflow: {workflow.name} ({len(workflow.steps)} steps)")
+    except EnvLoadError as exc:
+        click.echo(f"✗ Invalid env: {exc}", err=True)
+        sys.exit(1)
     except Exception as exc:
         click.echo(f"✗ Invalid: {exc}", err=True)
         sys.exit(1)
