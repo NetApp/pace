@@ -20,8 +20,7 @@ env:
 
 steps:
 
-  # Step 1 — Discover available nodes (retry 3x/30s)
-  # records[0] = partner node (no mgmt interface); records[1] = local node (mgmt == ONTAP_HOST)
+  # Step 1 — Discover ALL available nodes (retry 3x/30s)
   - name: discover_nodes
     type: http
     config:
@@ -38,8 +37,39 @@ steps:
       attempts: 3
       delay_seconds: 30
 
-  # Step 2 — Create cluster; returns 202 + job.uuid
-  # nodes[0] (local) → discovery records[1]; nodes[1] (partner) → records[0] + PARTNER_MGMT_IP
+  # Step 2 — Discover LOCAL node only (has management_interfaces → the node we connected to)
+  #          Filter: management_interfaces != null → returns 1 record
+  - name: discover_local
+    type: http
+    config:
+      method: GET
+      url: "https://{{ env.ONTAP_HOST }}/api/cluster/nodes?fields=name,model,state,ha,version,serial_number,membership,cluster_interfaces,management_interfaces,metrocluster,disaggregated,san_optimized&membership=available&management_interfaces=!null&return_timeout=120"
+      headers:
+        Accept: "application/hal+json"
+        X-Dot-Client-App: "orchestrio"
+      username: "{{ env.ONTAP_USER }}"
+      password: "{{ env.ONTAP_PASS }}"
+      timeout: 150
+      verify_ssl: false
+
+  # Step 3 — Discover PARTNER node (exclude the local node by uuid != local uuid)
+  #          Filter: uuid != local_node_uuid → returns only the partner node
+  - name: discover_partner
+    type: http
+    config:
+      method: GET
+      url: "https://{{ env.ONTAP_HOST }}/api/cluster/nodes?fields=name,model,state,ha,version,serial_number,membership,cluster_interfaces,management_interfaces,metrocluster,disaggregated,san_optimized&membership=available&uuid=!{{ steps.discover_local.body.records.0.uuid }}&return_timeout=120"
+      headers:
+        Accept: "application/hal+json"
+        X-Dot-Client-App: "orchestrio"
+      username: "{{ env.ONTAP_USER }}"
+      password: "{{ env.ONTAP_PASS }}"
+      timeout: 150
+      verify_ssl: false
+
+  # Step 4 — Create cluster; returns 202 + job.uuid
+  #   node-01 (local)   → cluster_interface from discover_local.records[0]
+  #   node-02 (partner) → cluster_interface from discover_partner.records[0] + PARTNER_MGMT_IP
   - name: create_cluster
     type: http
     config:
@@ -65,23 +95,23 @@ steps:
           - name: "{{ env.CLUSTER_NAME }}-01"
             management_interface:
               ip:
-                address: "{{ env.ONTAP_HOST }}"  # use the IP we connected to for discovery
+                address: "{{ env.ONTAP_HOST }}"
             cluster_interface:
               ip:
-                address: "{{ steps.discover_nodes.body.records.1.cluster_interfaces.0.ip.address }}"
+                address: "{{ steps.discover_local.body.records.0.cluster_interfaces.0.ip.address }}"
           - name: "{{ env.CLUSTER_NAME }}-02"
             management_interface:
               ip:
                 address: "{{ env.PARTNER_MGMT_IP }}"
             cluster_interface:
               ip:
-                address: "{{ steps.discover_nodes.body.records.0.cluster_interfaces.0.ip.address }}"
+                address: "{{ steps.discover_partner.body.records.0.cluster_interfaces.0.ip.address }}"
         name_servers: {}
         ntp_servers: {}
         dns_domains: {}
         configuration_backup: {}
 
-  # Step 3 — Poll job every 10s until state != running
+  # Step 5 — Poll job every 10s until state != running
   - name: track_job
     type: http
     config:
@@ -91,7 +121,7 @@ steps:
         Accept: "application/hal+json"
         X-Dot-Client-App: "orchestrio"
       username: "{{ env.ONTAP_USER }}"
-      password: "{{ env.ONTAP_PASS }}"
+      password: "{{ env.CLUSTER_PASS }}"
       timeout: 30
       verify_ssl: false
       poll:
