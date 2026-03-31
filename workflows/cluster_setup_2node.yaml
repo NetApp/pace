@@ -1,12 +1,14 @@
-name: cluster_setup_basic
+name: cluster_setup_2node
 version: "1"
 description: >-
-  Basic ONTAP cluster setup: discover nodes (retry 3x/30s), POST /api/cluster, poll job until complete.
+  Two-node ONTAP cluster setup: discover local and partner nodes (retry 3x/30s),
+  POST /api/cluster, poll job until complete.
+  This workflow is designed for a 2-node cluster configuration.
 
 # User inputs (mirrors UI wizard)
 # ONTAP_HOST/USER/PASS — target node credentials
 # CLUSTER_NAME/PASS/MGMT_IP/NETMASK/GATEWAY — new cluster config
-# PARTNER_MGMT_IP — second node mgmt IP (not in discovery response)
+# PARTNER_MGMT_IP — second node (partner) mgmt IP (not in discovery response)
 env:
   ONTAP_HOST:       ""
   ONTAP_USER:       "admin"
@@ -38,7 +40,6 @@ steps:
       delay_seconds: 30
 
   # Step 2 — Discover LOCAL node only (has management_interfaces → the node we connected to)
-  #          Filter: management_interfaces != null → returns 1 record
   - name: discover_local
     type: http
     config:
@@ -53,7 +54,6 @@ steps:
       verify_ssl: false
 
   # Step 3 — Discover PARTNER node (exclude the local node by uuid != local uuid)
-  #          Filter: uuid != local_node_uuid → returns only the partner node
   - name: discover_partner
     type: http
     config:
