@@ -68,8 +68,6 @@ steps:
       verify_ssl: false
 
   # Step 4 — Create cluster; returns 202 + job.uuid
-  #   node-01 (local)   → cluster_interface from discover_local.records[0]
-  #   node-02 (partner) → cluster_interface from discover_partner.records[0] + PARTNER_MGMT_IP
   - name: create_cluster
     type: http
     config:
