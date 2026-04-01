@@ -102,6 +102,19 @@ def validate(file: Path, env_file: tuple[Path, ...], env: tuple[str, ...]) -> No
         workflow.env = merge_env(workflow.env, env_file_vars, cli_env_vars)
 
         click.echo(f"✓ Valid workflow: {workflow.name} ({len(workflow.steps)} steps)")
+
+        for rec in workflow.include_meta:
+            click.echo(f"  ↳ Step '{rec.step_name}' included from {rec.include_path}")
+
+        if workflow.defaults:
+            step_types = {s.type for s in workflow.steps}
+            for default_type in workflow.defaults:
+                if default_type not in step_types:
+                    click.echo(
+                        f"  ⚠ defaults.{default_type}: no steps of type "
+                        f"'{default_type}' in this workflow",
+                        err=True,
+                    )
     except EnvLoadError as exc:
         click.echo(f"✗ Invalid env: {exc}", err=True)
         sys.exit(1)

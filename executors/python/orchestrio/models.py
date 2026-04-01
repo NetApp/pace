@@ -45,6 +45,14 @@ class StepDefinition(BaseModel):
     on_failure: OnFailure = OnFailure.STOP
 
 
+class IncludeRecord(BaseModel):
+    """Tracks which steps were loaded via ``include`` directives."""
+
+    step_index: int
+    step_name: str
+    include_path: str
+
+
 class WorkflowDefinition(BaseModel):
     name: str
     version: str = "1"
@@ -52,6 +60,7 @@ class WorkflowDefinition(BaseModel):
     env: dict[str, str] = Field(default_factory=dict)
     defaults: dict[str, dict[str, Any]] = Field(default_factory=dict)
     steps: list[StepDefinition]
+    include_meta: list[IncludeRecord] = Field(default_factory=list, exclude=True)
 
 
 # ── Execution Results ──────────────────────────────────────────────

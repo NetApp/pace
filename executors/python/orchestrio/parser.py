@@ -23,7 +23,7 @@ from typing import Any
 
 import yaml
 
-from orchestrio.models import WorkflowDefinition
+from orchestrio.models import IncludeRecord, WorkflowDefinition
 from orchestrio.utils import deep_merge
 
 logger = logging.getLogger("orchestrio.parser")
@@ -53,8 +53,10 @@ def load_workflow(
         A validated WorkflowDefinition.
     """
     if isinstance(source, dict):
-        _resolve_includes(source, base_dir or Path.cwd())
-        return WorkflowDefinition(**source)
+        meta = _resolve_includes(source, base_dir or Path.cwd())
+        wf = WorkflowDefinition(**source)
+        wf.include_meta = meta
+        return wf
 
     path = Path(source)
     if path.is_file():
@@ -76,8 +78,10 @@ def _load_from_file(path: Path) -> WorkflowDefinition:
     else:
         # Try YAML first — it is a superset of JSON
         data = yaml.safe_load(text)
-    _resolve_includes(data, path.parent)
-    return WorkflowDefinition(**data)
+    meta = _resolve_includes(data, path.parent)
+    wf = WorkflowDefinition(**data)
+    wf.include_meta = meta
+    return wf
 
 
 def _load_from_string(raw: str, base_dir: Path) -> WorkflowDefinition:
@@ -85,24 +89,29 @@ def _load_from_string(raw: str, base_dir: Path) -> WorkflowDefinition:
         data = yaml.safe_load(raw)
     except yaml.YAMLError:
         data = json.loads(raw)
-    _resolve_includes(data, base_dir)
-    return WorkflowDefinition(**data)
+    meta = _resolve_includes(data, base_dir)
+    wf = WorkflowDefinition(**data)
+    wf.include_meta = meta
+    return wf
 
 
 # ── Include resolution ─────────────────────────────────────────────
 
 
-def _resolve_includes(data: dict[str, Any], base_dir: Path) -> None:
+def _resolve_includes(data: dict[str, Any], base_dir: Path) -> list[IncludeRecord]:
     """Resolve ``include`` entries in the steps list **in-place**.
 
     Each include entry is replaced with the fully-merged step dict so
     that downstream code (Pydantic model, engine) only ever sees normal
     step definitions.
+
+    Returns a list of :class:`IncludeRecord` describing each resolved include.
     """
     steps: list[dict[str, Any]] | None = data.get("steps")
     if not steps:
-        return
+        return []
 
+    records: list[IncludeRecord] = []
     for idx, entry in enumerate(steps):
         include_path = entry.get("include")
         if include_path is None:
@@ -113,12 +122,20 @@ def _resolve_includes(data: dict[str, Any], base_dir: Path) -> None:
 
         merged = _merge_fragment(fragment, override)
         steps[idx] = merged
+
+        records.append(IncludeRecord(
+            step_index=idx,
+            step_name=merged.get("name", "?"),
+            include_path=include_path,
+        ))
         logger.debug(
             "Step %d: included '%s' (resolved name='%s')",
             idx,
             include_path,
             merged.get("name", "?"),
         )
+
+    return records
 
 
 def _load_fragment(include_path: str, base_dir: Path, *, step_index: int) -> dict[str, Any]:

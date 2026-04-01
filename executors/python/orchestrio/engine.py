@@ -153,26 +153,68 @@ async def _run_step(
 # ── Dry-run ───────────────────────────────────────────────────────
 
 
+_UNRESOLVED_RE = re.compile(r"\{\{.*?\}\}")
+
+
+def _find_unresolved(obj: Any) -> list[str]:
+    """Collect any remaining ``{{ … }}`` expressions in a resolved config tree."""
+    found: list[str] = []
+    if isinstance(obj, str):
+        found.extend(m.group() for m in _UNRESOLVED_RE.finditer(obj))
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            found.extend(_find_unresolved(v))
+    elif isinstance(obj, list):
+        for item in obj:
+            found.extend(_find_unresolved(item))
+    return found
+
+
 def _dry_run_workflow(workflow: WorkflowDefinition) -> None:
     """Display what each step would execute without running anything."""
     import click
 
+    include_index = {r.step_index: r for r in workflow.include_meta}
+
     context: dict[str, Any] = {"env": workflow.env}
     click.echo(f"\nDry-run: {workflow.name} ({len(workflow.steps)} steps)\n")
 
+    total_warnings = 0
     for idx, step in enumerate(workflow.steps):
+        defaults_applied: list[str] = []
         if workflow.defaults:
+            type_defaults = workflow.defaults.get(step.type)
+            if type_defaults:
+                defaults_applied = list(type_defaults.keys())
             step = _apply_defaults(step, workflow.defaults)
         resolved_config = _resolve_templates(step.config, context)
-        click.echo(f"  [{idx + 1}/{len(workflow.steps)}] {step.name}  ({step.type})")
+
+        # Step header
+        header = f"  [{idx + 1}/{len(workflow.steps)}] {step.name}  ({step.type})"
+        inc = include_index.get(idx)
+        if inc:
+            header += f"  ← {inc.include_path}"
+        click.echo(header)
+
         click.echo(f"      config : {json.dumps(resolved_config, indent=14)}")
+        if defaults_applied:
+            click.echo(f"      defaults: {', '.join(defaults_applied)}")
         if step.retry.attempts > 1:
             click.echo(f"      retry  : {step.retry.attempts} attempts, {step.retry.delay_seconds}s delay")
         click.echo(f"      on_failure: {step.on_failure.value}")
+
+        unresolved = _find_unresolved(resolved_config)
+        if unresolved:
+            total_warnings += len(unresolved)
+            for expr in unresolved:
+                click.echo(f"      ⚠ unresolved: {expr}", err=True)
+
         click.echo()
         context[step.name] = {"status_code": 200, "body": {}, "stdout": "", "stderr": "", "exit_code": 0}
 
     click.echo("No steps were executed (dry-run).")
+    if total_warnings:
+        click.echo(f"  {total_warnings} unresolved template(s) — check env vars and step references.")
 
 
 # ── Workflow execution ─────────────────────────────────────────────
