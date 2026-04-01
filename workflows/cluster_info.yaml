@@ -8,6 +8,18 @@ env:
   ONTAP_USER: "admin"
   ONTAP_PASS: ""       # override via --env-file or --env ONTAP_PASS=x
 
+# Shared config applied to every HTTP step — no more copy-pasting
+# auth and headers into each one.  Step-level config wins on conflict.
+defaults:
+  http:
+    headers:
+      Accept: "application/hal+json"
+      X-Dot-Client-App: "orchestrio"
+    username: "{{ env.ONTAP_USER }}"
+    password: "{{ env.ONTAP_PASS }}"
+    timeout: 30
+    verify_ssl: false
+
 steps:
 
   # Step 1 — Get cluster version
@@ -16,13 +28,6 @@ steps:
     config:
       method: GET
       url: "https://{{ env.ONTAP_HOST }}/api/cluster?fields=version&return_timeout=120"
-      headers:
-        Accept: "application/hal+json"
-        X-Dot-Client-App: "orchestrio"
-      username: "{{ env.ONTAP_USER }}"
-      password: "{{ env.ONTAP_PASS }}"
-      timeout: 30
-      verify_ssl: false
 
   # Print cluster name + version
   - name: print_version
@@ -37,13 +42,6 @@ steps:
     config:
       method: GET
       url: "https://{{ env.ONTAP_HOST }}/api/cluster/nodes?fields=name,serial_number&return_timeout=120"
-      headers:
-        Accept: "application/hal+json"
-        X-Dot-Client-App: "orchestrio"
-      username: "{{ env.ONTAP_USER }}"
-      password: "{{ env.ONTAP_PASS }}"
-      timeout: 30
-      verify_ssl: false
 
   # Print node count
   - name: print_nodes

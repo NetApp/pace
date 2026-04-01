@@ -22,6 +22,14 @@
       "additionalProperties": { "type": "string" },
       "description": "Environment variables available to all steps"
     },
+    "defaults": {
+      "type": "object",
+      "description": "Shared config merged into every step of a given type. Keys are step types (e.g. 'http'). Step-level config takes precedence.",
+      "additionalProperties": {
+        "type": "object",
+        "description": "Default config values for steps of this type"
+      }
+    },
     "steps": {
       "type": "array",
       "minItems": 1,

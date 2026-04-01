@@ -96,11 +96,43 @@ def _resolve_templates(obj: Any, context: dict[str, Any]) -> Any:
     return obj
 
 
+# ── Defaults merging ───────────────────────────────────────────────
+
+
+def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """Recursively merge *override* into *base*.  Override wins for leaf values."""
+    merged = dict(base)
+    for key, val in override.items():
+        if key in merged and isinstance(merged[key], dict) and isinstance(val, dict):
+            merged[key] = _deep_merge(merged[key], val)
+        else:
+            merged[key] = val
+    return merged
+
+
+def _apply_defaults(step: StepDefinition, defaults: dict[str, dict[str, Any]]) -> StepDefinition:
+    """Return a copy of *step* with type-level defaults deep-merged under its config.
+
+    Step-level config takes precedence over defaults.
+    """
+    type_defaults = defaults.get(step.type)
+    if not type_defaults:
+        return step
+    merged_config = _deep_merge(type_defaults, step.config)
+    return step.model_copy(update={"config": merged_config})
+
+
 # ── Step execution ─────────────────────────────────────────────────
 
 
-async def _run_step(step: StepDefinition, context: dict[str, Any]) -> StepResult:
+async def _run_step(
+    step: StepDefinition,
+    context: dict[str, Any],
+    defaults: dict[str, dict[str, Any]] | None = None,
+) -> StepResult:
     """Execute a single step with retry logic."""
+    if defaults:
+        step = _apply_defaults(step, defaults)
     plugin = get_plugin(step.type)
     last_result: StepResult | None = None
 
@@ -140,6 +172,8 @@ def _dry_run_workflow(workflow: WorkflowDefinition) -> None:
     click.echo(f"\nDry-run: {workflow.name} ({len(workflow.steps)} steps)\n")
 
     for idx, step in enumerate(workflow.steps):
+        if workflow.defaults:
+            step = _apply_defaults(step, workflow.defaults)
         resolved_config = _resolve_templates(step.config, context)
         click.echo(f"  [{idx + 1}/{len(workflow.steps)}] {step.name}  ({step.type})")
         click.echo(f"      config : {json.dumps(resolved_config, indent=14)}")
@@ -184,7 +218,7 @@ async def run_workflow(workflow: WorkflowDefinition, dry_run: bool = False) -> W
     for idx, step in enumerate(workflow.steps):
         logger.info("── Step %d/%d: %s (%s)", idx + 1, len(workflow.steps), step.name, step.type)
 
-        step_result = await _run_step(step, context)
+        step_result = await _run_step(step, context, defaults=workflow.defaults)
         result.steps.append(step_result)
 
         # Store output for downstream template resolution

@@ -50,6 +50,7 @@ class WorkflowDefinition(BaseModel):
     version: str = "1"
     description: str = ""
     env: dict[str, str] = Field(default_factory=dict)
+    defaults: dict[str, dict[str, Any]] = Field(default_factory=dict)
     steps: list[StepDefinition]
 
 
