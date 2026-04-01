@@ -22,52 +22,53 @@ import yaml
 from click.testing import CliRunner
 
 from orchestrio.cli import cli
-from orchestrio.engine import _apply_defaults, _deep_merge
+from orchestrio.engine import _apply_defaults
+from orchestrio.utils import deep_merge
 from orchestrio.models import StepDefinition
 
 
-# ── _deep_merge unit tests ─────────────────────────────────────────
+# ── deep_merge unit tests ─────────────────────────────────────────
 
 
 class TestDeepMerge:
     def test_flat_override_wins(self) -> None:
         base = {"a": 1, "b": 2}
         override = {"b": 99, "c": 3}
-        assert _deep_merge(base, override) == {"a": 1, "b": 99, "c": 3}
+        assert deep_merge(base, override) == {"a": 1, "b": 99, "c": 3}
 
     def test_nested_dicts_merged(self) -> None:
         base = {"headers": {"Accept": "json", "X-App": "orchestrio"}}
         override = {"headers": {"Accept": "xml"}}
-        result = _deep_merge(base, override)
+        result = deep_merge(base, override)
         assert result == {"headers": {"Accept": "xml", "X-App": "orchestrio"}}
 
     def test_override_replaces_non_dict_with_dict(self) -> None:
         base = {"headers": "flat-string"}
         override = {"headers": {"Accept": "json"}}
-        assert _deep_merge(base, override) == {"headers": {"Accept": "json"}}
+        assert deep_merge(base, override) == {"headers": {"Accept": "json"}}
 
     def test_override_replaces_dict_with_scalar(self) -> None:
         base = {"headers": {"Accept": "json"}}
         override = {"headers": "gone"}
-        assert _deep_merge(base, override) == {"headers": "gone"}
+        assert deep_merge(base, override) == {"headers": "gone"}
 
     def test_empty_override_returns_base(self) -> None:
         base = {"a": 1}
-        assert _deep_merge(base, {}) == {"a": 1}
+        assert deep_merge(base, {}) == {"a": 1}
 
     def test_empty_base_returns_override(self) -> None:
-        assert _deep_merge({}, {"a": 1}) == {"a": 1}
+        assert deep_merge({}, {"a": 1}) == {"a": 1}
 
     def test_deeply_nested(self) -> None:
         base = {"l1": {"l2": {"l3": "base", "keep": True}}}
         override = {"l1": {"l2": {"l3": "override"}}}
-        result = _deep_merge(base, override)
+        result = deep_merge(base, override)
         assert result == {"l1": {"l2": {"l3": "override", "keep": True}}}
 
     def test_does_not_mutate_inputs(self) -> None:
         base = {"a": {"b": 1}}
         override = {"a": {"c": 2}}
-        _deep_merge(base, override)
+        deep_merge(base, override)
         assert base == {"a": {"b": 1}}
         assert override == {"a": {"c": 2}}
 

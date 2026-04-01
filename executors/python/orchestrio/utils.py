@@ -19,6 +19,17 @@ from __future__ import annotations
 from typing import Any
 
 
+def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """Recursively merge *override* into *base*.  Override wins for leaf values."""
+    merged = dict(base)
+    for key, val in override.items():
+        if key in merged and isinstance(merged[key], dict) and isinstance(val, dict):
+            merged[key] = deep_merge(merged[key], val)
+        else:
+            merged[key] = val
+    return merged
+
+
 def walk_path(obj: Any, dotted_path: str) -> Any:
     """Traverse a dotted path through nested dicts and lists.
 

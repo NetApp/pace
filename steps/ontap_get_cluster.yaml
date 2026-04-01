@@ -1,0 +1,8 @@
+# Reusable step: fetch cluster version info.
+# Expects env: ONTAP_HOST
+# Best used with defaults for auth (username/password/headers/verify_ssl).
+name: get_cluster
+type: http
+config:
+  method: GET
+  url: "https://{{ env.ONTAP_HOST }}/api/cluster?fields=version&return_timeout=120"

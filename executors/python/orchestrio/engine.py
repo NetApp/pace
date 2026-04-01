@@ -40,7 +40,7 @@ from orchestrio.models import (
     WorkflowStatus,
 )
 from orchestrio.plugins.base import get_plugin
-from orchestrio.utils import walk_path
+from orchestrio.utils import deep_merge, walk_path
 
 logger = logging.getLogger("orchestrio.engine")
 
@@ -99,17 +99,6 @@ def _resolve_templates(obj: Any, context: dict[str, Any]) -> Any:
 # ── Defaults merging ───────────────────────────────────────────────
 
 
-def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
-    """Recursively merge *override* into *base*.  Override wins for leaf values."""
-    merged = dict(base)
-    for key, val in override.items():
-        if key in merged and isinstance(merged[key], dict) and isinstance(val, dict):
-            merged[key] = _deep_merge(merged[key], val)
-        else:
-            merged[key] = val
-    return merged
-
-
 def _apply_defaults(step: StepDefinition, defaults: dict[str, dict[str, Any]]) -> StepDefinition:
     """Return a copy of *step* with type-level defaults deep-merged under its config.
 
@@ -118,7 +107,7 @@ def _apply_defaults(step: StepDefinition, defaults: dict[str, dict[str, Any]]) -
     type_defaults = defaults.get(step.type)
     if not type_defaults:
         return step
-    merged_config = _deep_merge(type_defaults, step.config)
+    merged_config = deep_merge(type_defaults, step.config)
     return step.model_copy(update={"config": merged_config})
 
 

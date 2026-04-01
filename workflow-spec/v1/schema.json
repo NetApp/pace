@@ -33,7 +33,12 @@
     "steps": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/definitions/step" }
+      "items": {
+        "oneOf": [
+          { "$ref": "#/definitions/step" },
+          { "$ref": "#/definitions/step_include" }
+        ]
+      }
     }
   },
   "definitions": {
@@ -62,6 +67,27 @@
           "description": "Behaviour when the step fails"
         }
       }
+    },
+    "step_include": {
+      "type": "object",
+      "required": ["include"],
+      "properties": {
+        "include": {
+          "type": "string",
+          "description": "Path to a reusable step fragment YAML file, resolved relative to the workflow file."
+        },
+        "override": {
+          "type": "object",
+          "description": "Fields to override in the included step. 'config' is deep-merged; other fields replace.",
+          "properties": {
+            "name": { "type": "string", "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$" },
+            "config": { "type": "object" },
+            "retry": { "$ref": "#/definitions/retry" },
+            "on_failure": { "type": "string", "enum": ["stop", "continue"] }
+          }
+        }
+      },
+      "additionalProperties": false
     },
     "retry": {
       "type": "object",
