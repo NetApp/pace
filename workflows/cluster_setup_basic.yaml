@@ -32,20 +32,13 @@ defaults:
 
 steps:
 
-  # Step 1 — Discover available nodes (retry 3x/30s)
+  # Step 1 — Discover available nodes (reusable fragment, retry 3x/30s built in)
   # records[0] = partner node (no mgmt interface); records[1] = local node (mgmt == ONTAP_HOST)
-  - name: discover_nodes
-    type: http
-    config:
-      method: GET
-      url: "https://{{ env.ONTAP_HOST }}/api/cluster/nodes?fields=name,model,state,ha,version,serial_number,membership,cluster_interfaces,management_interfaces,metrocluster,disaggregated,san_optimized&membership=available&return_timeout=120"
-      timeout: 150  # overrides the default 30s — discovery can be slow
-    retry:
-      attempts: 3
-      delay_seconds: 30
+  - include: ../steps/ontap_discover_nodes.yaml
 
   # Step 2 — Create cluster; returns 202 + job.uuid
   # nodes[0] (local) → discovery records[1]; nodes[1] (partner) → records[0] + PARTNER_MGMT_IP
+  # This step is workflow-specific (unique POST body) so it stays inline.
   - name: create_cluster
     type: http
     config:
@@ -82,14 +75,9 @@ steps:
         dns_domains: {}
         configuration_backup: {}
 
-  # Step 3 — Poll job every 10s until state != running
-  - name: track_job
-    type: http
-    config:
-      method: GET
-      url: "https://{{ env.ONTAP_HOST }}/api/cluster/jobs/{{ steps.create_cluster.body.job.uuid }}?fields=code,description,end_time,error,_links,message,start_time,state,svm,uuid,arguments&return_timeout=120"
-      poll:
-        interval_seconds: 10
-        until:
-          field: state
-          not_equals: running
+  # Step 3 — Poll job until complete (reusable fragment, override URL for this job)
+  - include: ../steps/ontap_poll_job.yaml
+    override:
+      name: track_job
+      config:
+        url: "https://{{ env.ONTAP_HOST }}/api/cluster/jobs/{{ steps.create_cluster.body.job.uuid }}?fields=code,description,end_time,error,_links,message,start_time,state,svm,uuid,arguments&return_timeout=120"

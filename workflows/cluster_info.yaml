@@ -8,8 +8,7 @@ env:
   ONTAP_USER: "admin"
   ONTAP_PASS: ""       # override via --env-file or --env ONTAP_PASS=x
 
-# Shared config applied to every HTTP step — no more copy-pasting
-# auth and headers into each one.  Step-level config wins on conflict.
+# Shared config applied to every HTTP step — auth, headers, TLS.
 defaults:
   http:
     headers:
@@ -22,12 +21,8 @@ defaults:
 
 steps:
 
-  # Step 1 — Get cluster version
-  - name: get_cluster
-    type: http
-    config:
-      method: GET
-      url: "https://{{ env.ONTAP_HOST }}/api/cluster?fields=version&return_timeout=120"
+  # Step 1 — Get cluster version (reusable fragment)
+  - include: ../steps/ontap_get_cluster.yaml
 
   # Print cluster name + version
   - name: print_version
@@ -36,12 +31,8 @@ steps:
       command: >-
         echo "Cluster: {{ steps.get_cluster.body.name }} — {{ steps.get_cluster.body.version.full }}"
 
-  # Step 2 — Get all nodes with name and serial number
-  - name: get_nodes
-    type: http
-    config:
-      method: GET
-      url: "https://{{ env.ONTAP_HOST }}/api/cluster/nodes?fields=name,serial_number&return_timeout=120"
+  # Step 2 — Get all nodes with serial numbers (reusable fragment)
+  - include: ../steps/ontap_get_nodes.yaml
 
   # Print node count
   - name: print_nodes
