@@ -15,13 +15,13 @@ description: >-
 # ACL_USER      — Windows user or group to grant access (e.g. Everyone, DOMAIN\user)
 # ACL_PERMISSION— share permission: no_access | read | change | full_control
 env:
-  ONTAP_HOST:     "10.196.22.132"
+  ONTAP_HOST:     ""
   ONTAP_USER:     "admin"
-  ONTAP_PASS:     "netapp1!"
+  ONTAP_PASS:     ""
   SVM_NAME:       "vs0"
   VOLUME_NAME:    "cifs_test_env"
   VOLUME_SIZE:    "100MB"
-  AGGR_NAME:      "sti249_vsim_ocvs085q_aggr1"
+  AGGR_NAME:      ""
   SHARE_NAME:     "cifs_share_demo"
   SHARE_COMMENT:  "Provisioned by orchestrio"
   ACL_USER:       "Everyone"

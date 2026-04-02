@@ -11,13 +11,13 @@ description: >-
 # AGGR_NAME     — aggregate to place the volume on
 # CLIENT_MATCH  — client IP / CIDR for the export-policy rule (e.g. 10.0.0.0/8)
 env:
-  ONTAP_HOST:   "10.196.22.132"
+  ONTAP_HOST:   ""
   ONTAP_USER:   "admin"
-  ONTAP_PASS:   "netapp1!"
+  ONTAP_PASS:   ""
   SVM_NAME:     "vs0"
   VOLUME_NAME:  "vol_nfs_test_01"
   VOLUME_SIZE:  "100MB"
-  AGGR_NAME:    "sti249_vsim_ocvs085q_aggr1"
+  AGGR_NAME:    ""
   CLIENT_MATCH: "0.0.0.0/0"
 
 # ── Shared HTTP config ───────────────────────────────────────────
