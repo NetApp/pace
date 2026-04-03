@@ -1,22 +1,23 @@
 name: cluster_setup_basic
 version: "1"
 description: >-
-  Basic ONTAP cluster setup: discover nodes (retry 3x/30s), POST /api/cluster, poll job until complete.
+  ONTAP cluster setup: discover local and partner nodes (retry 3x/30s),
+  POST /api/cluster, poll job until complete.
 
 # User inputs (mirrors UI wizard)
 # ONTAP_HOST/USER/PASS — target node credentials
 # CLUSTER_NAME/PASS/MGMT_IP/NETMASK/GATEWAY — new cluster config
-# PARTNER_MGMT_IP — second node mgmt IP (not in discovery response)
+# PARTNER_MGMT_IP — second node (partner) mgmt IP (not in discovery response)
 env:
-  ONTAP_HOST:       ""
+  ONTAP_HOST:       ""              # target node IP (pre-cluster/node mode)
   ONTAP_USER:       "admin"
-  ONTAP_PASS:       ""             # empty in precluster/node mode
-  CLUSTER_NAME:     "cluster_name"
-  CLUSTER_PASS:     "" # set your cluster admin password here (empty passwords not allowed in cluster mode)
-  CLUSTER_MGMT_IP:  ""
-  CLUSTER_NETMASK:  ""
-  CLUSTER_GATEWAY:  ""
-  PARTNER_MGMT_IP:  ""  # management IP of the second node (user-supplied)
+  ONTAP_PASS:       ""              # empty in precluster/node mode
+  CLUSTER_NAME:     ""              # desired cluster name
+  CLUSTER_PASS:     ""              # cluster admin password (cannot be empty)
+  CLUSTER_MGMT_IP:  ""              # cluster management interface IP
+  CLUSTER_NETMASK:  ""              
+  CLUSTER_GATEWAY:  ""            
+  PARTNER_MGMT_IP:  ""              # management IP of the second node (user-supplied)
 
 # Shared config for all HTTP steps — auth, headers, TLS.
 # Individual steps only need to specify what's unique (url, body, timeout overrides).
@@ -33,12 +34,25 @@ defaults:
 steps:
 
   # Step 1 — Discover available nodes (reusable fragment, retry 3x/30s built in)
-  # records[0] = partner node (no mgmt interface); records[1] = local node (mgmt == ONTAP_HOST)
   - include: ../steps/ontap_discover_nodes.yaml
 
-  # Step 2 — Create cluster; returns 202 + job.uuid
-  # nodes[0] (local) → discovery records[1]; nodes[1] (partner) → records[0] + PARTNER_MGMT_IP
-  # This step is workflow-specific (unique POST body) so it stays inline.
+  # Step 2 — Discover LOCAL node only (has management_interfaces → the node we connected to)
+  - name: discover_local
+    type: http
+    config:
+      method: GET
+      url: "https://{{ env.ONTAP_HOST }}/api/cluster/nodes?fields=name,model,state,ha,version,serial_number,membership,cluster_interfaces,management_interfaces,metrocluster,disaggregated,san_optimized&membership=available&management_interfaces=!null&return_timeout=120"
+      timeout: 150 
+
+  # Step 3 — Discover PARTNER node (exclude the local node by uuid != local uuid)
+  - name: discover_partner
+    type: http
+    config:
+      method: GET
+      url: "https://{{ env.ONTAP_HOST }}/api/cluster/nodes?fields=name,model,state,ha,version,serial_number,membership,cluster_interfaces,management_interfaces,metrocluster,disaggregated,san_optimized&membership=available&uuid=!{{ steps.discover_local.body.records.0.uuid }}&return_timeout=120"
+      timeout: 150  
+
+  # Step 4 — Create cluster
   - name: create_cluster
     type: http
     config:
@@ -46,7 +60,7 @@ steps:
       url: "https://{{ env.ONTAP_HOST }}/api/cluster?keep_precluster_config=true"
       headers:
         Content-Type: "application/json"   # merged with defaults (Accept + X-Dot-Client-App)
-      timeout: 60  # overrides the default 30s
+      timeout: 60 
       body:
         name: "{{ env.CLUSTER_NAME }}"
         password: "{{ env.CLUSTER_PASS }}"
@@ -59,25 +73,26 @@ steps:
           - name: "{{ env.CLUSTER_NAME }}-01"
             management_interface:
               ip:
-                address: "{{ env.ONTAP_HOST }}"  # use the IP we connected to for discovery
+                address: "{{ env.ONTAP_HOST }}"
             cluster_interface:
               ip:
-                address: "{{ steps.discover_nodes.body.records.1.cluster_interfaces.0.ip.address }}"
+                address: "{{ steps.discover_local.body.records.0.cluster_interfaces.0.ip.address }}"
           - name: "{{ env.CLUSTER_NAME }}-02"
             management_interface:
               ip:
                 address: "{{ env.PARTNER_MGMT_IP }}"
             cluster_interface:
               ip:
-                address: "{{ steps.discover_nodes.body.records.0.cluster_interfaces.0.ip.address }}"
+                address: "{{ steps.discover_partner.body.records.0.cluster_interfaces.0.ip.address }}"
         name_servers: {}
         ntp_servers: {}
         dns_domains: {}
         configuration_backup: {}
 
-  # Step 3 — Poll job until complete (reusable fragment, override URL for this job)
+  # Step 5 — Poll job until complete (reusable fragment, override URL for this job)
   - include: ../steps/ontap_poll_job.yaml
     override:
       name: track_job
       config:
         url: "https://{{ env.ONTAP_HOST }}/api/cluster/jobs/{{ steps.create_cluster.body.job.uuid }}?fields=code,description,end_time,error,_links,message,start_time,state,svm,uuid,arguments&return_timeout=120"
+        password: "{{ env.CLUSTER_PASS }}"
