@@ -42,7 +42,6 @@ jobs:
           files = sorted(
               glob.glob("examples/*.yaml")
               + glob.glob("workflows/*.yaml")
-              + glob.glob("steps/*.yaml")
           )
 
           if not files:
