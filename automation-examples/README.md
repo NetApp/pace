@@ -69,7 +69,7 @@ Use plain Python when your workflow has **complex conditional logic**,
 - You are integrating with other Python libraries or internal tools
 - Your team already has Python expertise and existing code to build on
 
-See: [python/](python/) *(coming soon)*
+See: [python/](python/)
 
 ### Ansible playbooks — when you manage fleets
 
@@ -101,8 +101,8 @@ Each approach implements the same use cases for direct comparison:
 
 | Use Case | Orchestrio YAML | Python | Ansible | Terraform |
 |---|---|---|---|---|
-| **Cluster info** — retrieve cluster version and node list | [`workflows/cluster_info.yaml`](../workflows/cluster_info.yaml) | *coming soon* | *coming soon* | *coming soon* |
-| **NFS provision** — create volume, export policy, assign policy | [`workflows/nfs_provision.yaml`](../workflows/nfs_provision.yaml) | *coming soon* | *coming soon* | *coming soon* |
+| **Cluster info** — retrieve cluster version and node list | [`workflows/cluster_info.yaml`](../workflows/cluster_info.yaml) | [`cluster_info.py`](python/cluster_info.py) | *coming soon* | *coming soon* |
+| **NFS provision** — create volume, export policy, assign policy | [`workflows/nfs_provision.yaml`](../workflows/nfs_provision.yaml) | [`nfs_provision.py`](python/nfs_provision.py) | *coming soon* | *coming soon* |
 
 ---
 
