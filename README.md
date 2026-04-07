@@ -125,6 +125,25 @@ steps:
 
 ---
 
+## Choose Your Approach
+
+Orchestrio's low-code YAML is the fastest path, but this repo also provides
+equivalent examples in Python, Ansible, and Terraform so you can compare and
+pick the approach that fits your team.
+
+| | Orchestrio (YAML) | Python Script | Ansible Playbook | Terraform |
+|---|---|---|---|---|
+| **Lines of code** (cluster info) | 41 | 54 + shared client | 63 | 72 |
+| **Install** | `pip install orchestrio` | `pip install requests` | `ansible` + Galaxy collection | `terraform` binary + provider |
+| **Learning curve** | YAML only | Python fluency | Ansible + ONTAP modules | HCL + provider knowledge |
+| **State management** | Stateless | You manage it | Idempotent modules | Full state tracking |
+| **Best for** | Rapid automation, CI/CD | Custom logic, integrations | Fleet ops, config management | Infrastructure lifecycle |
+
+Browse the examples: **[automation-examples/](automation-examples/)** |
+Read the detailed guide: **[docs/choosing-an-approach.md](docs/choosing-an-approach.md)**
+
+---
+
 ## Concepts
 
 | Term | What it is | Where it lives |
@@ -140,12 +159,17 @@ steps:
 
 ```
 orchestrio/
-├── workflows/        # complete, runnable workflow files
-├── steps/            # reusable step fragments (imported via include:)
-├── examples/         # tutorial / demo workflows
-├── workflow-spec/    # language-agnostic JSON schema (versioned)
-└── executors/        # language-specific CLI implementations
-    └── python/       #   Python reference executor
+├── workflows/              # complete, runnable workflow files
+├── steps/                  # reusable step fragments (imported via include:)
+├── examples/               # tutorial / demo workflows
+├── workflow-spec/          # language-agnostic JSON schema (versioned)
+├── executors/              # language-specific CLI implementations
+│   └── python/             #   Python reference executor
+├── automation-examples/    # equivalent examples in Python, Ansible, Terraform
+│   ├── python/
+│   ├── ansible/
+│   └── terraform/
+└── docs/                   # guides and comparison documentation
 ```
 
 Step names inside YAML follow `snake_case`: `get_cluster`, `poll_job`, `discover_nodes`.
