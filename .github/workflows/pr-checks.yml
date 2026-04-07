@@ -1,0 +1,97 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Lint + format + schema validation ─────────────────────────
+  validate-and-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]" jsonschema
+        working-directory: executors/python
+
+      - name: Ruff lint
+        run: ruff check executors/python/orchestrio/
+
+      - name: Ruff format check
+        run: ruff format --check executors/python/
+
+      - name: Validate workflow YAML against schema
+        run: |
+          python - <<'SCRIPT'
+          import json, sys, glob, yaml
+          from jsonschema import validate, ValidationError
+
+          with open("workflow-spec/v1/schema.json") as f:
+              schema = json.load(f)
+
+          files = sorted(
+              glob.glob("examples/*.yaml")
+              + glob.glob("workflows/*.yaml")
+              + glob.glob("steps/*.yaml")
+          )
+
+          if not files:
+              print("No YAML files found to validate")
+              sys.exit(0)
+
+          errors = 0
+          for path in files:
+              with open(path) as f:
+                  doc = yaml.safe_load(f)
+              try:
+                  validate(instance=doc, schema=schema)
+                  print(f"  OK  {path}")
+              except ValidationError as e:
+                  print(f"  FAIL  {path}: {e.message}")
+                  errors += 1
+
+          if errors:
+              print(f"\n{errors} file(s) failed schema validation")
+              sys.exit(1)
+          else:
+              print(f"\nAll {len(files)} file(s) passed")
+          SCRIPT
+
+  # ── Unit tests ────────────────────────────────────────────────
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+        working-directory: executors/python
+
+      - name: Run tests
+        run: pytest executors/python/tests/ -v
+
+  # ── Secret scanning ──────────────────────────────────────────
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
