@@ -49,6 +49,34 @@ orchestrio run examples/hello.yaml -v
 
 ---
 
+## Concepts
+
+| Term | What it is | Where it lives |
+|---|---|---|
+| **Workflow** | A named, versioned sequence of steps defined in a single YAML file. The top-level unit of execution. | `workflows/` (production) or `examples/` (demos) |
+| **Step** | The atomic unit of work. Each step has a `name`, a `type` (`http`, `shell`, or custom), and a `config` dict. | Inline inside a workflow YAML |
+| **Step Fragment** | A standalone YAML file containing one reusable step, imported via `include:`. Think of it as a function you call from any workflow. | `steps/` |
+| **Plugin** | The executor behind a step type. Built-in: `http` (REST calls), `shell` (subprocess). Extend by subclassing `StepPlugin`. | `executors/python/orchestrio/plugins/` |
+| **Template** | A `{{ }}` expression resolved at runtime. Two forms: `{{ steps.<name>.<path> }}` (output of a prior step) and `{{ env.KEY }}` (environment variable). | Inside any string value in `config` |
+| **Defaults** | Type-level config merged into every step of that type. Avoids repeating headers, auth, timeouts across steps. | `defaults:` block at workflow root |
+
+### Folder conventions
+
+```
+orchestrio/
+├── workflows/        # complete, runnable workflow files
+├── steps/            # reusable step fragments (imported via include:)
+├── examples/         # tutorial / demo workflows
+├── workflow-spec/    # language-agnostic JSON schema (versioned)
+└── executors/        # language-specific CLI implementations
+    └── python/       #   Python reference executor
+```
+
+Step names inside YAML follow `snake_case`: `get_cluster`, `poll_job`, `discover_nodes`.
+Step fragment files mirror the name: `ontap_get_cluster.yaml`, `ontap_poll_job.yaml`.
+
+---
+
 ## Architecture
 
 ```
@@ -87,6 +115,49 @@ flowchart LR
 2. The executor parses it, resolves templates, and runs each step via plugins (`http`, `shell`, etc.).
 3. Steps can reference outputs from earlier steps with `{{ steps.<name>.<path> }}` templates.
 4. Failed steps can be retried automatically and the workflow can continue or stop on failure.
+
+---
+
+## CLI Reference
+
+### Commands
+
+| Command | Purpose |
+|---|---|
+| `orchestrio run <file>` | Execute a workflow |
+| `orchestrio run <file> --dry-run` | Resolve all templates and print the execution plan — nothing is executed |
+| `orchestrio run <file> --interactive` | Pause after each step; choose to continue, skip, retry, abort, or inspect output |
+| `orchestrio validate <file>` | Parse and schema-check a workflow file without running it |
+
+### Global and run flags
+
+| Flag | Short | Description |
+|---|---|---|
+| `--verbose` | `-v` | DEBUG-level logging (on any command) |
+| `--env-file <path>` | `-E` | Load env vars from `.env` / `.yaml` / `.json`. Repeatable; later files win. |
+| `--env KEY=VALUE` | `-e` | Set an env var inline. Repeatable; overrides `--env-file` and YAML defaults. |
+| `--log-file <path>` | `-L` | Path for the structured JSONL run log. Defaults to `logs/run-<id>.log.jsonl`. |
+| `--no-log` | | Disable JSONL log file output entirely. |
+
+### Environment variable precedence
+
+Values are merged in this order (last wins):
+
+```
+YAML env: defaults  →  os.environ (scoped)  →  --env-file  →  --env KEY=VALUE
+```
+
+### Quick decision table
+
+| I want to … | Command |
+|---|---|
+| Check my YAML is valid | `orchestrio validate workflow.yaml` |
+| See what will run without running it | `orchestrio run workflow.yaml --dry-run` |
+| Execute a workflow | `orchestrio run workflow.yaml` |
+| Step through interactively | `orchestrio run workflow.yaml --interactive` |
+| Debug a failing step | `orchestrio run workflow.yaml -v` |
+| Pass credentials from a file | `orchestrio run workflow.yaml -E cluster.env` |
+| Override a single variable | `orchestrio run workflow.yaml -e ONTAP_HOST=10.0.0.1` |
 
 ---
 
