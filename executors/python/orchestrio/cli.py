@@ -69,6 +69,12 @@ def cli(verbose: bool) -> None:
     default=False,
     help="Disable JSONL log file output entirely.",
 )
+@click.option(
+    "--interactive", "-i",
+    is_flag=True,
+    default=False,
+    help="Pause after each step to continue, skip, retry, abort, or inspect.",
+)
 def run(
     file: Path,
     dry_run: bool,
@@ -76,8 +82,12 @@ def run(
     env: tuple[str, ...],
     log_file: Path | None,
     no_log: bool,
+    interactive: bool,
 ) -> None:
     """Execute a workflow from a YAML / JSON file."""
+    if dry_run and interactive:
+        raise click.UsageError("--dry-run and --interactive are mutually exclusive.")
+
     workflow = load_workflow(file)
 
     try:
@@ -91,7 +101,7 @@ def run(
     workflow.env = merge_env(workflow.env, env_file_vars, cli_env_vars)
 
     if dry_run or no_log:
-        result = asyncio.run(run_workflow(workflow, dry_run=dry_run))
+        result = asyncio.run(run_workflow(workflow, dry_run=dry_run, interactive=interactive))
     else:
         import uuid
         run_id = uuid.uuid4().hex[:12]
@@ -102,7 +112,9 @@ def run(
             logs_dir.mkdir(exist_ok=True)
             resolved_log = logs_dir / f"run-{run_id}.log.jsonl"
         with RunLogger(resolved_log, run_id) as rlog:
-            result = asyncio.run(run_workflow(workflow, dry_run=dry_run, run_log=rlog))
+            result = asyncio.run(
+                run_workflow(workflow, dry_run=dry_run, run_log=rlog, interactive=interactive)
+            )
         click.echo(f"Log written to {resolved_log}", err=True)
 
     if not dry_run:

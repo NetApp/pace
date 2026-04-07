@@ -356,6 +356,75 @@ def _dry_run_workflow(workflow: WorkflowDefinition) -> None:
         click.echo(f"  {total_warnings} warning(s) — review before running.")
 
 
+# ── Interactive prompt ──────────────────────────────────────────────
+
+
+def _print_step_summary(step_result: StepResult) -> None:
+    """Print a compact result summary for a just-completed step."""
+    import click
+
+    status_icon = "✓" if step_result.status == StepStatus.SUCCESS else "✗"
+    duration = _duration_ms(step_result)
+    dur_str = f" ({duration:.0f}ms)" if duration else ""
+
+    click.echo(f"\n  {status_icon} {step_result.name} → {step_result.status.value}{dur_str}")
+    if step_result.error:
+        click.echo(f"    error: {step_result.error}")
+
+    output = step_result.output
+    if output.get("status_code"):
+        click.echo(f"    status_code: {output['status_code']}")
+    if output.get("stdout"):
+        stdout_preview = output["stdout"][:120]
+        click.echo(f"    stdout: {stdout_preview}")
+    if output.get("stderr"):
+        stderr_preview = output["stderr"][:120]
+        click.echo(f"    stderr: {stderr_preview}")
+
+
+def _print_next_step_preview(
+    step: StepDefinition,
+    context: dict[str, Any],
+    defaults: dict[str, dict[str, Any]],
+    idx: int,
+    total: int,
+) -> None:
+    """Show resolved config of the upcoming step."""
+    import click
+
+    effective = _apply_defaults(step, defaults) if defaults else step
+    resolved_config = _resolve_templates(effective.config, context)
+    click.echo(f"\n  Next: [{idx + 1}/{total}] {step.name}  ({step.type})")
+    click.echo(f"    config: {json.dumps(resolved_config, indent=12)}")
+
+
+def _interactive_prompt() -> str:
+    """Prompt the user for an interactive-mode action.
+
+    Returns one of: 'c', 's', 'r', 'a', 'i'.
+    """
+    import click
+
+    while True:
+        choice = click.prompt(
+            "\n  [c]ontinue / [s]kip / [r]etry / [a]bort / [i]nspect",
+            type=str,
+            default="c",
+            show_default=False,
+        ).strip().lower()
+        if choice in ("c", "s", "r", "a", "i"):
+            return choice
+        click.echo("  Invalid choice. Enter c, s, r, a, or i.")
+
+
+def _inspect_step(step_result: StepResult) -> None:
+    """Dump the full step output as formatted JSON."""
+    import click
+
+    click.echo(f"\n  ── inspect: {step_result.name} ──")
+    click.echo(json.dumps(step_result.output, indent=2, default=str))
+
+
 # ── Workflow execution ─────────────────────────────────────────────
 
 
@@ -363,6 +432,7 @@ async def run_workflow(
     workflow: WorkflowDefinition,
     dry_run: bool = False,
     run_log: RunLogger | NullRunLogger | None = None,
+    interactive: bool = False,
 ) -> WorkflowResult:
     """Execute all steps in *workflow* sequentially, passing context forward."""
     if dry_run:
@@ -399,7 +469,9 @@ async def run_workflow(
     logger.info("▶ Workflow '%s' [run %s]", workflow.name, result.run_id)
 
     all_passed = True
-    for idx, step in enumerate(workflow.steps):
+    idx = 0
+    while idx < len(workflow.steps):
+        step = workflow.steps[idx]
         logger.info("── Step %d/%d: %s (%s)", idx + 1, len(workflow.steps), step.name, step.type)
 
         step_result = await _run_step(
@@ -410,9 +482,49 @@ async def run_workflow(
             step_index=idx,
             total_steps=len(workflow.steps),
         )
-        result.steps.append(step_result)
 
-        # Store output for downstream template resolution
+        if interactive:
+            _print_step_summary(step_result)
+
+            if idx + 1 < len(workflow.steps):
+                _print_next_step_preview(
+                    workflow.steps[idx + 1], context, workflow.defaults, idx + 1, len(workflow.steps)
+                )
+
+            action = _interactive_prompt()
+
+            while action == "i":
+                _inspect_step(step_result)
+                action = _interactive_prompt()
+
+            if action == "r":
+                continue  # re-run same idx without advancing
+
+            if action == "a":
+                result.steps.append(step_result)
+                context[step.name] = step_result.output
+                for remaining in workflow.steps[idx + 1 :]:
+                    skipped = StepResult(name=remaining.name, status=StepStatus.SKIPPED)
+                    result.steps.append(skipped)
+                    run_log.event(
+                        "step_skipped", step=remaining.name, reason="aborted by user",
+                    )
+                all_passed = step_result.status == StepStatus.SUCCESS and all_passed
+                break
+
+            if action == "s" and idx + 1 < len(workflow.steps):
+                result.steps.append(step_result)
+                context[step.name] = step_result.output
+                next_step = workflow.steps[idx + 1]
+                skipped = StepResult(name=next_step.name, status=StepStatus.SKIPPED)
+                result.steps.append(skipped)
+                run_log.event(
+                    "step_skipped", step=next_step.name, reason="skipped by user",
+                )
+                idx += 2  # skip the next step
+                continue
+
+        result.steps.append(step_result)
         context[step.name] = step_result.output
 
         if step_result.status == StepStatus.SUCCESS:
@@ -430,6 +542,8 @@ async def run_workflow(
                         reason=f"prior step '{step.name}' failed with on_failure=stop",
                     )
                 break
+
+        idx += 1
 
     result.finished_at = datetime.now(timezone.utc)
     result.status = WorkflowStatus.SUCCESS if all_passed else WorkflowStatus.FAILED
