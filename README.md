@@ -10,7 +10,9 @@ The Python executor is the reference implementation.
 
 ---
 
-## Install
+## Get Started in 2 Minutes
+
+### 1. Install (30 seconds)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/hvinn/orchestrio/main/install.sh | bash
@@ -28,24 +30,98 @@ pip install -e ".[dev]"
 ```
 </details>
 
-## Try It
+### 2. Run Your First Workflow (30 seconds)
 
 ```bash
 orchestrio run examples/hello.yaml
 ```
 
-Expected output — a joke fetched from a public API and a shell echo:
+This runs a two-step workflow -- fetches a joke from a public API, then echoes a message:
 
-```
-[step 1/2] fetch_joke …  ✔  (HTTP 200)
-[step 2/2] print_result …  ✔
+```yaml
+# examples/hello.yaml
+name: hello-world
+version: "1"
+steps:
+  - name: fetch_joke
+    type: http
+    config:
+      method: GET
+      url: https://official-joke-api.appspot.com/random_joke
+    retry:
+      attempts: 2
+      delay_seconds: 1
+
+  - name: print_result
+    type: shell
+    config:
+      command: echo "Joke fetched successfully!"
 ```
 
-Add `-v` for debug-level logging:
+### 3. Chain Steps Together (30 seconds)
+
+Steps can reference output from earlier steps using `{{ steps.<name>.<path> }}`:
 
 ```bash
-orchestrio run examples/hello.yaml -v
+orchestrio run examples/chained.yaml
 ```
+
+```yaml
+# examples/chained.yaml (key part)
+steps:
+  - name: get_user
+    type: http
+    config:
+      method: GET
+      url: https://jsonplaceholder.typicode.com/users/1
+
+  - name: get_user_posts
+    type: http
+    config:
+      method: GET
+      url: "https://jsonplaceholder.typicode.com/posts?userId={{ steps.get_user.body.id }}"
+
+  - name: summarize
+    type: shell
+    config:
+      command: "echo 'Fetched posts for user: {{ steps.get_user.body.name }}'"
+```
+
+The output of `get_user` feeds directly into `get_user_posts` -- no glue code needed.
+
+### 4. Use with ONTAP (30 seconds)
+
+```bash
+cp workflows/cluster_info.env.example workflows/cluster_info.env
+# edit cluster_info.env with your ONTAP host, user, password
+orchestrio run workflows/cluster_info.yaml -E workflows/cluster_info.env
+```
+
+Credentials stay in the env file, the workflow stays clean:
+
+```yaml
+env:
+  ONTAP_HOST: ""
+  ONTAP_USER: "admin"
+  ONTAP_PASS: ""
+
+steps:
+  - name: get_cluster
+    type: http
+    config:
+      url: "https://{{ env.ONTAP_HOST }}/api/cluster?fields=version"
+      username: "{{ env.ONTAP_USER }}"
+      password: "{{ env.ONTAP_PASS }}"
+      verify_ssl: false
+```
+
+### Next Steps
+
+- Preview without executing: `orchestrio run workflow.yaml --dry-run`
+- Step through interactively: `orchestrio run workflow.yaml --interactive`
+- Browse more [examples](examples/) and [real-world workflows](workflows/)
+- Create a [custom plugin](#custom-plugins)
+- Read the full [CLI Reference](#cli-reference) below
 
 ---
 
