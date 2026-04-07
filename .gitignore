@@ -40,6 +40,15 @@ htmlcov/
 *.log
 logs/*.jsonl
 
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfplan
+.terraform.lock.hcl
+
+# Ansible
+*.retry
 
 # POC
 poc/
