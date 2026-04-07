@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="https://github.com/hvinn/orchestrio.git"
+REPO="https://github.com/NetApp/orchestrio.git"
 PKG="orchestrio @ git+${REPO}#subdirectory=executors/python"
 MIN_PY="3.11"
 

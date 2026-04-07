@@ -15,7 +15,7 @@ The Python executor is the reference implementation.
 ### 1. Install (30 seconds)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/hvinn/orchestrio/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/NetApp/orchestrio/main/install.sh | bash
 ```
 
 That's it. The script detects `pipx` or falls back to `pip`, checks for Python 3.11+, and installs the `orchestrio` command.
@@ -24,7 +24,7 @@ That's it. The script detects `pipx` or falls back to `pip`, checks for Python 3
 <summary>Manual install (dev mode)</summary>
 
 ```bash
-git clone https://github.com/hvinn/orchestrio.git
+git clone https://github.com/NetApp/orchestrio.git
 cd orchestrio/executors/python
 pip install -e ".[dev]"
 ```
