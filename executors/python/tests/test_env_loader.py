@@ -42,7 +42,7 @@ class TestLoadDotenv:
 
     def test_strips_quotes(self, tmp_path: Path) -> None:
         f = tmp_path / "test.env"
-        f.write_text('KEY="hello world"\nKEY2=\'single\'\n')
+        f.write_text("KEY=\"hello world\"\nKEY2='single'\n")
         assert load_env_file(f) == {"KEY": "hello world", "KEY2": "single"}
 
     def test_skips_comments_and_blanks(self, tmp_path: Path) -> None:
@@ -142,9 +142,7 @@ class TestParseEnvPairs:
         assert parse_env_pairs(("KEY=",)) == {"KEY": ""}
 
     def test_value_with_equals(self) -> None:
-        assert parse_env_pairs(("CONN=host=db;port=5432",)) == {
-            "CONN": "host=db;port=5432"
-        }
+        assert parse_env_pairs(("CONN=host=db;port=5432",)) == {"CONN": "host=db;port=5432"}
 
     def test_missing_equals_raises(self) -> None:
         with pytest.raises(EnvLoadError, match="expected KEY=VALUE"):
@@ -206,9 +204,9 @@ class TestMergeEnv:
                 {"A": "cli", "E": "cli"},
             )
         assert result == {
-            "A": "cli",     # cli wins over file, os, yaml
-            "B": "os",      # os wins over yaml (scoped key)
-            "C": "yaml",    # only yaml default
-            "D": "file",    # new key from env-file
-            "E": "cli",     # new key from cli
+            "A": "cli",  # cli wins over file, os, yaml
+            "B": "os",  # os wins over yaml (scoped key)
+            "C": "yaml",  # only yaml default
+            "D": "file",  # new key from env-file
+            "E": "cli",  # new key from cli
         }

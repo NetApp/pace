@@ -152,8 +152,10 @@ class TestNullRunLogger:
 def _make_workflow(steps_data: list[dict]) -> WorkflowDefinition:
     return WorkflowDefinition(
         name="test_wf",
-        steps=[{"name": s["name"], "type": s.get("type", "shell"), "config": s.get("config", {})}
-               for s in steps_data],
+        steps=[
+            {"name": s["name"], "type": s.get("type", "shell"), "config": s.get("config", {})}
+            for s in steps_data
+        ],
     )
 
 
@@ -168,9 +170,11 @@ def _mock_shell_result(name: str, success: bool = True) -> StepResult:
 
 class TestEngineLogging:
     async def test_workflow_events_logged(self, tmp_path: Path):
-        wf = _make_workflow([
-            {"name": "step_a", "config": {"command": "echo a"}},
-        ])
+        wf = _make_workflow(
+            [
+                {"name": "step_a", "config": {"command": "echo a"}},
+            ]
+        )
         log_path = tmp_path / "run.log.jsonl"
 
         mock_result = _mock_shell_result("step_a")
@@ -201,10 +205,12 @@ class TestEngineLogging:
         assert lines[-1]["passed"] == 1
 
     async def test_failed_step_events(self, tmp_path: Path):
-        wf = _make_workflow([
-            {"name": "fail_step", "config": {"command": "false"}},
-            {"name": "skip_step", "config": {"command": "echo ok"}},
-        ])
+        wf = _make_workflow(
+            [
+                {"name": "fail_step", "config": {"command": "false"}},
+                {"name": "skip_step", "config": {"command": "echo ok"}},
+            ]
+        )
         log_path = tmp_path / "fail.log.jsonl"
 
         with patch("orchestrio.engine.get_plugin") as mock_gp:
@@ -245,16 +251,24 @@ class TestEngineLogging:
         wf = WorkflowDefinition(
             name="redact_wf",
             defaults={"http": {"password": "s3cret"}},
-            steps=[{"name": "api_call", "type": "http", "config": {
-                "url": "http://host/api", "password": "s3cret",
-            }}],
+            steps=[
+                {
+                    "name": "api_call",
+                    "type": "http",
+                    "config": {
+                        "url": "http://host/api",
+                        "password": "s3cret",
+                    },
+                }
+            ],
         )
         log_path = tmp_path / "redact.log.jsonl"
 
         with patch("orchestrio.engine.get_plugin") as mock_gp:
             mock_plugin = AsyncMock()
             mock_plugin.execute.return_value = StepResult(
-                name="api_call", status=StepStatus.SUCCESS,
+                name="api_call",
+                status=StepStatus.SUCCESS,
                 output={"status_code": 200, "body": {}},
             )
             mock_gp.return_value = mock_plugin

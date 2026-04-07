@@ -70,9 +70,7 @@ def parse_env_pairs(pairs: tuple[str, ...]) -> dict[str, str]:
     result: dict[str, str] = {}
     for pair in pairs:
         if "=" not in pair:
-            raise EnvLoadError(
-                f"Invalid --env value '{pair}': expected KEY=VALUE format"
-            )
+            raise EnvLoadError(f"Invalid --env value '{pair}': expected KEY=VALUE format")
         key, _, value = pair.partition("=")
         key = key.strip()
         if not key:
@@ -120,9 +118,7 @@ def _parse_dotenv(text: str, path: Path) -> dict[str, str]:
         if not line or line.startswith("#"):
             continue
         if "=" not in line:
-            raise EnvLoadError(
-                f"{path}:{lineno}: expected KEY=VALUE, got: {raw_line!r}"
-            )
+            raise EnvLoadError(f"{path}:{lineno}: expected KEY=VALUE, got: {raw_line!r}")
         key, _, value = line.partition("=")
         key = key.strip()
         value = value.strip()
@@ -142,9 +138,7 @@ def _parse_yaml(text: str, path: Path) -> dict[str, str]:
     if data is None:
         return {}
     if not isinstance(data, dict):
-        raise EnvLoadError(
-            f"{path}: expected a flat key-value mapping, got {type(data).__name__}"
-        )
+        raise EnvLoadError(f"{path}: expected a flat key-value mapping, got {type(data).__name__}")
     return _coerce_flat_dict(data, path)
 
 
@@ -156,9 +150,7 @@ def _parse_json(text: str, path: Path) -> dict[str, str]:
         raise EnvLoadError(f"Invalid JSON in {path}: {exc}") from exc
 
     if not isinstance(data, dict):
-        raise EnvLoadError(
-            f"{path}: expected a flat key-value object, got {type(data).__name__}"
-        )
+        raise EnvLoadError(f"{path}: expected a flat key-value object, got {type(data).__name__}")
     return _coerce_flat_dict(data, path)
 
 
@@ -167,8 +159,6 @@ def _coerce_flat_dict(data: dict[str, Any], path: Path) -> dict[str, str]:
     result: dict[str, str] = {}
     for key, value in data.items():
         if isinstance(value, (dict, list)):
-            raise EnvLoadError(
-                f"{path}: nested values are not allowed (key '{key}')"
-            )
+            raise EnvLoadError(f"{path}: nested values are not allowed (key '{key}')")
         result[str(key)] = str(value) if value is not None else ""
     return result

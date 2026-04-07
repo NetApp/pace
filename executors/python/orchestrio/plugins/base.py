@@ -48,9 +48,11 @@ class StepPlugin(abc.ABC):
     @classmethod
     def register(cls, step_type: str):
         """Class decorator that registers a plugin under *step_type*."""
+
         def decorator(plugin_cls: type[StepPlugin]) -> type[StepPlugin]:
             _registry[step_type] = plugin_cls
             return plugin_cls
+
         return decorator
 
 

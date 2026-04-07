@@ -108,9 +108,7 @@ class TestApplyDefaults:
         }
 
     def test_defaults_only_apply_to_matching_type(self) -> None:
-        shell_step = StepDefinition(
-            name="s1", type="shell", config={"command": "echo hi"}
-        )
+        shell_step = StepDefinition(name="s1", type="shell", config={"command": "echo hi"})
         defaults = {"http": {"timeout": 30, "verify_ssl": False}}
         result = _apply_defaults(shell_step, defaults)
         assert result.config == {"command": "echo hi"}

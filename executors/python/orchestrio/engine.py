@@ -141,9 +141,7 @@ async def _run_step(
     )
 
     for attempt in range(1, step.retry.attempts + 1):
-        resolved = step.model_copy(
-            update={"config": _resolve_templates(step.config, context)}
-        )
+        resolved = step.model_copy(update={"config": _resolve_templates(step.config, context)})
         logger.info("Step '%s' — attempt %d/%d", step.name, attempt, step.retry.attempts)
 
         run_log.event(
@@ -295,7 +293,9 @@ def _dry_run_workflow(workflow: WorkflowDefinition) -> None:
         if step_refs:
             click.echo(f"      depends : {', '.join(sorted(step_refs))}")
         if step.retry.attempts > 1:
-            click.echo(f"      retry  : {step.retry.attempts} attempts, {step.retry.delay_seconds}s delay")
+            click.echo(
+                f"      retry  : {step.retry.attempts} attempts, {step.retry.delay_seconds}s delay"
+            )
         click.echo(f"      on_failure: {step.on_failure.value}")
 
         # Dependency warnings
@@ -330,7 +330,13 @@ def _dry_run_workflow(workflow: WorkflowDefinition) -> None:
                 click.echo(f"      ⚠ unresolved: {expr}", err=True)
 
         click.echo()
-        context[step.name] = {"status_code": 200, "body": {}, "stdout": "", "stderr": "", "exit_code": 0}
+        context[step.name] = {
+            "status_code": 200,
+            "body": {},
+            "stdout": "",
+            "stderr": "",
+            "exit_code": 0,
+        }
 
     # ── Summary ────────────────────────────────────────────────────
 
@@ -406,12 +412,16 @@ def _interactive_prompt() -> str:
     import click
 
     while True:
-        choice = click.prompt(
-            "\n  [c]ontinue / [s]kip / [r]etry / [a]bort / [i]nspect",
-            type=str,
-            default="c",
-            show_default=False,
-        ).strip().lower()
+        choice = (
+            click.prompt(
+                "\n  [c]ontinue / [s]kip / [r]etry / [a]bort / [i]nspect",
+                type=str,
+                default="c",
+                show_default=False,
+            )
+            .strip()
+            .lower()
+        )
         if choice in ("c", "s", "r", "a", "i"):
             return choice
         click.echo("  Invalid choice. Enter c, s, r, a, or i.")
@@ -488,7 +498,11 @@ async def run_workflow(
 
             if idx + 1 < len(workflow.steps):
                 _print_next_step_preview(
-                    workflow.steps[idx + 1], context, workflow.defaults, idx + 1, len(workflow.steps)
+                    workflow.steps[idx + 1],
+                    context,
+                    workflow.defaults,
+                    idx + 1,
+                    len(workflow.steps),
                 )
 
             action = _interactive_prompt()
@@ -507,7 +521,9 @@ async def run_workflow(
                     skipped = StepResult(name=remaining.name, status=StepStatus.SKIPPED)
                     result.steps.append(skipped)
                     run_log.event(
-                        "step_skipped", step=remaining.name, reason="aborted by user",
+                        "step_skipped",
+                        step=remaining.name,
+                        reason="aborted by user",
                     )
                 all_passed = step_result.status == StepStatus.SUCCESS and all_passed
                 break
@@ -519,7 +535,9 @@ async def run_workflow(
                 skipped = StepResult(name=next_step.name, status=StepStatus.SKIPPED)
                 result.steps.append(skipped)
                 run_log.event(
-                    "step_skipped", step=next_step.name, reason="skipped by user",
+                    "step_skipped",
+                    step=next_step.name,
+                    reason="skipped by user",
                 )
                 idx += 2  # skip the next step
                 continue

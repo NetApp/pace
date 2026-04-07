@@ -59,9 +59,7 @@ class ShellPlugin(StepPlugin):
                 cwd=cwd,
                 env=merged_env,
             )
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(), timeout=timeout
-            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
 
             success = proc.returncode == 0
             return StepResult(

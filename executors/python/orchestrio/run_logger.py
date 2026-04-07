@@ -28,10 +28,7 @@ _REDACTED = "***"
 def _redact(obj: Any) -> Any:
     """Deep-copy *obj*, replacing values whose keys look sensitive."""
     if isinstance(obj, dict):
-        return {
-            k: _REDACTED if k.lower() in _REDACT_KEYS else _redact(v)
-            for k, v in obj.items()
-        }
+        return {k: _REDACTED if k.lower() in _REDACT_KEYS else _redact(v) for k, v in obj.items()}
     if isinstance(obj, list):
         return [_redact(item) for item in obj]
     return obj

@@ -129,9 +129,7 @@ class TestValidateEnhancements:
 
     def test_validate_warns_unused_defaults(self, tmp_path: Path) -> None:
         steps = [{"name": "s1", "type": "shell", "config": {"command": "echo"}}]
-        wf_path = _write_workflow(
-            tmp_path, steps, defaults={"http": {"timeout": 30}}
-        )
+        wf_path = _write_workflow(tmp_path, steps, defaults={"http": {"timeout": 30}})
 
         runner = CliRunner()
         result = runner.invoke(cli, ["validate", str(wf_path)])
@@ -155,9 +153,7 @@ class TestValidateEnhancements:
     def test_validate_multiple_includes_reported(self, tmp_path: Path) -> None:
         _write_fragment(tmp_path, "greet.yaml", SHELL_FRAGMENT)
         _write_fragment(tmp_path, "fetch.yaml", HTTP_FRAGMENT)
-        wf_path = _write_workflow(
-            tmp_path, [{"include": "greet.yaml"}, {"include": "fetch.yaml"}]
-        )
+        wf_path = _write_workflow(tmp_path, [{"include": "greet.yaml"}, {"include": "fetch.yaml"}])
 
         runner = CliRunner()
         result = runner.invoke(cli, ["validate", str(wf_path)])
@@ -224,9 +220,7 @@ class TestDryRunEnhancements:
 
     def test_dry_run_no_defaults_line_for_shell(self, tmp_path: Path) -> None:
         steps = [{"name": "s1", "type": "shell", "config": {"command": "echo hi"}}]
-        wf_path = _write_workflow(
-            tmp_path, steps, defaults={"http": {"timeout": 30}}
-        )
+        wf_path = _write_workflow(tmp_path, steps, defaults={"http": {"timeout": 30}})
 
         runner = CliRunner()
         result = runner.invoke(cli, ["run", str(wf_path), "--dry-run"])

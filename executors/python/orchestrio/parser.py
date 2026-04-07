@@ -123,11 +123,13 @@ def _resolve_includes(data: dict[str, Any], base_dir: Path) -> list[IncludeRecor
         merged = _merge_fragment(fragment, override)
         steps[idx] = merged
 
-        records.append(IncludeRecord(
-            step_index=idx,
-            step_name=merged.get("name", "?"),
-            include_path=include_path,
-        ))
+        records.append(
+            IncludeRecord(
+                step_index=idx,
+                step_name=merged.get("name", "?"),
+                include_path=include_path,
+            )
+        )
         logger.debug(
             "Step %d: included '%s' (resolved name='%s')",
             idx,
@@ -143,8 +145,7 @@ def _load_fragment(include_path: str, base_dir: Path, *, step_index: int) -> dic
     candidate = base_dir / include_path
     if not candidate.is_file():
         raise IncludeError(
-            f"Step {step_index}: include file '{include_path}' not found. "
-            f"Searched: {candidate}"
+            f"Step {step_index}: include file '{include_path}' not found. Searched: {candidate}"
         )
 
     text = candidate.read_text()

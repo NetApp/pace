@@ -88,9 +88,7 @@ class TestRunWithEnvFile:
     def test_missing_env_file_fails(self, tmp_path: Path) -> None:
         wf = _write_workflow(tmp_path)
         runner = CliRunner()
-        result = runner.invoke(
-            cli, ["run", str(wf), "--env-file", str(tmp_path / "nope.env")]
-        )
+        result = runner.invoke(cli, ["run", str(wf), "--env-file", str(tmp_path / "nope.env")])
         assert result.exit_code != 0
 
 

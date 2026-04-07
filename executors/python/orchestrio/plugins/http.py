@@ -97,7 +97,7 @@ class HttpPlugin(StepPlugin):
         # ──────────────────────────────────────────────────────────
 
         poll_cfg = cfg.get("poll")
-        started  = datetime.now(timezone.utc)
+        started = datetime.now(timezone.utc)
 
         try:
             async with httpx.AsyncClient(verify=verify_ssl) as client:
@@ -170,9 +170,9 @@ class HttpPlugin(StepPlugin):
         interval: float = poll_cfg.get("interval_seconds", 10)
         max_attempts: int = poll_cfg.get("max_attempts", 60)
         until_cfg: dict[str, Any] = poll_cfg.get("until", {})
-        field      = until_cfg.get("field", "")
-        eq_val     = until_cfg.get("equals")
-        neq_val    = until_cfg.get("not_equals")
+        field = until_cfg.get("field", "")
+        eq_val = until_cfg.get("equals")
+        neq_val = until_cfg.get("not_equals")
 
         prev_text: str | None = None
         last_body: Any = {}

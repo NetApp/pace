@@ -52,8 +52,10 @@ def _mock_shell_result(name: str, success: bool = True) -> StepResult:
 def _make_workflow(steps_data: list[dict]) -> WorkflowDefinition:
     return WorkflowDefinition(
         name="test_wf",
-        steps=[{"name": s["name"], "type": s.get("type", "shell"), "config": s.get("config", {})}
-               for s in steps_data],
+        steps=[
+            {"name": s["name"], "type": s.get("type", "shell"), "config": s.get("config", {})}
+            for s in steps_data
+        ],
     )
 
 
@@ -73,9 +75,7 @@ class TestInteractiveCLIFlag:
         wf = _shell_wf(tmp_path, 2)
         runner = CliRunner()
         # Two prompts: after step_1 and after step_2 (last step, no next preview)
-        result = runner.invoke(
-            cli, ["run", str(wf), "--interactive", "--no-log"], input="c\nc\n"
-        )
+        result = runner.invoke(cli, ["run", str(wf), "--interactive", "--no-log"], input="c\nc\n")
         assert result.exit_code == 0
         assert "step_1 → success" in result.output
         assert "step_2 → success" in result.output
@@ -84,9 +84,7 @@ class TestInteractiveCLIFlag:
         wf = _shell_wf(tmp_path, 3)
         runner = CliRunner()
         # Continue step_1, then abort after step_2
-        result = runner.invoke(
-            cli, ["run", str(wf), "--interactive", "--no-log"], input="c\na\n"
-        )
+        result = runner.invoke(cli, ["run", str(wf), "--interactive", "--no-log"], input="c\na\n")
         assert result.exit_code == 0
         assert "step_1 → success" in result.output
         assert "step_2 → success" in result.output
@@ -96,9 +94,7 @@ class TestInteractiveCLIFlag:
         wf = _shell_wf(tmp_path, 3)
         runner = CliRunner()
         # After step_1, skip step_2, then continue step_3
-        result = runner.invoke(
-            cli, ["run", str(wf), "--interactive", "--no-log"], input="s\nc\n"
-        )
+        result = runner.invoke(cli, ["run", str(wf), "--interactive", "--no-log"], input="s\nc\n")
         assert result.exit_code == 0
         output = result.output
         assert "step_1 → success" in output
@@ -108,9 +104,7 @@ class TestInteractiveCLIFlag:
         wf = _shell_wf(tmp_path, 1)
         runner = CliRunner()
         # Inspect after step_1, then continue
-        result = runner.invoke(
-            cli, ["run", str(wf), "--interactive", "--no-log"], input="i\nc\n"
-        )
+        result = runner.invoke(cli, ["run", str(wf), "--interactive", "--no-log"], input="i\nc\n")
         assert result.exit_code == 0
         assert "inspect: step_1" in result.output
         assert '"stdout": "step_1"' in result.output
@@ -121,14 +115,18 @@ class TestInteractiveCLIFlag:
 
 class TestEngineInteractive:
     async def test_continue_runs_all(self):
-        wf = _make_workflow([
-            {"name": "a", "config": {"command": "echo a"}},
-            {"name": "b", "config": {"command": "echo b"}},
-        ])
-        with patch("orchestrio.engine.get_plugin") as mock_gp, \
-             patch("orchestrio.engine._interactive_prompt", return_value="c"), \
-             patch("orchestrio.engine._print_step_summary"), \
-             patch("orchestrio.engine._print_next_step_preview"):
+        wf = _make_workflow(
+            [
+                {"name": "a", "config": {"command": "echo a"}},
+                {"name": "b", "config": {"command": "echo b"}},
+            ]
+        )
+        with (
+            patch("orchestrio.engine.get_plugin") as mock_gp,
+            patch("orchestrio.engine._interactive_prompt", return_value="c"),
+            patch("orchestrio.engine._print_step_summary"),
+            patch("orchestrio.engine._print_next_step_preview"),
+        ):
             mock_plugin = AsyncMock()
             mock_plugin.execute.side_effect = [
                 _mock_shell_result("a"),
@@ -143,15 +141,19 @@ class TestEngineInteractive:
         assert all(s.status == StepStatus.SUCCESS for s in result.steps)
 
     async def test_abort_skips_remaining(self):
-        wf = _make_workflow([
-            {"name": "a", "config": {"command": "echo a"}},
-            {"name": "b", "config": {"command": "echo b"}},
-            {"name": "c", "config": {"command": "echo c"}},
-        ])
-        with patch("orchestrio.engine.get_plugin") as mock_gp, \
-             patch("orchestrio.engine._interactive_prompt", side_effect=["c", "a"]), \
-             patch("orchestrio.engine._print_step_summary"), \
-             patch("orchestrio.engine._print_next_step_preview"):
+        wf = _make_workflow(
+            [
+                {"name": "a", "config": {"command": "echo a"}},
+                {"name": "b", "config": {"command": "echo b"}},
+                {"name": "c", "config": {"command": "echo c"}},
+            ]
+        )
+        with (
+            patch("orchestrio.engine.get_plugin") as mock_gp,
+            patch("orchestrio.engine._interactive_prompt", side_effect=["c", "a"]),
+            patch("orchestrio.engine._print_step_summary"),
+            patch("orchestrio.engine._print_next_step_preview"),
+        ):
             mock_plugin = AsyncMock()
             mock_plugin.execute.side_effect = [
                 _mock_shell_result("a"),
@@ -167,15 +169,19 @@ class TestEngineInteractive:
         assert result.steps[2].status == StepStatus.SKIPPED
 
     async def test_skip_skips_next_step(self):
-        wf = _make_workflow([
-            {"name": "a", "config": {"command": "echo a"}},
-            {"name": "b", "config": {"command": "echo b"}},
-            {"name": "c", "config": {"command": "echo c"}},
-        ])
-        with patch("orchestrio.engine.get_plugin") as mock_gp, \
-             patch("orchestrio.engine._interactive_prompt", side_effect=["s", "c"]), \
-             patch("orchestrio.engine._print_step_summary"), \
-             patch("orchestrio.engine._print_next_step_preview"):
+        wf = _make_workflow(
+            [
+                {"name": "a", "config": {"command": "echo a"}},
+                {"name": "b", "config": {"command": "echo b"}},
+                {"name": "c", "config": {"command": "echo c"}},
+            ]
+        )
+        with (
+            patch("orchestrio.engine.get_plugin") as mock_gp,
+            patch("orchestrio.engine._interactive_prompt", side_effect=["s", "c"]),
+            patch("orchestrio.engine._print_step_summary"),
+            patch("orchestrio.engine._print_next_step_preview"),
+        ):
             mock_plugin = AsyncMock()
             mock_plugin.execute.side_effect = [
                 _mock_shell_result("a"),
@@ -194,13 +200,17 @@ class TestEngineInteractive:
         assert result.steps[2].status == StepStatus.SUCCESS
 
     async def test_retry_reruns_step(self):
-        wf = _make_workflow([
-            {"name": "a", "config": {"command": "echo a"}},
-        ])
-        with patch("orchestrio.engine.get_plugin") as mock_gp, \
-             patch("orchestrio.engine._interactive_prompt", side_effect=["r", "c"]), \
-             patch("orchestrio.engine._print_step_summary"), \
-             patch("orchestrio.engine._print_next_step_preview"):
+        wf = _make_workflow(
+            [
+                {"name": "a", "config": {"command": "echo a"}},
+            ]
+        )
+        with (
+            patch("orchestrio.engine.get_plugin") as mock_gp,
+            patch("orchestrio.engine._interactive_prompt", side_effect=["r", "c"]),
+            patch("orchestrio.engine._print_step_summary"),
+            patch("orchestrio.engine._print_next_step_preview"),
+        ):
             mock_plugin = AsyncMock()
             # First run fails, retry succeeds
             mock_plugin.execute.side_effect = [
@@ -218,11 +228,13 @@ class TestEngineInteractive:
 
     async def test_inspect_loops_back_to_prompt(self):
         wf = _make_workflow([{"name": "a", "config": {"command": "echo a"}}])
-        with patch("orchestrio.engine.get_plugin") as mock_gp, \
-             patch("orchestrio.engine._interactive_prompt", side_effect=["i", "c"]) as mock_prompt, \
-             patch("orchestrio.engine._print_step_summary"), \
-             patch("orchestrio.engine._print_next_step_preview"), \
-             patch("orchestrio.engine._inspect_step") as mock_inspect:
+        with (
+            patch("orchestrio.engine.get_plugin") as mock_gp,
+            patch("orchestrio.engine._interactive_prompt", side_effect=["i", "c"]) as mock_prompt,
+            patch("orchestrio.engine._print_step_summary"),
+            patch("orchestrio.engine._print_next_step_preview"),
+            patch("orchestrio.engine._inspect_step") as mock_inspect,
+        ):
             mock_plugin = AsyncMock()
             mock_plugin.execute.return_value = _mock_shell_result("a")
             mock_gp.return_value = mock_plugin
@@ -254,9 +266,7 @@ class TestNextStepPreview:
     def test_shows_next_step_config(self, tmp_path: Path):
         wf = _shell_wf(tmp_path, 2)
         runner = CliRunner()
-        result = runner.invoke(
-            cli, ["run", str(wf), "--interactive", "--no-log"], input="c\nc\n"
-        )
+        result = runner.invoke(cli, ["run", str(wf), "--interactive", "--no-log"], input="c\nc\n")
         assert result.exit_code == 0
         assert "Next:" in result.output
         assert "step_2" in result.output
@@ -264,8 +274,6 @@ class TestNextStepPreview:
     def test_no_preview_on_last_step(self, tmp_path: Path):
         wf = _shell_wf(tmp_path, 1)
         runner = CliRunner()
-        result = runner.invoke(
-            cli, ["run", str(wf), "--interactive", "--no-log"], input="c\n"
-        )
+        result = runner.invoke(cli, ["run", str(wf), "--interactive", "--no-log"], input="c\n")
         assert result.exit_code == 0
         assert "Next:" not in result.output

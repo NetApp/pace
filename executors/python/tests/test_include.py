@@ -177,9 +177,7 @@ class TestIncludeOverride:
 
     def test_override_on_failure(self, tmp_path: Path) -> None:
         _write_fragment(tmp_path, "greet.yaml", SIMPLE_FRAGMENT)
-        steps = [
-            {"include": "greet.yaml", "override": {"on_failure": "continue"}}
-        ]
+        steps = [{"include": "greet.yaml", "override": {"on_failure": "continue"}}]
         wf_path = _write_workflow(tmp_path, steps)
 
         wf = load_workflow(wf_path)

@@ -44,21 +44,29 @@ def cli(verbose: bool) -> None:
 
 @cli.command()
 @click.argument("file", type=click.Path(exists=True, path_type=Path))
-@click.option("--dry-run", is_flag=True, default=False, help="Resolve templates and print steps without executing.")
 @click.option(
-    "--env-file", "-E",
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Resolve templates and print steps without executing.",
+)
+@click.option(
+    "--env-file",
+    "-E",
     multiple=True,
     type=click.Path(exists=True, path_type=Path),
     help="Load env vars from a file (.env, .yaml, .json). Repeatable; later files override earlier ones.",
 )
 @click.option(
-    "--env", "-e",
+    "--env",
+    "-e",
     multiple=True,
     metavar="KEY=VALUE",
     help="Set an env var inline. Repeatable; overrides --env-file and YAML defaults.",
 )
 @click.option(
-    "--log-file", "-L",
+    "--log-file",
+    "-L",
     type=click.Path(path_type=Path),
     default=None,
     help="Path for the structured JSONL log file.  Defaults to logs/run-<id>.log.jsonl.",
@@ -70,7 +78,8 @@ def cli(verbose: bool) -> None:
     help="Disable JSONL log file output entirely.",
 )
 @click.option(
-    "--interactive", "-i",
+    "--interactive",
+    "-i",
     is_flag=True,
     default=False,
     help="Pause after each step to continue, skip, retry, abort, or inspect.",
@@ -104,6 +113,7 @@ def run(
         result = asyncio.run(run_workflow(workflow, dry_run=dry_run, interactive=interactive))
     else:
         import uuid
+
         run_id = uuid.uuid4().hex[:12]
         if log_file:
             resolved_log = log_file
@@ -125,13 +135,15 @@ def run(
 @cli.command()
 @click.argument("file", type=click.Path(exists=True, path_type=Path))
 @click.option(
-    "--env-file", "-E",
+    "--env-file",
+    "-E",
     multiple=True,
     type=click.Path(exists=True, path_type=Path),
     help="Load env vars from a file (.env, .yaml, .json). Repeatable.",
 )
 @click.option(
-    "--env", "-e",
+    "--env",
+    "-e",
     multiple=True,
     metavar="KEY=VALUE",
     help="Set an env var inline. Repeatable.",
