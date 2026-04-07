@@ -215,16 +215,55 @@ def _find_unresolved(obj: Any) -> list[str]:
     return found
 
 
+def _collect_step_refs(obj: Any) -> set[str]:
+    """Return the set of step names referenced via ``{{ steps.NAME.… }}``."""
+    refs: set[str] = set()
+    if isinstance(obj, str):
+        refs.update(m.group(1) for m in _TEMPLATE_RE.finditer(obj))
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            refs.update(_collect_step_refs(v))
+    elif isinstance(obj, list):
+        for item in obj:
+            refs.update(_collect_step_refs(item))
+    return refs
+
+
+def _collect_env_refs(obj: Any) -> set[str]:
+    """Return the set of env var names referenced via ``{{ env.NAME }}``."""
+    refs: set[str] = set()
+    if isinstance(obj, str):
+        refs.update(m.group(1) for m in _ENV_RE.finditer(obj))
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            refs.update(_collect_env_refs(v))
+    elif isinstance(obj, list):
+        for item in obj:
+            refs.update(_collect_env_refs(item))
+    return refs
+
+
+_CONFIG_REQUIRED_KEYS: dict[str, list[str]] = {
+    "http": ["url"],
+    "shell": ["command"],
+}
+
+
 def _dry_run_workflow(workflow: WorkflowDefinition) -> None:
     """Display what each step would execute without running anything."""
     import click
 
     include_index = {r.step_index: r for r in workflow.include_meta}
+    step_names = [s.name for s in workflow.steps]
+    step_name_set = set(step_names)
 
     context: dict[str, Any] = {"env": workflow.env}
     click.echo(f"\nDry-run: {workflow.name} ({len(workflow.steps)} steps)\n")
 
     total_warnings = 0
+    all_env_refs: set[str] = set()
+    dep_graph: dict[str, set[str]] = {}
+
     for idx, step in enumerate(workflow.steps):
         defaults_applied: list[str] = []
         if workflow.defaults:
@@ -232,6 +271,15 @@ def _dry_run_workflow(workflow: WorkflowDefinition) -> None:
             if type_defaults:
                 defaults_applied = list(type_defaults.keys())
             step = _apply_defaults(step, workflow.defaults)
+
+        # Collect references before resolution
+        step_refs = _collect_step_refs(step.config)
+        env_refs = _collect_env_refs(step.config)
+        if workflow.defaults and step.type in workflow.defaults:
+            env_refs.update(_collect_env_refs(workflow.defaults[step.type]))
+        all_env_refs.update(env_refs)
+        dep_graph[step.name] = step_refs
+
         resolved_config = _resolve_templates(step.config, context)
 
         # Step header
@@ -244,9 +292,36 @@ def _dry_run_workflow(workflow: WorkflowDefinition) -> None:
         click.echo(f"      config : {json.dumps(resolved_config, indent=14)}")
         if defaults_applied:
             click.echo(f"      defaults: {', '.join(defaults_applied)}")
+        if step_refs:
+            click.echo(f"      depends : {', '.join(sorted(step_refs))}")
         if step.retry.attempts > 1:
             click.echo(f"      retry  : {step.retry.attempts} attempts, {step.retry.delay_seconds}s delay")
         click.echo(f"      on_failure: {step.on_failure.value}")
+
+        # Dependency warnings
+        prior_names = set(step_names[:idx])
+        for ref in sorted(step_refs):
+            if ref not in step_name_set:
+                total_warnings += 1
+                click.echo(f"      ⚠ references unknown step '{ref}'", err=True)
+            elif ref not in prior_names:
+                total_warnings += 1
+                click.echo(
+                    f"      ⚠ forward reference to '{ref}' (defined later at step "
+                    f"{step_names.index(ref) + 1})",
+                    err=True,
+                )
+
+        # Config schema hints
+        required_keys = _CONFIG_REQUIRED_KEYS.get(step.type, [])
+        for key in required_keys:
+            val = resolved_config.get(key)
+            if not val or (isinstance(val, str) and not val.strip()):
+                total_warnings += 1
+                click.echo(
+                    f"      ⚠ '{key}' is missing or empty for {step.type} step",
+                    err=True,
+                )
 
         unresolved = _find_unresolved(resolved_config)
         if unresolved:
@@ -257,9 +332,28 @@ def _dry_run_workflow(workflow: WorkflowDefinition) -> None:
         click.echo()
         context[step.name] = {"status_code": 200, "body": {}, "stdout": "", "stderr": "", "exit_code": 0}
 
+    # ── Summary ────────────────────────────────────────────────────
+
+    # Env completeness
+    missing_env = sorted(all_env_refs - set(workflow.env.keys()))
+    if missing_env:
+        total_warnings += len(missing_env)
+        click.echo("  Missing env vars:")
+        for var in missing_env:
+            click.echo(f"    ⚠ {{ env.{var} }} — not provided", err=True)
+        click.echo()
+
+    # Dependency summary
+    has_deps = {name: refs for name, refs in dep_graph.items() if refs}
+    if has_deps:
+        click.echo("  Step dependencies:")
+        for name, refs in has_deps.items():
+            click.echo(f"    {name} → {', '.join(sorted(refs))}")
+        click.echo()
+
     click.echo("No steps were executed (dry-run).")
     if total_warnings:
-        click.echo(f"  {total_warnings} unresolved template(s) — check env vars and step references.")
+        click.echo(f"  {total_warnings} warning(s) — review before running.")
 
 
 # ── Workflow execution ─────────────────────────────────────────────

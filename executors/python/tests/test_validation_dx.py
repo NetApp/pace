@@ -248,7 +248,7 @@ class TestDryRunEnhancements:
         assert result.exit_code == 0
         assert "⚠ unresolved:" in result.output
         assert "env.MISSING" in result.output
-        assert "unresolved template(s)" in result.output
+        assert "warning(s)" in result.output
 
     def test_dry_run_no_warnings_when_clean(self, tmp_path: Path) -> None:
         steps = [
