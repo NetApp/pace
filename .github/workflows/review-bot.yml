@@ -12,11 +12,11 @@ jobs:
   precondition-checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -82,7 +82,7 @@ jobs:
       # ── Anti-pattern warnings (non-blocking) ──────────────────
       - name: Anti-pattern warnings
         if: always()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { execSync } = require('child_process');
@@ -136,7 +136,7 @@ jobs:
       # ── PR size label (non-blocking) ──────────────────────────
       - name: PR size label
         if: always()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { execSync } = require('child_process');
