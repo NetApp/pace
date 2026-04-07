@@ -292,6 +292,60 @@ Then import it in `orchestrio/plugins/__init__.py` so it auto-registers at start
 
 ---
 
+## How Orchestrio Compares
+
+### Orchestrio vs OnCommand Workflow Automation (WFA)
+
+[OnCommand WFA](https://docs.netapp.com/us-en/workflow-automation/) was a GUI-driven automation server for storage provisioning and orchestration. Orchestrio takes a fundamentally different approach.
+
+| | OnCommand WFA | Orchestrio |
+|---|---|---|
+| **Interface** | Web-based GUI (Workflow Designer portal) | Headless CLI |
+| **Infrastructure** | Dedicated WFA server (Windows/Linux) | No server — runs anywhere Python runs |
+| **Workflow definition** | GUI drag-and-drop with commands, templates, finders | Plain YAML files |
+| **Version control** | Manual export/import of WFA packs | Git-native — branch, diff, review, merge |
+| **CI/CD** | Not designed for pipelines | First-class — single CLI command in any pipeline |
+| **Extensibility** | WFA commands (PowerShell/Perl), dictionary entries | Python plugins (subclass + register) |
+| **Composability** | Row repetition, approval points | `include:` fragments + `defaults:` deep merge |
+| **Data sources** | Built-in caching + CMDB connectors | Environment variables + env files |
+| **Spec format** | Proprietary | Open JSON schema (language-agnostic) |
+| **Status** | Last documented for ONTAP 9.7 / WFA 5.1 (2022) | Active development |
+
+**In short:** WFA is a portal for storage admins clicking through provisioning tasks. Orchestrio is a CLI for DevOps/SRE teams automating storage workflows as code.
+
+### Workflow Designer vs Orchestrio
+
+These are complementary tools, not competitors:
+
+- **Workflow Designer** = visual GUI for building and exploring workflows (drag-and-drop, visual graph)
+- **Orchestrio** = headless CLI for executing workflows (automation, CI/CD, scripting)
+
+They can share the same YAML workflow spec — a workflow designed visually can be exported and run headlessly via Orchestrio, and vice versa.
+
+| Use case | Best tool |
+|---|---|
+| Explore and prototype a new workflow visually | Workflow Designer |
+| Run workflows in CI/CD pipelines | Orchestrio |
+| Schedule unattended automation | Orchestrio |
+| Onboard non-developers to workflow concepts | Workflow Designer |
+| Version-control and code-review workflows | Orchestrio (YAML in Git) |
+
+### Industry landscape
+
+Orchestrio occupies a specific niche: **lightweight, headless, YAML-driven REST API workflow automation** — no server, no cluster, no DSL.
+
+| Tool | Approach | Server required | Workflow format | Sweet spot |
+|---|---|---|---|---|
+| **Temporal** | Durable execution engine | Yes (Temporal Server) | Code (Go/Java/Python/TS SDKs) | Mission-critical stateful workflows |
+| **Prefect** | Python pipeline orchestrator | Yes (Prefect Server/Cloud) | Python decorators | Data pipelines and ETL |
+| **Argo Workflows** | Kubernetes-native DAG engine | Yes (K8s cluster) | YAML (K8s CRDs) | Container-based batch jobs |
+| **Ansible** | Agentless config management | No (control node only) | YAML playbooks | Host/OS configuration via SSH |
+| **Orchestrio** | Headless REST API orchestrator | No | YAML (open spec) | Storage/infra API automation via CLI |
+
+Orchestrio is not trying to replace a full orchestration platform. It targets teams that need to **automate REST API sequences** (especially ONTAP) without deploying infrastructure — just `pip install` and write YAML.
+
+---
+
 ## License
 
 Apache-2.0 — see [LICENSE](LICENSE) for details.
