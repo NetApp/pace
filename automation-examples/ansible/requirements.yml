@@ -1,0 +1,4 @@
+---
+collections:
+  - name: netapp.ontap
+    version: ">=22.12.0"

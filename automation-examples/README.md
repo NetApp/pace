@@ -80,7 +80,7 @@ across hosts and want ONTAP automation to fit into that workflow. Best when:
 - You want idempotent operations (run the same playbook repeatedly, safely)
 - Your team already uses Ansible Tower / AWX for orchestration
 
-See: [ansible/](ansible/) *(coming soon)*
+See: [ansible/](ansible/)
 
 ### Terraform — when infrastructure is code
 
@@ -101,8 +101,8 @@ Each approach implements the same use cases for direct comparison:
 
 | Use Case | Orchestrio YAML | Python | Ansible | Terraform |
 |---|---|---|---|---|
-| **Cluster info** — retrieve cluster version and node list | [`workflows/cluster_info.yaml`](../workflows/cluster_info.yaml) | [`cluster_info.py`](python/cluster_info.py) | *coming soon* | *coming soon* |
-| **NFS provision** — create volume, export policy, assign policy | [`workflows/nfs_provision.yaml`](../workflows/nfs_provision.yaml) | [`nfs_provision.py`](python/nfs_provision.py) | *coming soon* | *coming soon* |
+| **Cluster info** — retrieve cluster version and node list | [`workflows/cluster_info.yaml`](../workflows/cluster_info.yaml) | [`cluster_info.py`](python/cluster_info.py) | [`cluster_info.yml`](ansible/cluster_info.yml) | *coming soon* |
+| **NFS provision** — create volume, export policy, assign policy | [`workflows/nfs_provision.yaml`](../workflows/nfs_provision.yaml) | [`nfs_provision.py`](python/nfs_provision.py) | [`nfs_provision.yml`](ansible/nfs_provision.yml) | *coming soon* |
 
 ---
 

@@ -1,0 +1,20 @@
+---
+# Connection settings for all hosts in the "ontap" group.
+# Copy this file to ontap.yml and fill in your values.
+#
+# For production use, encrypt with:
+#   ansible-vault encrypt group_vars/ontap.yml
+
+ontap_hostname: "{{ inventory_hostname }}"
+ontap_username: admin
+ontap_password: "CHANGEME"
+ontap_https: true
+ontap_validate_certs: false   # set true when using CA-signed certificates
+
+# NFS provisioning defaults (used by nfs_provision.yml)
+svm_name: vs0
+volume_name: vol_nfs_test_01
+volume_size: 100
+volume_size_unit: mb
+aggregate_name: aggr1
+client_match: "0.0.0.0/0"

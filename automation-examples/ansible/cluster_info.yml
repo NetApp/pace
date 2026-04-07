@@ -1,0 +1,63 @@
+---
+# cluster_info.yml — Retrieve ONTAP cluster version and list all nodes.
+#
+# Equivalent to:  orchestrio run workflows/cluster_info.yaml
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml cluster_info.yml
+#
+- name: Gather ONTAP cluster information
+  hosts: ontap
+  gather_facts: false
+  connection: local
+
+  tasks:
+    # -- Step 1: Get cluster version ------------------------------------
+    - name: Get cluster info
+      netapp.ontap.na_ontap_rest_info:
+        hostname: "{{ ontap_hostname }}"
+        username: "{{ ontap_username }}"
+        password: "{{ ontap_password }}"
+        https: "{{ ontap_https }}"
+        validate_certs: "{{ ontap_validate_certs }}"
+        use_rest: always
+        gather_subset:
+          - cluster/node_info
+        fields:
+          - "version"
+      register: cluster_result
+      no_log: false
+
+    - name: Display cluster version
+      ansible.builtin.debug:
+        msg: >-
+          Cluster: {{ cluster_result.ontap_info['cluster/node_info']
+            | dict2items | first
+            | json_query('value.cluster_name') | default('unknown') }}
+          — ONTAP {{ cluster_result.ontap_info['cluster/node_info']
+            | dict2items | first
+            | json_query('value.version') | default('unknown') }}
+
+    # -- Step 2: List nodes with serial numbers -------------------------
+    - name: Get node details
+      netapp.ontap.na_ontap_rest_info:
+        hostname: "{{ ontap_hostname }}"
+        username: "{{ ontap_username }}"
+        password: "{{ ontap_password }}"
+        https: "{{ ontap_https }}"
+        validate_certs: "{{ ontap_validate_certs }}"
+        use_rest: always
+        gather_subset:
+          - cluster/node_info
+        fields:
+          - "name"
+          - "serial_number"
+      register: nodes_result
+      no_log: false
+
+    - name: Display node list
+      ansible.builtin.debug:
+        msg: "Node: {{ item.value.name }} — serial: {{ item.value.serial_number | default('N/A') }}"
+      loop: "{{ nodes_result.ontap_info['cluster/node_info'] | dict2items }}"
+      loop_control:
+        label: "{{ item.value.name }}"
