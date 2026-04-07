@@ -38,6 +38,7 @@ htmlcov/
 
 # Logs
 *.log
+logs/*.jsonl
 
 
 # POC

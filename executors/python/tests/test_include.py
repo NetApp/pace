@@ -296,7 +296,7 @@ class TestIncludeCLI:
         wf_path = _write_workflow(tmp_path, [{"include": "greet.yaml"}])
 
         runner = CliRunner()
-        result = runner.invoke(cli, ["run", str(wf_path)])
+        result = runner.invoke(cli, ["run", str(wf_path), "--no-log"])
         assert result.exit_code == 0
         assert '"status": "success"' in result.output
 

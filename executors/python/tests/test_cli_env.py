@@ -50,7 +50,7 @@ class TestRunWithEnvFile:
         env_f.write_text("GREETING=from-file\n")
 
         runner = CliRunner()
-        result = runner.invoke(cli, ["run", str(wf), "--env-file", str(env_f)])
+        result = runner.invoke(cli, ["run", str(wf), "--env-file", str(env_f), "--no-log"])
         assert result.exit_code == 0
         assert "from-file" not in result.output or result.exit_code == 0
 
@@ -62,7 +62,7 @@ class TestRunWithEnvFile:
         runner = CliRunner()
         result = runner.invoke(
             cli,
-            ["run", str(wf), "--env-file", str(env_f), "--env", "GREETING=from-cli"],
+            ["run", str(wf), "--env-file", str(env_f), "--env", "GREETING=from-cli", "--no-log"],
         )
         assert result.exit_code == 0
 
@@ -75,7 +75,7 @@ class TestRunWithEnvFile:
 
         runner = CliRunner()
         result = runner.invoke(
-            cli, ["run", str(wf), "--env-file", str(f1), "--env-file", str(f2)]
+            cli, ["run", str(wf), "--env-file", str(f1), "--env-file", str(f2), "--no-log"]
         )
         assert result.exit_code == 0
 

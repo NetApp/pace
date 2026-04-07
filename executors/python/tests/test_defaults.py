@@ -180,7 +180,7 @@ class TestDefaultsCLI:
             defaults={"http": {"timeout": 30}},
         )
         runner = CliRunner()
-        result = runner.invoke(cli, ["run", str(wf)])
+        result = runner.invoke(cli, ["run", str(wf), "--no-log"])
         assert result.exit_code == 0
 
     def test_dry_run_shows_merged_defaults(self, tmp_path: Path) -> None:
@@ -218,6 +218,6 @@ class TestDefaultsCLI:
             ],
         )
         runner = CliRunner()
-        result = runner.invoke(cli, ["run", str(wf)])
+        result = runner.invoke(cli, ["run", str(wf), "--no-log"])
         assert result.exit_code == 0
         assert '"status": "success"' in result.output

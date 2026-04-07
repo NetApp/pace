@@ -40,6 +40,7 @@ from orchestrio.models import (
     WorkflowStatus,
 )
 from orchestrio.plugins.base import get_plugin
+from orchestrio.run_logger import NullRunLogger, RunLogger
 from orchestrio.utils import deep_merge, walk_path
 
 logger = logging.getLogger("orchestrio.engine")
@@ -118,12 +119,26 @@ async def _run_step(
     step: StepDefinition,
     context: dict[str, Any],
     defaults: dict[str, dict[str, Any]] | None = None,
+    run_log: RunLogger | NullRunLogger | None = None,
+    step_index: int = 0,
+    total_steps: int = 1,
 ) -> StepResult:
     """Execute a single step with retry logic."""
+    if run_log is None:
+        run_log = NullRunLogger()
     if defaults:
         step = _apply_defaults(step, defaults)
     plugin = get_plugin(step.type)
     last_result: StepResult | None = None
+
+    run_log.event(
+        "step_start",
+        step=step.name,
+        step_index=step_index,
+        step_type=step.type,
+        position=f"{step_index + 1}/{total_steps}",
+        max_attempts=step.retry.attempts,
+    )
 
     for attempt in range(1, step.retry.attempts + 1):
         resolved = step.model_copy(
@@ -131,12 +146,36 @@ async def _run_step(
         )
         logger.info("Step '%s' — attempt %d/%d", step.name, attempt, step.retry.attempts)
 
+        run_log.event(
+            "step_attempt",
+            step=step.name,
+            attempt=attempt,
+            max_attempts=step.retry.attempts,
+            config=resolved.config,
+        )
+
         result = await plugin.execute(resolved, context)
         result.attempts = attempt
         last_result = result
 
         if result.status == StepStatus.SUCCESS:
+            run_log.event(
+                "step_success",
+                step=step.name,
+                attempt=attempt,
+                output=result.output,
+                duration_ms=_duration_ms(result),
+            )
             return result
+
+        run_log.event(
+            "step_failed",
+            step=step.name,
+            attempt=attempt,
+            error=result.error,
+            output=result.output,
+            duration_ms=_duration_ms(result),
+        )
 
         if attempt < step.retry.attempts:
             logger.warning(
@@ -148,6 +187,12 @@ async def _run_step(
             await asyncio.sleep(step.retry.delay_seconds)
 
     return last_result  # type: ignore[return-value]
+
+
+def _duration_ms(result: StepResult) -> float | None:
+    if result.started_at and result.finished_at:
+        return round((result.finished_at - result.started_at).total_seconds() * 1000, 1)
+    return None
 
 
 # ── Dry-run ───────────────────────────────────────────────────────
@@ -220,7 +265,11 @@ def _dry_run_workflow(workflow: WorkflowDefinition) -> None:
 # ── Workflow execution ─────────────────────────────────────────────
 
 
-async def run_workflow(workflow: WorkflowDefinition, dry_run: bool = False) -> WorkflowResult:
+async def run_workflow(
+    workflow: WorkflowDefinition,
+    dry_run: bool = False,
+    run_log: RunLogger | NullRunLogger | None = None,
+) -> WorkflowResult:
     """Execute all steps in *workflow* sequentially, passing context forward."""
     if dry_run:
         _dry_run_workflow(workflow)
@@ -240,6 +289,16 @@ async def run_workflow(workflow: WorkflowDefinition, dry_run: bool = False) -> W
         started_at=datetime.now(timezone.utc),
     )
 
+    if run_log is None:
+        run_log = NullRunLogger()
+
+    run_log.event(
+        "workflow_start",
+        workflow=workflow.name,
+        total_steps=len(workflow.steps),
+        step_names=[s.name for s in workflow.steps],
+    )
+
     # Shared context: each completed step stores its output under its name
     context: dict[str, Any] = {"env": workflow.env}
 
@@ -249,7 +308,14 @@ async def run_workflow(workflow: WorkflowDefinition, dry_run: bool = False) -> W
     for idx, step in enumerate(workflow.steps):
         logger.info("── Step %d/%d: %s (%s)", idx + 1, len(workflow.steps), step.name, step.type)
 
-        step_result = await _run_step(step, context, defaults=workflow.defaults)
+        step_result = await _run_step(
+            step,
+            context,
+            defaults=workflow.defaults,
+            run_log=run_log,
+            step_index=idx,
+            total_steps=len(workflow.steps),
+        )
         result.steps.append(step_result)
 
         # Store output for downstream template resolution
@@ -262,12 +328,28 @@ async def run_workflow(workflow: WorkflowDefinition, dry_run: bool = False) -> W
             all_passed = False
             if step.on_failure == OnFailure.STOP:
                 for remaining in workflow.steps[idx + 1 :]:
-                    result.steps.append(
-                        StepResult(name=remaining.name, status=StepStatus.SKIPPED)
+                    skipped = StepResult(name=remaining.name, status=StepStatus.SKIPPED)
+                    result.steps.append(skipped)
+                    run_log.event(
+                        "step_skipped",
+                        step=remaining.name,
+                        reason=f"prior step '{step.name}' failed with on_failure=stop",
                     )
                 break
 
     result.finished_at = datetime.now(timezone.utc)
     result.status = WorkflowStatus.SUCCESS if all_passed else WorkflowStatus.FAILED
+    result.log_file = str(run_log.path) if not isinstance(run_log, NullRunLogger) else None
+
+    run_log.event(
+        "workflow_end",
+        workflow=workflow.name,
+        status=result.status.value,
+        total_steps=len(result.steps),
+        passed=sum(1 for s in result.steps if s.status == StepStatus.SUCCESS),
+        failed=sum(1 for s in result.steps if s.status == StepStatus.FAILED),
+        skipped=sum(1 for s in result.steps if s.status == StepStatus.SKIPPED),
+    )
+
     logger.info("■ Workflow '%s' → %s", workflow.name, result.status.value)
     return result

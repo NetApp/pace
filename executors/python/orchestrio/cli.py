@@ -27,6 +27,7 @@ from orchestrio.engine import run_workflow
 from orchestrio.env_loader import EnvLoadError, load_env_file, merge_env, parse_env_pairs
 from orchestrio.models import WorkflowStatus
 from orchestrio.parser import load_workflow
+from orchestrio.run_logger import RunLogger
 
 
 @click.group()
@@ -56,7 +57,26 @@ def cli(verbose: bool) -> None:
     metavar="KEY=VALUE",
     help="Set an env var inline. Repeatable; overrides --env-file and YAML defaults.",
 )
-def run(file: Path, dry_run: bool, env_file: tuple[Path, ...], env: tuple[str, ...]) -> None:
+@click.option(
+    "--log-file", "-L",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Path for the structured JSONL log file.  Defaults to logs/run-<id>.log.jsonl.",
+)
+@click.option(
+    "--no-log",
+    is_flag=True,
+    default=False,
+    help="Disable JSONL log file output entirely.",
+)
+def run(
+    file: Path,
+    dry_run: bool,
+    env_file: tuple[Path, ...],
+    env: tuple[str, ...],
+    log_file: Path | None,
+    no_log: bool,
+) -> None:
     """Execute a workflow from a YAML / JSON file."""
     workflow = load_workflow(file)
 
@@ -70,7 +90,21 @@ def run(file: Path, dry_run: bool, env_file: tuple[Path, ...], env: tuple[str, .
 
     workflow.env = merge_env(workflow.env, env_file_vars, cli_env_vars)
 
-    result = asyncio.run(run_workflow(workflow, dry_run=dry_run))
+    if dry_run or no_log:
+        result = asyncio.run(run_workflow(workflow, dry_run=dry_run))
+    else:
+        import uuid
+        run_id = uuid.uuid4().hex[:12]
+        if log_file:
+            resolved_log = log_file
+        else:
+            logs_dir = Path("logs")
+            logs_dir.mkdir(exist_ok=True)
+            resolved_log = logs_dir / f"run-{run_id}.log.jsonl"
+        with RunLogger(resolved_log, run_id) as rlog:
+            result = asyncio.run(run_workflow(workflow, dry_run=dry_run, run_log=rlog))
+        click.echo(f"Log written to {resolved_log}", err=True)
+
     if not dry_run:
         click.echo(result.model_dump_json(indent=2))
     sys.exit(0 if result.status == WorkflowStatus.SUCCESS else 1)

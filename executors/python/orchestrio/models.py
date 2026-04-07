@@ -98,3 +98,4 @@ class WorkflowResult(BaseModel):
     started_at: datetime | None = None
     finished_at: datetime | None = None
     steps: list[StepResult] = Field(default_factory=list)
+    log_file: str | None = None
