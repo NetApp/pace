@@ -1,0 +1,190 @@
+name: Review Bot
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  precondition-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # ── Forbidden files (.env with real values) ───────────────
+      - name: Check for committed .env files
+        run: |
+          FORBIDDEN=$(git diff --name-only --diff-filter=ACM origin/main...HEAD \
+            | grep -E '\.env($|\.[^e])' \
+            | grep -v '\.env\.example' || true)
+
+          if [ -n "$FORBIDDEN" ]; then
+            echo "::error::Forbidden .env files in changeset:"
+            echo "$FORBIDDEN"
+            exit 1
+          fi
+          echo "No .env files found in changeset"
+
+      # ── Secret patterns in diff ───────────────────────────────
+      - name: Scan diff for secret patterns
+        run: |
+          DIFF=$(git diff origin/main...HEAD -- . \
+            ':!*.env.example' \
+            ':!.gitleaks.toml' \
+            ':!.github/workflows/review-bot.yml' || true)
+
+          PATTERNS='(ghp_[A-Za-z0-9_]{36}|AKIA[0-9A-Z]{16}|-----BEGIN\s*(RSA|EC|OPENSSH|DSA|PGP)\s*PRIVATE\sKEY|sk-[A-Za-z0-9]{20,}|xox[bpars]-[A-Za-z0-9\-]+)'
+
+          HITS=$(echo "$DIFF" | grep -cPo "$PATTERNS" || true)
+
+          if [ "$HITS" -gt 0 ]; then
+            echo "::error::Found $HITS potential secret(s) in the diff. Review lines below:"
+            echo "$DIFF" | grep -Pn "$PATTERNS" || true
+            exit 1
+          fi
+          echo "No secret patterns found"
+
+      # ── YAML syntax check ─────────────────────────────────────
+      - name: Validate YAML syntax
+        run: |
+          CHANGED_YAML=$(git diff --name-only --diff-filter=ACM origin/main...HEAD \
+            | grep '\.ya\?ml$' || true)
+
+          if [ -z "$CHANGED_YAML" ]; then
+            echo "No YAML files changed"
+            exit 0
+          fi
+
+          ERRORS=0
+          while IFS= read -r f; do
+            if ! python -c "import yaml, sys; yaml.safe_load(open('$f'))" 2>/dev/null; then
+              echo "::error file=$f::YAML syntax error in $f"
+              ERRORS=$((ERRORS + 1))
+            else
+              echo "  OK  $f"
+            fi
+          done <<< "$CHANGED_YAML"
+
+          if [ "$ERRORS" -gt 0 ]; then
+            echo "$ERRORS file(s) have YAML syntax errors"
+            exit 1
+          fi
+
+      # ── Anti-pattern warnings (non-blocking) ──────────────────
+      - name: Anti-pattern warnings
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require('child_process');
+
+            let diff;
+            try {
+              diff = execSync('git diff origin/main...HEAD', { encoding: 'utf8' });
+            } catch {
+              return;
+            }
+
+            const warnings = [];
+
+            // verify_ssl: false outside examples/
+            const sslLines = diff.split('\n').filter(
+              l => l.startsWith('+') && /verify_ssl:\s*false/.test(l)
+            );
+            if (sslLines.length > 0) {
+              warnings.push(
+                `**\`verify_ssl: false\`** found in ${sslLines.length} added line(s). ` +
+                'Acceptable in examples/ but should not ship in production workflows.'
+              );
+            }
+
+            // TODO / HACK / FIXME in new code
+            const tagLines = diff.split('\n').filter(
+              l => l.startsWith('+') && /\b(TODO|HACK|FIXME)\b/.test(l)
+            );
+            if (tagLines.length > 0) {
+              warnings.push(
+                `**${tagLines.length} TODO/HACK/FIXME** tag(s) found in new code. ` +
+                'Consider resolving before merge.'
+              );
+            }
+
+            if (warnings.length === 0) return;
+
+            const body = [
+              '### Review Bot -- Warnings (non-blocking)',
+              '',
+              ...warnings.map(w => `- ${w}`),
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+      # ── PR size label (non-blocking) ──────────────────────────
+      - name: PR size label
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require('child_process');
+
+            let stat;
+            try {
+              stat = execSync('git diff --shortstat origin/main...HEAD', { encoding: 'utf8' });
+            } catch {
+              return;
+            }
+
+            const match = stat.match(/(\d+) insertion/);
+            const additions = match ? parseInt(match[1], 10) : 0;
+
+            const labels = ['size/S', 'size/M', 'size/L', 'size/XL'];
+            let label;
+            if (additions > 1000)     label = 'size/XL';
+            else if (additions > 500) label = 'size/L';
+            else if (additions > 100) label = 'size/M';
+            else                      label = 'size/S';
+
+            const { data: currentLabels } = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = currentLabels.map(l => l.name).filter(n => labels.includes(n));
+            for (const old of existing) {
+              if (old !== label) {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  name: old,
+                });
+              }
+            }
+
+            if (!existing.includes(label)) {
+              try {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  labels: [label],
+                });
+              } catch (e) {
+                core.warning(`Could not add label "${label}": ${e.message}`);
+              }
+            }
