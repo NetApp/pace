@@ -1,0 +1,356 @@
+name: snapmirror_provision_dest_managed
+version: "1"
+description: >-
+  SnapMirror Provision (Destination-Managed) - Relationship Setup & Validation
+  ==============================================================================
+  All SnapMirror API calls are driven from the DESTINATION cluster.
+  You create the source rw volume manually; dest dp volume is auto-created.
+  Flow:
+    1. Verify both clusters are reachable
+    2. Auto-create destination volume as type=dp if it does not exist
+       (same size as source volume - no manual step needed)
+    3. Create + initialize relationship
+    4. Poll job and wait for state = snapmirrored
+    5. Validate health and print final report
+
+  Inputs  (edit env section below)
+  --------
+  SOURCE_HOST     source cluster management IP
+  SOURCE_SVM      source SVM name
+  SOURCE_VOLUME   source volume name  (must be type=rw, created in System Manager)
+  DEST_HOST       destination cluster management IP
+  DEST_SVM        destination SVM name
+  DEST_VOLUME     auto-derived as SOURCE_VOLUME + "_dest"  (auto-created as type=dp)
+  SM_POLICY       SnapMirror policy  (Asynchronous | MirrorAllSnapshots | MirrorAndVault)
+
+  Run:
+    orchestrio run snapmirror_provision_dest_managed.yaml
+
+env:
+  # ----------------------------------------------------------------
+  # INPUT PARAMETERS  <-- edit these before running
+  # ----------------------------------------------------------------
+  SOURCE_HOST:   ""   # source cluster management IP
+  SOURCE_SVM:    ""   # source SVM name
+  SOURCE_VOLUME: ""   # source volume name  <-- only this needs to be set
+
+  DEST_HOST:     ""   # destination cluster management IP
+  DEST_SVM:      ""   # destination SVM name
+  # DEST_VOLUME is auto-derived as  SOURCE_VOLUME + "_dest"  - no entry needed
+
+  SM_POLICY:     "Asynchronous"     # Asynchronous | MirrorAllSnapshots | MirrorAndVault
+
+  # ----------------------------------------------------------------
+  # CREDENTIALS  <-- update if different per cluster
+  # ----------------------------------------------------------------
+  SOURCE_USER: ""   # source cluster admin username
+  SOURCE_PASS: ""   # source cluster admin password
+  DEST_USER:   ""   # destination cluster admin username
+  DEST_PASS:   ""   # destination cluster admin password
+
+# ── Shared HTTP defaults ────────────────────────────────────────────
+# Merged into every http step; step-level values always win.
+# Note: credentials are NOT in defaults because source/dest steps use
+# different accounts (SOURCE_USER/PASS vs DEST_USER/PASS).
+defaults:
+  http:
+    headers:
+      Accept: "application/hal+json"
+      X-Dot-Client-App: "orchestrio"
+    verify_ssl: true
+    timeout: 30
+
+steps:
+
+  # ================================================================
+  # STEP 1 - Verify source cluster connectivity
+  # ================================================================
+  - name: verify_source_cluster
+    type: http
+    config:
+      method: GET
+      url: "https://{{ env.SOURCE_HOST }}/api/cluster?fields=name,version&return_timeout=120"
+      username: "{{ env.SOURCE_USER }}"
+      password: "{{ env.SOURCE_PASS }}"
+    retry:
+      attempts: 3
+      delay_seconds: 10
+
+  - name: print_source_cluster
+    type: shell
+    config:
+      command: >-
+        echo "SOURCE CLUSTER | name={{ steps.verify_source_cluster.body.name }} | ontap={{ steps.verify_source_cluster.body.version.full }}"
+
+  # ================================================================
+  # STEP 2 - Verify destination cluster connectivity
+  # ================================================================
+  - name: verify_dest_cluster
+    type: http
+    config:
+      method: GET
+      url: "https://{{ env.DEST_HOST }}/api/cluster?fields=name,version&return_timeout=120"
+      username: "{{ env.DEST_USER }}"
+      password: "{{ env.DEST_PASS }}"
+    retry:
+      attempts: 3
+      delay_seconds: 10
+
+  - name: print_dest_cluster
+    type: shell
+    config:
+      command: >-
+        echo "DEST CLUSTER   | name={{ steps.verify_dest_cluster.body.name }} | ontap={{ steps.verify_dest_cluster.body.version.full }}"
+
+  # ================================================================
+  # Get the source cluster name as registered in destination's peer list.
+  # ================================================================
+  - name: get_cluster_peer_name
+    type: http
+    config:
+      method: GET
+      url: "https://{{ env.DEST_HOST }}/api/cluster/peers?fields=name,status.state&max_records=1&return_timeout=120"
+      username: "{{ env.DEST_USER }}"
+      password: "{{ env.DEST_PASS }}"
+
+  # ================================================================
+  # STEP 3 - Validate source volume exists and is online
+  # ================================================================
+  - name: check_source_volume
+    type: http
+    config:
+      method: GET
+      url: "https://{{ env.SOURCE_HOST }}/api/storage/volumes?max_records=1&name={{ env.SOURCE_VOLUME }}&svm.name={{ env.SOURCE_SVM }}&fields=name,uuid,state,type,space.size&return_timeout=120"
+      username: "{{ env.SOURCE_USER }}"
+      password: "{{ env.SOURCE_PASS }}"
+
+  - name: print_source_volume
+    type: shell
+    config:
+      command: >-
+        echo "SOURCE VOLUME  | svm={{ env.SOURCE_SVM }} | name={{ steps.check_source_volume.body.records.0.name }} | uuid={{ steps.check_source_volume.body.records.0.uuid }} | state={{ steps.check_source_volume.body.records.0.state }} | type={{ steps.check_source_volume.body.records.0.type }} | size={{ steps.check_source_volume.body.records.0.space.size }}"
+
+  # Guard - Abort immediately if source volume not found or is already a DP destination
+  - name: guard_source_volume
+    type: shell
+    on_failure: stop
+    config:
+      command: >-
+        if "{{ steps.check_source_volume.body.num_records }}"=="0"
+        (echo PROVISION ABORTED - source volume not found: {{ env.SOURCE_VOLUME }} on {{ env.SOURCE_HOST }} & exit 1)
+        else if "{{ steps.check_source_volume.body.records.0.type }}"=="dp"
+        (echo PROVISION ABORTED - {{ env.SOURCE_SVM }}:{{ env.SOURCE_VOLUME }} is type=dp, specify the source RW volume & exit 1)
+        else echo SOURCE VOLUME OK - {{ env.SOURCE_SVM }}:{{ env.SOURCE_VOLUME }}
+
+  # ================================================================
+  # AUTO-CREATE destination volume as type=dp if it does not exist.
+  # ================================================================
+  - name: get_dest_aggregate
+    type: http
+    config:
+      method: GET
+      url: "https://{{ env.DEST_HOST }}/api/storage/aggregates?fields=name,state&max_records=1&return_timeout=120"
+      username: "{{ env.DEST_USER }}"
+      password: "{{ env.DEST_PASS }}"
+
+  - name: create_dest_volume
+    type: http
+    on_failure: continue
+    config:
+      method: POST
+      url: "https://{{ env.DEST_HOST }}/api/storage/volumes?return_timeout=120"
+      headers:
+        Content-Type: "application/json"
+      username: "{{ env.DEST_USER }}"
+      password: "{{ env.DEST_PASS }}"
+      timeout: 60
+      body:
+        name: "{{ env.SOURCE_VOLUME }}_dest"
+        type: "dp"
+        svm:
+          name: "{{ env.DEST_SVM }}"
+        aggregates:
+          - name: "{{ steps.get_dest_aggregate.body.records.0.name }}"
+        space:
+          size: "{{ steps.check_source_volume.body.records.0.space.size }}"
+
+  - name: print_dest_volume_created
+    type: shell
+    config:
+      command: >-
+        echo "DEST VOLUME    | create attempt for '{{ env.SOURCE_VOLUME }}_dest' (type=dp) on agg '{{ steps.get_dest_aggregate.body.records.0.name }}' - status={{ steps.create_dest_volume.status_code }}"
+
+  # ================================================================
+  # STEP 4 - Validate destination volume exists and is type=DP
+  # ================================================================
+  - name: check_dest_volume
+    type: http
+    config:
+      method: GET
+      url: "https://{{ env.DEST_HOST }}/api/storage/volumes?max_records=1&name={{ env.SOURCE_VOLUME }}_dest&svm.name={{ env.DEST_SVM }}&fields=name,uuid,state,type&return_timeout=120"
+      username: "{{ env.DEST_USER }}"
+      password: "{{ env.DEST_PASS }}"
+
+  - name: print_dest_volume
+    type: shell
+    config:
+      command: >-
+        echo "DEST VOLUME    | svm={{ env.DEST_SVM }} | name={{ steps.check_dest_volume.body.records.0.name }} | uuid={{ steps.check_dest_volume.body.records.0.uuid }} | state={{ steps.check_dest_volume.body.records.0.state }} | type={{ steps.check_dest_volume.body.records.0.type }}"
+
+  # ================================================================
+  # STEP 5 - Check if SnapMirror relationship already exists
+  # ================================================================
+  - name: check_existing_relationship
+    type: http
+    on_failure: continue
+    config:
+      method: GET
+      url: "https://{{ env.DEST_HOST }}/api/snapmirror/relationships?destination.path={{ env.DEST_SVM }}:{{ env.SOURCE_VOLUME }}_dest&fields=uuid,source.path,destination.path,state,healthy,policy.name&max_records=1&return_timeout=120"
+      username: "{{ env.DEST_USER }}"
+      password: "{{ env.DEST_PASS }}"
+
+  - name: print_relationship_check
+    type: shell
+    config:
+      command: >-
+        echo "RELATIONSHIP CHECK | found={{ steps.check_existing_relationship.body.num_records }} | uuid={{ steps.check_existing_relationship.body.records.0.uuid }} | state={{ steps.check_existing_relationship.body.records.0.state }} | healthy={{ steps.check_existing_relationship.body.records.0.healthy }}"
+
+  # Guard - Notify if already provisioned (create steps are safe to re-run via on_failure:continue)
+  - name: guard_already_provisioned
+    type: shell
+    on_failure: continue
+    config:
+      command: >-
+        echo "RELATIONSHIP CHECK | existing={{ steps.check_existing_relationship.body.num_records }} | uuid={{ steps.check_existing_relationship.body.records.0.uuid }} | state={{ steps.check_existing_relationship.body.records.0.state }} | healthy={{ steps.check_existing_relationship.body.records.0.healthy }}"
+
+  # ================================================================
+  # STEP 6 - Create + initialize SnapMirror relationship
+  # on_failure: continue - safe if relationship already exists (400)
+  # ================================================================
+  - name: create_and_initialize_relationship
+    type: http
+    on_failure: continue
+    config:
+      method: POST
+      url: "https://{{ env.DEST_HOST }}/api/snapmirror/relationships?return_timeout=120"
+      headers:
+        Content-Type: "application/json"
+      username: "{{ env.DEST_USER }}"
+      password: "{{ env.DEST_PASS }}"
+      timeout: 60
+      body:
+        source:
+          path: "{{ env.SOURCE_SVM }}:{{ env.SOURCE_VOLUME }}"
+          cluster:
+            name: "{{ steps.get_cluster_peer_name.body.records.0.name }}"
+        destination:
+          path: "{{ env.DEST_SVM }}:{{ env.SOURCE_VOLUME }}_dest"
+        policy:
+          name: "{{ env.SM_POLICY }}"
+
+  - name: print_create_submitted
+    type: shell
+    config:
+      command: >-
+        echo "RELATIONSHIP   | POST submitted  {{ env.SOURCE_SVM }}:{{ env.SOURCE_VOLUME }} --> {{ env.DEST_SVM }}:{{ env.SOURCE_VOLUME }}_dest  policy={{ env.SM_POLICY }}  initialize=true"
+
+  # ================================================================
+  # STEP 6b - Poll the async job returned by the POST call
+  # ================================================================
+  - name: poll_create_init_job
+    type: http
+    on_failure: continue
+    config:
+      method: GET
+      url: "https://{{ env.DEST_HOST }}/api/cluster/jobs/{{ steps.create_and_initialize_relationship.body.job.uuid }}?fields=state,message,error,code&return_timeout=120"
+      username: "{{ env.DEST_USER }}"
+      password: "{{ env.DEST_PASS }}"
+      timeout: 1800
+      poll:
+        interval_seconds: 15
+        until:
+          field: state
+          not_equals: running
+    retry:
+      attempts: 2
+      delay_seconds: 10
+
+  # ================================================================
+  # STEP 7 - Fetch relationship UUID
+  # ================================================================
+  - name: get_sm_relationship
+    type: http
+    config:
+      method: GET
+      url: "https://{{ env.DEST_HOST }}/api/snapmirror/relationships?destination.path={{ env.DEST_SVM }}:{{ env.SOURCE_VOLUME }}_dest&fields=uuid,source.path,destination.path,state,lag_time,healthy,policy.name&max_records=1&return_timeout=120"
+      username: "{{ env.DEST_USER }}"
+      password: "{{ env.DEST_PASS }}"
+
+  - name: print_relationship_found
+    type: shell
+    config:
+      command: >-
+        echo "RELATIONSHIP   | uuid={{ steps.get_sm_relationship.body.records.0.uuid }} | state={{ steps.get_sm_relationship.body.records.0.state }} | healthy={{ steps.get_sm_relationship.body.records.0.healthy }} | policy={{ steps.get_sm_relationship.body.records.0.policy.name }}"
+
+  # ================================================================
+  # Initialize the relationship (trigger baseline transfer).
+  # on_failure: continue - safe if already initialized (409)
+  # ================================================================
+  - name: initialize_relationship
+    type: http
+    on_failure: continue
+    config:
+      method: POST
+      url: "https://{{ env.DEST_HOST }}/api/snapmirror/relationships/{{ steps.get_sm_relationship.body.records.0.uuid }}/transfers?return_timeout=120"
+      headers:
+        Content-Type: "application/json"
+      username: "{{ env.DEST_USER }}"
+      password: "{{ env.DEST_PASS }}"
+      timeout: 60
+      body: {}
+
+  # ================================================================
+  # STEP 8 - Wait for relationship state = snapmirrored
+  # ================================================================
+  - name: wait_for_snapmirrored
+    type: http
+    config:
+      method: GET
+      url: "https://{{ env.DEST_HOST }}/api/snapmirror/relationships/{{ steps.get_sm_relationship.body.records.0.uuid }}?fields=state,lag_time,healthy&return_timeout=120"
+      username: "{{ env.DEST_USER }}"
+      password: "{{ env.DEST_PASS }}"
+      timeout: 1800
+      poll:
+        interval_seconds: 15
+        until:
+          field: state
+          equals: snapmirrored
+    retry:
+      attempts: 3
+      delay_seconds: 15
+
+  # ================================================================
+  # STEP 9 - Validate relationship is healthy
+  # ================================================================
+  - name: validate_health
+    type: http
+    config:
+      method: GET
+      url: "https://{{ env.DEST_HOST }}/api/snapmirror/relationships/{{ steps.get_sm_relationship.body.records.0.uuid }}?fields=uuid,source.path,destination.path,state,lag_time,healthy,policy.name&return_timeout=120"
+      username: "{{ env.DEST_USER }}"
+      password: "{{ env.DEST_PASS }}"
+
+  # ================================================================
+  # STEP 10 - Print final validation report
+  # ================================================================
+  - name: print_final_report
+    type: shell
+    config:
+      command: >-
+        echo "=== SNAPMIRROR SETUP COMPLETE ===" &&
+        echo "  Source      : {{ steps.validate_health.body.source.path }}" &&
+        echo "  Destination : {{ steps.validate_health.body.destination.path }}" &&
+        echo "  State       : {{ steps.validate_health.body.state }}" &&
+        echo "  Healthy     : {{ steps.validate_health.body.healthy }}" &&
+        echo "  Lag Time    : {{ steps.validate_health.body.lag_time }}" &&
+        echo "  Policy      : {{ steps.validate_health.body.policy.name }}"
