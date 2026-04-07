@@ -1,0 +1,30 @@
+# Gitleaks configuration for orchestrio
+# Extends the built-in ruleset (AWS keys, GH PATs, private keys, etc.)
+# https://github.com/gitleaks/gitleaks
+
+title = "orchestrio gitleaks config"
+
+# ── Custom rules ────────────────────────────────────────────────
+
+[[rules]]
+id = "ontap-password-in-yaml"
+description = "Non-placeholder ONTAP password in a YAML file"
+regex = '''ONTAP_PASS:\s*["']?(?!your-password-here|""|''|\{\{)[^\s"'#]+'''
+tags = ["secret", "ontap"]
+
+[[rules]]
+id = "hardcoded-password-value"
+description = "Hardcoded password field with a real-looking value"
+regex = '''(?i)(password|passwd|pwd)\s*[:=]\s*["']?(?!\{\{|your-|changeme|CHANGE_ME|xxx|placeholder|""|'')[A-Za-z0-9!@#$%^&*()_+\-=]{8,}'''
+tags = ["secret", "password"]
+
+# ── Allowlists ──────────────────────────────────────────────────
+
+[allowlist]
+description = "Files that contain intentional placeholder values, not real secrets"
+paths = [
+    '''\.env\.example$''',
+    '''cluster_info\.env\.example$''',
+    '''executors/python/tests/.*''',
+    '''\.gitleaks\.toml$''',
+]

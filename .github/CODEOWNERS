@@ -1,2 +1,15 @@
-# Default owners for the entire repo
-* @hvinn
+# Default — catches anything not matched below
+*                   @hvinn
+
+# Workflow spec (schema changes need careful review)
+/workflow-spec/     @hvinn
+
+# Python reference executor
+/executors/python/  @hvinn
+
+# CI / GitHub config (protect the pipeline itself)
+/.github/           @hvinn
+
+# Workflow and step definitions
+/workflows/         @hvinn
+/steps/             @hvinn

@@ -6,9 +6,13 @@
 
 - 
 
-## Testing
+## Checklist
 
-- [ ] Linting passes (`ruff check orchestrio/`)
+- [ ] No secrets, credentials, or API tokens in code or config
+- [ ] Workflow YAML validates against `workflow-spec/v1/schema.json`
+- [ ] Linting passes (`ruff check executors/python/orchestrio/`)
+- [ ] Formatting passes (`ruff format --check executors/python/`)
+- [ ] Tests pass (`pytest executors/python/tests/ -v`)
 - [ ] Manually tested with an example workflow (if applicable)
 
 ## Related issues
