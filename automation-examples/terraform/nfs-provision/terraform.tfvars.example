@@ -1,0 +1,13 @@
+# Copy to terraform.tfvars and fill in your values.
+# terraform.tfvars is loaded automatically and should NOT be committed.
+
+ontap_host     = "10.0.0.1"
+ontap_username = "admin"
+ontap_password = "CHANGEME"
+validate_certs = false
+
+svm_name       = "vs0"
+volume_name    = "vol_nfs_test_01"
+volume_size    = 100
+aggregate_name = "aggr1"
+client_match   = "0.0.0.0/0"

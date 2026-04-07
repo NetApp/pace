@@ -1,0 +1,7 @@
+# Copy to terraform.tfvars and fill in your values.
+# terraform.tfvars is loaded automatically and should NOT be committed.
+
+ontap_host     = "10.0.0.1"
+ontap_username = "admin"
+ontap_password = "CHANGEME"
+validate_certs = false

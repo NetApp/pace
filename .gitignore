@@ -46,6 +46,7 @@ logs/*.jsonl
 *.tfstate.backup
 *.tfplan
 .terraform.lock.hcl
+terraform.tfvars
 
 # Ansible
 *.retry

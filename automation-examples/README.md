@@ -91,7 +91,7 @@ and want plan/apply lifecycle management. Best when:
 - You need drift detection and state management
 - Your team already uses Terraform for infrastructure provisioning
 
-See: [terraform/](terraform/) *(coming soon)*
+See: [terraform/](terraform/)
 
 ---
 
@@ -101,8 +101,8 @@ Each approach implements the same use cases for direct comparison:
 
 | Use Case | Orchestrio YAML | Python | Ansible | Terraform |
 |---|---|---|---|---|
-| **Cluster info** — retrieve cluster version and node list | [`workflows/cluster_info.yaml`](../workflows/cluster_info.yaml) | [`cluster_info.py`](python/cluster_info.py) | [`cluster_info.yml`](ansible/cluster_info.yml) | *coming soon* |
-| **NFS provision** — create volume, export policy, assign policy | [`workflows/nfs_provision.yaml`](../workflows/nfs_provision.yaml) | [`nfs_provision.py`](python/nfs_provision.py) | [`nfs_provision.yml`](ansible/nfs_provision.yml) | *coming soon* |
+| **Cluster info** — retrieve cluster version and node list | [`workflows/cluster_info.yaml`](../workflows/cluster_info.yaml) | [`cluster_info.py`](python/cluster_info.py) | [`cluster_info.yml`](ansible/cluster_info.yml) | [`cluster-info/`](terraform/cluster-info/) |
+| **NFS provision** — create volume, export policy, assign policy | [`workflows/nfs_provision.yaml`](../workflows/nfs_provision.yaml) | [`nfs_provision.py`](python/nfs_provision.py) | [`nfs_provision.yml`](ansible/nfs_provision.yml) | [`nfs-provision/`](terraform/nfs-provision/) |
 
 ---
 
