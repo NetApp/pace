@@ -1,39 +1,44 @@
 # Orchestrio
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 
-Define workflows in YAML. Execute them via CLI.
+Orchestrio is a no-code/low-code CLI tool for automating NetApp resource workflows using ONTAP REST APIs.
 
 The workflow spec is **language-agnostic** — decoupled from the executor so any language can implement it.
 The Python executor is the reference implementation.
 
 ---
 
-## Getting Started
+## Install
 
-### Prerequisites
+```bash
+curl -fsSL https://raw.githubusercontent.com/hvinn/orchestrio/main/install.sh | bash
+```
 
-- Python 3.11+
-- Git
+That's it. The script detects `pipx` or falls back to `pip`, checks for Python 3.11+, and installs the `orchestrio` command.
 
-### Quick start
+<details>
+<summary>Manual install (dev mode)</summary>
 
 ```bash
 git clone https://github.com/hvinn/orchestrio.git
-cd orchestrio
-
-python -m venv .venv && source .venv/bin/activate
-
-# Install the Python executor in editable mode
-cd executors/python
+cd orchestrio/executors/python
 pip install -e ".[dev]"
-cd ../..
+```
+</details>
 
-# Validate an example workflow
-orchestrio validate examples/hello.yaml
+## Try It
 
-# Run it
+```bash
 orchestrio run examples/hello.yaml
+```
+
+Expected output — a joke fetched from a public API and a shell echo:
+
+```
+[step 1/2] fetch_joke …  ✔  (HTTP 200)
+[step 2/2] print_result …  ✔
 ```
 
 Add `-v` for debug-level logging:
@@ -218,4 +223,4 @@ Then import it in `orchestrio/plugins/__init__.py` so it auto-registers at start
 
 ## License
 
-MIT
+Apache-2.0 — see [LICENSE](LICENSE) for details.

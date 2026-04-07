@@ -1,7 +1,7 @@
 [project]
 name = "orchestrio"
 version = "0.1.0"
-description = "Language-agnostic CLI workflow executor"
+description = "No-code/low-code CLI tool for automating NetApp resource workflows using ONTAP REST APIs"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.11"
 dependencies = [
