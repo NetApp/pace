@@ -3,6 +3,9 @@
 Given a workflow YAML file and the error output (CLI stderr, JSON result, or JSONL log),
 diagnose the failure and suggest a fix.
 
+> For ONTAP REST API conventions (endpoints, response shapes, status codes),
+> invoke `/ontap-rest-api` or see `docs/ontap-api-patterns.md`.
+
 ## Diagnostic checklist
 
 1. **Validation errors** — Run `orchestrio validate <file>` first. Check for:
@@ -17,7 +20,7 @@ diagnose the failure and suggest a fix.
 
 3. **HTTP errors** — Check the `StepResult` output:
    - `status_code` 401/403: wrong credentials or missing auth config
-   - `status_code` 404: wrong URL or API path
+   - `status_code` 404: wrong URL or API path (verify against the ONTAP REST API spec)
    - Connection error: host unreachable, DNS failure, or `verify_ssl` not set to `false`
 
 4. **Shell errors** — Check `stdout`, `stderr`, and `exit_code` in the step result.
