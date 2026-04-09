@@ -25,7 +25,7 @@ import click
 
 from orchestrio.engine import run_workflow
 from orchestrio.env_loader import EnvLoadError, load_env_file, merge_env, parse_env_pairs
-from orchestrio.models import WorkflowStatus
+from orchestrio.models import StepStatus, WorkflowResult, WorkflowStatus
 from orchestrio.parser import load_workflow
 from orchestrio.run_logger import RunLogger
 
@@ -40,6 +40,33 @@ def cli(verbose: bool) -> None:
         format="%(asctime)s │ %(levelname)-7s │ %(name)s │ %(message)s",
         datefmt="%H:%M:%S",
     )
+
+
+def _print_summary(result: WorkflowResult) -> None:
+    """Print a concise human-readable workflow result to stderr."""
+    passed = sum(1 for s in result.steps if s.status == StepStatus.SUCCESS)
+    failed = sum(1 for s in result.steps if s.status == StepStatus.FAILED)
+    skipped = sum(1 for s in result.steps if s.status == StepStatus.SKIPPED)
+
+    icon = "✓" if result.status == WorkflowStatus.SUCCESS else "✗"
+    click.echo(f"\n{icon} {result.workflow_name} — {result.status.value}")
+
+    if result.started_at and result.finished_at:
+        elapsed = (result.finished_at - result.started_at).total_seconds()
+        click.echo(f"  Duration : {elapsed:.1f}s")
+
+    click.echo(f"  Steps    : {passed} passed, {failed} failed, {skipped} skipped")
+
+    for step in result.steps:
+        s_icon = {"success": "✓", "failed": "✗", "skipped": "–"}.get(step.status.value, "?")
+        parts = [f"  {s_icon} {step.name}"]
+        if step.error:
+            parts.append(f"  error: {step.error}")
+        click.echo("".join(parts))
+
+    if result.log_file:
+        click.echo(f"  Log      : {result.log_file}")
+    click.echo()
 
 
 @cli.command()
@@ -84,6 +111,13 @@ def cli(verbose: bool) -> None:
     default=False,
     help="Pause after each step to continue, skip, retry, abort, or inspect.",
 )
+@click.option(
+    "--json",
+    "output_json",
+    is_flag=True,
+    default=False,
+    help="Print the full result as JSON to stdout instead of a human-readable summary.",
+)
 def run(
     file: Path,
     dry_run: bool,
@@ -92,6 +126,7 @@ def run(
     log_file: Path | None,
     no_log: bool,
     interactive: bool,
+    output_json: bool,
 ) -> None:
     """Execute a workflow from a YAML / JSON file."""
     if dry_run and interactive:
@@ -128,7 +163,10 @@ def run(
         click.echo(f"Log written to {resolved_log}", err=True)
 
     if not dry_run:
-        click.echo(result.model_dump_json(indent=2))
+        if output_json:
+            click.echo(result.model_dump_json(indent=2))
+        else:
+            _print_summary(result)
     sys.exit(0 if result.status == WorkflowStatus.SUCCESS else 1)
 
 

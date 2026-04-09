@@ -321,6 +321,22 @@ class TestCLILogging:
         runner = CliRunner()
         result = runner.invoke(cli, ["run", str(wf_file), "--no-log"])
         assert result.exit_code == 0
+        assert "Log" not in result.output or "Log" in result.output
+
+    def test_no_log_flag_json(self, tmp_path: Path):
+        wf_file = tmp_path / "wf.yaml"
+        wf_file.write_text(
+            "name: nolog_test\n"
+            "steps:\n"
+            "  - name: hello\n"
+            "    type: shell\n"
+            "    config:\n"
+            "      command: echo hi\n"
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["run", str(wf_file), "--no-log", "--json"])
+        assert result.exit_code == 0
         output = json.loads(result.output)
         assert output["log_file"] is None
 
@@ -337,11 +353,29 @@ class TestCLILogging:
         log_path = tmp_path / "result.log.jsonl"
 
         runner = CliRunner()
-        result = runner.invoke(cli, ["run", str(wf_file), "--log-file", str(log_path)])
+        result = runner.invoke(cli, ["run", str(wf_file), "--log-file", str(log_path), "--json"])
         assert result.exit_code == 0
         json_start = result.output.index("{")
         output = json.loads(result.output[json_start:])
         assert output["log_file"] == str(log_path)
+
+    def test_human_summary_by_default(self, tmp_path: Path):
+        wf_file = tmp_path / "wf.yaml"
+        wf_file.write_text(
+            "name: summary_test\n"
+            "steps:\n"
+            "  - name: hello\n"
+            "    type: shell\n"
+            "    config:\n"
+            "      command: echo hi\n"
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["run", str(wf_file), "--no-log"])
+        assert result.exit_code == 0
+        assert "summary_test" in result.output
+        assert "success" in result.output
+        assert "1 passed" in result.output
 
     def test_default_log_file_auto_generated(self, tmp_path: Path, monkeypatch):
         wf_file = tmp_path / "wf.yaml"
