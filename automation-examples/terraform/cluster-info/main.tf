@@ -8,7 +8,7 @@ terraform {
   required_providers {
     netapp-ontap = {
       source  = "NetApp/netapp-ontap"
-      version = "~> 1.0"
+      version = "~> 2.5"
     }
   }
 }
@@ -25,12 +25,7 @@ provider "netapp-ontap" {
   ]
 }
 
-# Step 1 — Get cluster version
+# Get cluster info version and nodes
 data "netapp-ontap_cluster" "info" {
-  cx_profile_name = "cluster1"
-}
-
-# Step 2 — Get all nodes
-data "netapp-ontap_cluster_nodes" "all" {
   cx_profile_name = "cluster1"
 }
