@@ -10,5 +10,5 @@ output "cluster_version" {
 
 output "nodes" {
   description = "List of cluster nodes"
-  value       = data.netapp-ontap_cluster_nodes.all.cluster_nodes
+  value       = data.netapp-ontap_cluster.info.nodes
 }
