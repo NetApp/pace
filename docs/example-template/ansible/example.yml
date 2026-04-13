@@ -1,0 +1,32 @@
+---
+# <Use Case Name> — brief description of what this playbook does.
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml example.yml
+
+- name: "<Use Case Name>"
+  hosts: ontap
+  gather_facts: false
+  connection: local
+
+  vars:
+    # Override on CLI: -e variable_name=value
+    # variable_name: default_value
+
+  tasks:
+    - name: Retrieve cluster info
+      netapp.ontap.na_ontap_rest_info:
+        hostname: "{{ ontap_hostname }}"
+        username: "{{ ontap_username }}"
+        password: "{{ ontap_password }}"
+        https: "{{ ontap_https }}"
+        validate_certs: "{{ ontap_validate_certs }}"
+        use_rest: always
+        gather_subset:
+          - cluster/nodes
+      register: ontap_info
+      no_log: false
+
+    - name: Display results
+      ansible.builtin.debug:
+        var: ontap_info.ontap_info
