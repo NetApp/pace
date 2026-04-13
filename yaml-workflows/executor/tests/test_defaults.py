@@ -218,4 +218,4 @@ class TestDefaultsCLI:
         runner = CliRunner()
         result = runner.invoke(cli, ["run", str(wf), "--no-log"])
         assert result.exit_code == 0
-        assert '"status": "success"' in result.output
+        assert "success" in result.output

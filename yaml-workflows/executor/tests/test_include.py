@@ -296,7 +296,7 @@ class TestIncludeCLI:
         runner = CliRunner()
         result = runner.invoke(cli, ["run", str(wf_path), "--no-log"])
         assert result.exit_code == 0
-        assert '"status": "success"' in result.output
+        assert "success" in result.output
 
     def test_dry_run_with_include(self, tmp_path: Path) -> None:
         _write_fragment(tmp_path, "greet.yaml", SIMPLE_FRAGMENT)

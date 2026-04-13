@@ -45,7 +45,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--volume", default=os.environ.get("VOLUME_NAME", "vol_nfs_test_01"))
     p.add_argument("--size", default=os.environ.get("VOLUME_SIZE", "100MB"))
     p.add_argument("--aggregate", default=os.environ.get("AGGR_NAME", ""))
-    p.add_argument("--client-match", default=os.environ.get("CLIENT_MATCH", "0.0.0.0/0"))
+    p.add_argument(
+        "--client-match", default=os.environ.get("CLIENT_MATCH", "0.0.0.0/0")
+    )
     return p.parse_args()
 
 
@@ -59,7 +61,9 @@ def main() -> None:
 
     with OntapClient.from_env() as client:
         # Step 1 — create volume
-        logger.info("Creating volume '%s' (%s) on SVM '%s'…", args.volume, args.size, args.svm)
+        logger.info(
+            "Creating volume '%s' (%s) on SVM '%s'…", args.volume, args.size, args.svm
+        )
         create_resp = client.post(
             "/storage/volumes",
             body={
