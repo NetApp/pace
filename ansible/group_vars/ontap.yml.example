@@ -11,10 +11,19 @@ ontap_password: "CHANGEME"
 ontap_https: true
 ontap_validate_certs: false   # set true when using CA-signed certificates
 
-# NFS provisioning defaults (used by nfs_provision.yml)
+# Shared provisioning defaults
 svm_name: vs0
-volume_name: vol_nfs_test_01
 volume_size: 100
 volume_size_unit: mb
 aggregate_name: aggr1
+
+# NFS provisioning defaults (used by nfs_provision.yml)
+volume_name: vol_nfs_test_01
 client_match: "0.0.0.0/0"
+
+# CIFS provisioning defaults (used by cifs_provision.yml)
+# volume_name: vol_cifs_test_01         # uncomment to override for CIFS
+share_name: cifs_share_test
+share_comment: "Provisioned by orchestrio"
+acl_user: Everyone
+acl_permission: full_control
