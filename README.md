@@ -15,7 +15,7 @@ working script in minutes.
 |---|---|---|---|---|
 | **Directory** | [`python/`](python/) | [`ansible/`](ansible/) | [`terraform/`](terraform/) | [`yaml-workflows/`](yaml-workflows/) |
 | **Best for** | Custom logic, integrations | Fleet ops, config management | Infrastructure lifecycle | Rapid prototyping, CI/CD |
-| **Install** | `pip install requests` | `pip install ansible` + Galaxy collection | `terraform` binary + provider | `pip install orchestrio` |
+| **Install** | `pip install requests` | `pip install ansible` + Galaxy collection | `terraform` binary + provider | `git clone` + `pip install -e .` ([details](docs/orchestrio.md#install)) |
 | **Learning curve** | Python fluency | Ansible + ONTAP modules | HCL + provider knowledge | YAML only |
 | **State management** | You manage it | Idempotent modules | Full state tracking | Stateless |
 
@@ -69,8 +69,10 @@ terraform init && terraform apply
 ### YAML Workflows (Orchestrio CLI)
 
 ```bash
-pip install orchestrio
-orchestrio run yaml-workflows/workflows/cluster_info.yaml -E cluster.env
+cd yaml-workflows/executor
+pip install -e .
+cd ../..
+orchestrio run yaml-workflows/workflows/cluster_info.yaml -E yaml-workflows/workflows/cluster_info.env
 ```
 
 See the full [Orchestrio CLI documentation](docs/orchestrio.md) for install options,

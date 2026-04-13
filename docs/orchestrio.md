@@ -13,21 +13,26 @@ Workflow files and reusable step fragments live alongside it in
 
 ## Install
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/NetApp/orchestrio/main/install.sh | bash
-```
-
-The script detects `pipx` or falls back to `pip`, checks for Python 3.11+, and installs
-the `orchestrio` command.
-
-<details>
-<summary>Manual install (dev mode)</summary>
+Clone the repository and install the executor locally:
 
 ```bash
 git clone https://github.com/NetApp/orchestrio.git
-cd yaml-workflows/executor
+cd orchestrio/yaml-workflows/executor
 pip install -e ".[dev]"
 ```
+
+This gives you the `orchestrio` CLI command. Run from the repo root so that
+workflow paths like `yaml-workflows/workflows/cluster_info.yaml` resolve correctly.
+
+<details>
+<summary>One-liner install (requires public repo access)</summary>
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/NetApp/orchestrio/main/yaml-workflows/install.sh | bash
+```
+
+The script detects `pipx` or falls back to `pip`, checks for Python 3.11+, and
+installs the `orchestrio` command directly from the Git repository.
 </details>
 
 ---

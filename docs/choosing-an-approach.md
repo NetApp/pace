@@ -66,7 +66,7 @@ Notes:
 
 | | Python | Ansible | Terraform | YAML Workflows |
 |---|---|---|---|---|
-| **Install** | `pip install requests` | `pip install ansible` + `ansible-galaxy collection install netapp.ontap` | Download binary + `terraform init` | `pip install orchestrio` |
+| **Install** | `pip install requests` | `pip install ansible` + `ansible-galaxy collection install netapp.ontap` | Download binary + `terraform init` | `git clone` + `pip install -e .` ([details](orchestrio.md#install)) |
 | **Config files needed** | 1 (script) + env | Inventory + group_vars + playbook | main.tf + variables.tf + tfvars | 1 (workflow YAML) |
 | **Time to first run** | ~5 minutes | ~10 minutes | ~10 minutes | ~2 minutes |
 
