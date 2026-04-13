@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  # ── Lint + format + schema validation ─────────────────────────
+  # ── Lint executor + Python examples ──────────────────────────
   validate-and-lint:
     runs-on: ubuntu-latest
     steps:
@@ -24,11 +24,17 @@ jobs:
         run: pip install -e ".[dev]" jsonschema
         working-directory: yaml-workflows/executor
 
-      - name: Ruff lint
+      - name: Ruff lint — executor
         run: ruff check yaml-workflows/executor/orchestrio/
 
-      - name: Ruff format check
+      - name: Ruff lint — Python examples
+        run: ruff check python/
+
+      - name: Ruff format check — executor
         run: ruff format --check yaml-workflows/executor/
+
+      - name: Ruff format check — Python examples
+        run: ruff format --check python/
 
       - name: Validate workflow YAML against schema
         run: |
@@ -82,3 +88,25 @@ jobs:
 
       - name: Run tests
         run: pytest yaml-workflows/executor/tests/ -v
+
+  # ── Example README check ─────────────────────────────────────
+  check-readmes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Verify example directories have READMEs
+        run: |
+          ERRORS=0
+          for dir in python ansible terraform; do
+            if [ ! -f "$dir/README.md" ]; then
+              echo "::error::Missing README.md in $dir/"
+              ERRORS=$((ERRORS + 1))
+            else
+              echo "  OK  $dir/README.md"
+            fi
+          done
+          if [ "$ERRORS" -gt 0 ]; then
+            echo "$ERRORS directory(ies) missing README.md"
+            exit 1
+          fi

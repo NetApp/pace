@@ -18,7 +18,7 @@ permissions:
   contents: read
 
 jobs:
-  # ── Python examples: ruff lint + format check ────────────────
+  # ── Python examples: compile + ruff lint + format check ──────
   python-lint:
     runs-on: ubuntu-latest
     steps:
@@ -29,7 +29,10 @@ jobs:
           python-version: "3.11"
 
       - name: Install ruff
-        run: pip install ruff>=0.3
+        run: pip install "ruff>=0.3"
+
+      - name: Compile check Python examples
+        run: python -m py_compile python/*.py
 
       - name: Lint Python examples
         run: ruff check python/
@@ -56,7 +59,6 @@ jobs:
       - name: Syntax check playbooks
         run: |
           for f in ansible/*.yml; do
-            # Skip requirements.yml — it is not a playbook
             [ "$(basename "$f")" = "requirements.yml" ] && continue
             echo "Checking $f …"
             ansible-playbook --syntax-check "$f" -i ansible/inventory/hosts.yml
@@ -64,9 +66,8 @@ jobs:
 
       - name: Run ansible-lint
         run: ansible-lint ansible/*.yml --exclude ansible/requirements.yml
-        continue-on-error: true
 
-  # ── Terraform examples: fmt check + validate ─────────────────
+  # ── Terraform examples: fmt + validate + tflint ──────────────
   terraform-validate:
     runs-on: ubuntu-latest
     steps:
@@ -76,7 +77,11 @@ jobs:
         with:
           terraform_version: "1.7"
 
-      - name: Format check and validate Terraform examples
+      - name: Install tflint
+        run: |
+          curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+
+      - name: Format check, validate, and lint Terraform examples
         run: |
           ERRORS=0
           for dir in terraform/*/; do
@@ -95,6 +100,11 @@ jobs:
             if ! terraform -chdir="$dir" validate; then
               echo "  FAIL: terraform validate"
               ERRORS=$((ERRORS + 1))
+            fi
+
+            echo "  tflint …"
+            if ! tflint --chdir="$dir" --no-color; then
+              echo "  WARN: tflint reported issues"
             fi
 
             echo ""

@@ -1,10 +1,16 @@
-name: CI
+name: CI — Orchestrio Executor
 
 on:
   push:
     branches: [main]
+    paths:
+      - "yaml-workflows/executor/**"
+      - "yaml-workflows/workflow-spec/**"
   pull_request:
     branches: [main]
+    paths:
+      - "yaml-workflows/executor/**"
+      - "yaml-workflows/workflow-spec/**"
 
 permissions:
   contents: read
@@ -32,6 +38,9 @@ jobs:
 
       - name: Lint
         run: ruff check orchestrio/
+
+      - name: Format check
+        run: ruff format --check .
 
       - name: Test
         run: pytest -v
