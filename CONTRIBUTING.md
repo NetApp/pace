@@ -66,15 +66,16 @@ auth patterns, async job handling, and standard environment variables.
 
 PRs are validated by several GitHub Actions workflows:
 
-| What | Workflow | Scope |
-|------|----------|-------|
-| **Python lint** | `validate-examples.yml` | `ruff check python/`, `ruff format --check python/`, `py_compile` |
-| **Ansible lint** | `validate-examples.yml` | `ansible-playbook --syntax-check`, `ansible-lint` |
-| **Terraform lint** | `validate-examples.yml` | `terraform fmt -check`, `terraform validate`, `tflint` |
-| **Executor lint + tests** | `ci.yml` | `ruff check`, `pytest` (only on `yaml-workflows/` changes) |
-| **Schema validation** | `pr-checks.yml` | YAML workflows against `yaml-workflows/workflow-spec/v1/schema.json` |
-| **README check** | `pr-checks.yml` | Verifies `python/`, `ansible/`, `terraform/` each have a `README.md` |
-| **Secret scan** | `review-bot.yml` | Blocks `.env` files and known secret patterns in diffs |
+| What | Workflow | Trigger | Scope |
+|------|----------|---------|-------|
+| **Python lint** | `validate-examples.yml` | Every PR | `ruff check python/`, `ruff format --check python/`, `py_compile` |
+| **Ansible lint** | `validate-examples.yml` | Every PR | `ansible-playbook --syntax-check`, `ansible-lint` |
+| **Terraform lint** | `validate-examples.yml` | Every PR | `terraform fmt -check`, `terraform validate`, `tflint` |
+| **Executor lint + tests** | `pr-checks.yml` | Every PR | `ruff check` on executor + `python/`, `pytest` on executor tests |
+| **Executor deep CI** | `ci.yml` | `yaml-workflows/**` changes only | Additional `ruff` + `pytest` run scoped to the executor |
+| **Schema validation** | `pr-checks.yml` | Every PR | YAML workflows against `yaml-workflows/workflow-spec/v1/schema.json` |
+| **README check** | `pr-checks.yml` | Every PR | Verifies `python/`, `ansible/`, `terraform/` each have a `README.md` |
+| **Secret scan** | `review-bot.yml` | Every PR | Blocks `.env` files and known secret patterns in diffs |
 
 All lint checks are **hard gates** — PRs must pass before merge.
 

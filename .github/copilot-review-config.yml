@@ -40,6 +40,6 @@ review:
 
     - path: "yaml-workflows/workflow-spec/**"
       instructions: >-
-        Schema changes affect all executors. Verify backward
+        Schema changes affect the executor. Verify backward
         compatibility — new fields should have defaults, existing
         required fields must not be removed.
