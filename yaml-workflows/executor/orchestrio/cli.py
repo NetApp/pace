@@ -96,7 +96,7 @@ def _print_summary(result: WorkflowResult) -> None:
     "-L",
     type=click.Path(path_type=Path),
     default=None,
-    help="Path for the structured JSONL log file.  Defaults to logs/run-<id>.log.jsonl.",
+    help="Path for the structured JSONL log file.  Defaults to yaml-workflows/logs/run-<id>.log.jsonl.",
 )
 @click.option(
     "--no-log",
@@ -153,7 +153,8 @@ def run(
         if log_file:
             resolved_log = log_file
         else:
-            logs_dir = Path("logs")
+            yaml_workflows_root = Path(__file__).resolve().parents[2]
+            logs_dir = yaml_workflows_root / "logs"
             logs_dir.mkdir(exist_ok=True)
             resolved_log = logs_dir / f"run-{run_id}.log.jsonl"
         with RunLogger(resolved_log, run_id) as rlog:

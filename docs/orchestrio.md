@@ -94,7 +94,7 @@ orchestrio run yaml-workflows/workflows/cluster_info.yaml -E yaml-workflows/work
 | `--verbose` | `-v` | DEBUG-level logging (on any command) |
 | `--env-file <path>` | `-E` | Load env vars from `.env` / `.yaml` / `.json`. Repeatable; later files win. |
 | `--env KEY=VALUE` | `-e` | Set an env var inline. Repeatable; overrides `--env-file` and YAML defaults. |
-| `--log-file <path>` | `-L` | Path for the structured JSONL run log. Defaults to `logs/run-<id>.log.jsonl`. |
+| `--log-file <path>` | `-L` | Path for the structured JSONL run log. Defaults to `yaml-workflows/logs/run-<id>.log.jsonl`. |
 | `--no-log` | | Disable JSONL log file output entirely. |
 
 ### Environment variable precedence

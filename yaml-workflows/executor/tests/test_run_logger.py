@@ -392,11 +392,12 @@ class TestCLILogging:
         runner = CliRunner()
         result = runner.invoke(cli, ["run", str(wf_file)])
         assert result.exit_code == 0
-        assert "Log written to logs/" in result.output
-        logs_dir = tmp_path / "logs"
-        assert logs_dir.is_dir()
-        log_files = list(logs_dir.glob("run-*.log.jsonl"))
-        assert len(log_files) == 1
+        assert "Log written to" in result.output
+        assert "logs/" in result.output
+        yaml_wf_logs = Path(__file__).resolve().parents[2] / "logs"
+        assert yaml_wf_logs.is_dir()
+        log_files = list(yaml_wf_logs.glob("run-*.log.jsonl"))
+        assert len(log_files) >= 1
 
     def test_dry_run_no_log_file(self, tmp_path: Path):
         wf_file = tmp_path / "wf.yaml"

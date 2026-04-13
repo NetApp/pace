@@ -3,8 +3,8 @@
 ## Project overview
 
 This repository contains ONTAP automation examples in Python, Ansible, and Terraform,
-alongside Orchestrio — a no-code/low-code CLI tool for automating NetApp resource
-workflows using ONTAP REST APIs. The workflow spec is language-agnostic (YAML/JSON);
+alongside Orchestrio — a declarative YAML workflow CLI for automating NetApp ONTAP
+REST API operations. The workflow spec is language-agnostic (YAML/JSON);
 the Python package under `yaml-workflows/executor/` is the reference executor.
 
 ## Key concepts

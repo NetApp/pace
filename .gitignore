@@ -38,7 +38,7 @@ htmlcov/
 
 # Logs
 *.log
-logs/*.jsonl
+yaml-workflows/logs/*.jsonl
 
 # Terraform
 .terraform/
