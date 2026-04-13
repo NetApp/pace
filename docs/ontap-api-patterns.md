@@ -1,7 +1,8 @@
-# ONTAP REST API Patterns for Orchestrio
+# ONTAP REST API Patterns
 
-Canonical reference for ONTAP REST API conventions used across all Orchestrio
-workflows, step fragments, and prompts. For the full API specification, see the
+Canonical reference for ONTAP REST API conventions used across all automation
+examples in this repository (Python, Ansible, Terraform, and YAML workflows).
+For the full API specification, see the
 [ONTAP REST API documentation](https://docs.netapp.com/us-en/ontap-restapi/swagger-ui/index.html).
 
 ## Base URL

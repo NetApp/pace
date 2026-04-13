@@ -1,8 +1,13 @@
 # Python Script Examples
 
 Plain Python scripts that automate ONTAP workflows using the REST API with the
-`requests` library. For the equivalent low-code YAML approach, see the
-[`yaml-workflows/workflows/`](../yaml-workflows/workflows/) directory.
+`requests` library. Each script is self-contained and designed to be copied,
+adapted, and used in production.
+
+For ONTAP REST API conventions (endpoints, auth, headers, async jobs), see the
+[ONTAP API patterns guide](../docs/ontap-api-patterns.md).
+To compare this approach with Ansible, Terraform, or YAML workflows, see
+[Choosing an approach](../docs/choosing-an-approach.md).
 
 ---
 
@@ -23,8 +28,7 @@ pip install -r requirements.txt
 
 ## Configuration
 
-All scripts read connection details from environment variables. Set them
-before running:
+All scripts read connection details from environment variables:
 
 ```bash
 export ONTAP_HOST=10.0.0.1       # cluster management LIF
@@ -60,12 +64,6 @@ Retrieve the cluster version and list all nodes with serial numbers.
 python cluster_info.py
 ```
 
-**Equivalent Orchestrio command:**
-
-```bash
-orchestrio run workflows/cluster_info.yaml -E cluster.env
-```
-
 ### NFS Volume Provisioning
 
 Create a FlexVol volume, set up an NFS export policy with a client rule, and
@@ -82,15 +80,6 @@ python nfs_provision.py \
 
 All flags can also be set via environment variables (`SVM_NAME`, `VOLUME_NAME`,
 `VOLUME_SIZE`, `AGGR_NAME`, `CLIENT_MATCH`).
-
-**Equivalent Orchestrio command:**
-
-```bash
-orchestrio run workflows/nfs_provision.yaml -E cluster.env \
-    -e VOLUME_NAME=vol_nfs_test_01 \
-    -e VOLUME_SIZE=100MB \
-    -e AGGR_NAME=aggr1
-```
 
 ---
 

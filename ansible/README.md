@@ -2,8 +2,13 @@
 
 Ansible playbooks that automate ONTAP workflows using the
 [`netapp.ontap`](https://galaxy.ansible.com/ui/repo/published/netapp/ontap/)
-Galaxy collection. For the equivalent low-code YAML approach, see the
-[`yaml-workflows/workflows/`](../yaml-workflows/workflows/) directory.
+Galaxy collection. Each playbook is self-contained and designed to be copied,
+adapted, and used in production.
+
+For ONTAP REST API conventions (endpoints, auth, headers, async jobs), see the
+[ONTAP API patterns guide](../docs/ontap-api-patterns.md).
+To compare this approach with Python, Terraform, or YAML workflows, see
+[Choosing an approach](../docs/choosing-an-approach.md).
 
 ---
 
@@ -69,12 +74,6 @@ Retrieve the cluster version and list all nodes with serial numbers.
 ansible-playbook -i inventory/hosts.yml cluster_info.yml
 ```
 
-**Equivalent Orchestrio command:**
-
-```bash
-orchestrio run workflows/cluster_info.yaml -E cluster.env
-```
-
 ### NFS Volume Provisioning
 
 Create a FlexVol volume, set up an NFS export policy with a client rule, and
@@ -92,15 +91,6 @@ ansible-playbook -i inventory/hosts.yml nfs_provision.yml \
     -e volume_size=200 \
     -e aggregate_name=aggr1 \
     -e client_match=10.0.0.0/8
-```
-
-**Equivalent Orchestrio command:**
-
-```bash
-orchestrio run workflows/nfs_provision.yaml -E cluster.env \
-    -e VOLUME_NAME=vol_nfs_demo \
-    -e VOLUME_SIZE=200MB \
-    -e AGGR_NAME=aggr1
 ```
 
 ---
