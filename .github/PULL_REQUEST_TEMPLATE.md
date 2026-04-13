@@ -9,10 +9,10 @@
 ## Checklist
 
 - [ ] No secrets, credentials, or API tokens in code or config
-- [ ] Workflow YAML validates against `workflow-spec/v1/schema.json`
-- [ ] Linting passes (`ruff check executors/python/orchestrio/`)
-- [ ] Formatting passes (`ruff format --check executors/python/`)
-- [ ] Tests pass (`pytest executors/python/tests/ -v`)
+- [ ] Workflow YAML validates against `yaml-workflows/workflow-spec/v1/schema.json`
+- [ ] Linting passes (`ruff check yaml-workflows/executor/orchestrio/`)
+- [ ] Formatting passes (`ruff format --check yaml-workflows/executor/`)
+- [ ] Tests pass (`pytest yaml-workflows/executor/tests/ -v`)
 - [ ] Manually tested with an example workflow (if applicable)
 
 ## Related issues

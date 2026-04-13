@@ -1,11 +1,8 @@
 # Python Script Examples
 
 Plain Python scripts that automate ONTAP workflows using the REST API with the
-`requests` library. These are the "traditional" equivalent of the low-code YAML
-workflows in [`workflows/`](../../workflows/).
-
-> **Prefer the YAML approach?** See the root [README](../../README.md) for
-> Orchestrio's low-code alternative — the same operations in ~15 lines of YAML.
+`requests` library. For the equivalent low-code YAML approach, see the
+[`yaml-workflows/workflows/`](../yaml-workflows/workflows/) directory.
 
 ---
 
@@ -18,7 +15,7 @@ workflows in [`workflows/`](../../workflows/).
 ## Setup
 
 ```bash
-cd automation-examples/python
+cd python
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt

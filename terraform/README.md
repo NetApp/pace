@@ -2,12 +2,8 @@
 
 Terraform configurations that manage ONTAP resources using the
 [NetApp ONTAP provider](https://registry.terraform.io/providers/NetApp/netapp-ontap/latest).
-These are the "traditional" equivalent of the low-code YAML workflows in
-[`workflows/`](../../workflows/).
-
-> **Prefer the YAML approach?** See the root [README](../../README.md) for
-> Orchestrio's low-code alternative — the same operations in ~15 lines of YAML
-> with no state file management.
+For the equivalent low-code YAML approach, see the
+[`yaml-workflows/workflows/`](../yaml-workflows/workflows/) directory.
 
 ---
 
@@ -26,7 +22,7 @@ Each use case is a self-contained Terraform root module in its own directory.
 The workflow is the same for each:
 
 ```bash
-cd automation-examples/terraform/cluster-info   # or nfs-provision
+cd terraform/cluster-info   # or nfs-provision
 
 # 1. Configure variables
 cp terraform.tfvars.example terraform.tfvars

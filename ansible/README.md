@@ -2,12 +2,8 @@
 
 Ansible playbooks that automate ONTAP workflows using the
 [`netapp.ontap`](https://galaxy.ansible.com/ui/repo/published/netapp/ontap/)
-Galaxy collection. These are the "traditional" equivalent of the low-code YAML
-workflows in [`workflows/`](../../workflows/).
-
-> **Prefer the YAML approach?** See the root [README](../../README.md) for
-> Orchestrio's low-code alternative — the same operations in ~15 lines of YAML
-> with zero Ansible infrastructure.
+Galaxy collection. For the equivalent low-code YAML approach, see the
+[`yaml-workflows/workflows/`](../yaml-workflows/workflows/) directory.
 
 ---
 
@@ -21,7 +17,7 @@ workflows in [`workflows/`](../../workflows/).
 ## Setup
 
 ```bash
-cd automation-examples/ansible
+cd ansible
 
 # Install the NetApp ONTAP collection from Galaxy
 ansible-galaxy collection install -r requirements.yml

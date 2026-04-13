@@ -25,6 +25,6 @@ description = "Files that contain intentional placeholder values, not real secre
 paths = [
     '''\.env\.example$''',
     '''cluster_info\.env\.example$''',
-    '''executors/python/tests/.*''',
+    '''yaml-workflows/executor/tests/.*''',
     '''\.gitleaks\.toml$''',
 ]

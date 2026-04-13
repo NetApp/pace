@@ -25,7 +25,7 @@ That's it. The script detects `pipx` or falls back to `pip`, checks for Python 3
 
 ```bash
 git clone https://github.com/NetApp/orchestrio.git
-cd orchestrio/executors/python
+cd yaml-workflows/executor
 pip install -e ".[dev]"
 ```
 </details>
@@ -33,7 +33,7 @@ pip install -e ".[dev]"
 ### 2. Run Your First Workflow (30 seconds)
 
 ```bash
-orchestrio run examples/hello.yaml
+orchestrio run yaml-workflows/examples/hello.yaml
 ```
 
 This runs a two-step workflow -- fetches a joke from a public API, then echoes a message:
@@ -63,7 +63,7 @@ steps:
 Steps can reference output from earlier steps using `{{ steps.<name>.<path> }}`:
 
 ```bash
-orchestrio run examples/chained.yaml
+orchestrio run yaml-workflows/examples/chained.yaml
 ```
 
 ```yaml
@@ -92,9 +92,9 @@ The output of `get_user` feeds directly into `get_user_posts` -- no glue code ne
 ### 4. Use with ONTAP (30 seconds)
 
 ```bash
-cp workflows/cluster_info.env.example workflows/cluster_info.env
+cp yaml-workflows/workflows/cluster_info.env.example yaml-workflows/workflows/cluster_info.env
 # edit cluster_info.env with your ONTAP host, user, password
-orchestrio run workflows/cluster_info.yaml -E workflows/cluster_info.env
+orchestrio run yaml-workflows/workflows/cluster_info.yaml -E yaml-workflows/workflows/cluster_info.env
 ```
 
 Credentials stay in the env file, the workflow stays clean:
@@ -119,7 +119,7 @@ steps:
 
 - Preview without executing: `orchestrio run workflow.yaml --dry-run`
 - Step through interactively: `orchestrio run workflow.yaml --interactive`
-- Browse more [examples](examples/) and [real-world workflows](workflows/)
+- Browse more [examples](yaml-workflows/examples/) and [real-world workflows](yaml-workflows/workflows/)
 - Create a [custom plugin](#custom-plugins)
 - Read the full [CLI Reference](#cli-reference) below
 
@@ -139,7 +139,7 @@ pick the approach that fits your team.
 | **State management** | Stateless | You manage it | Idempotent modules | Full state tracking |
 | **Best for** | Rapid automation, CI/CD | Custom logic, integrations | Fleet ops, config management | Infrastructure lifecycle |
 
-Browse the examples: **[automation-examples/](automation-examples/)** |
+Browse the examples: **[python/](python/)** | **[ansible/](ansible/)** | **[terraform/](terraform/)** |
 Read the detailed guide: **[docs/choosing-an-approach.md](docs/choosing-an-approach.md)**
 
 ---
@@ -151,25 +151,24 @@ Read the detailed guide: **[docs/choosing-an-approach.md](docs/choosing-an-appro
 | **Workflow** | A named, versioned sequence of steps defined in a single YAML file. The top-level unit of execution. | `workflows/` (production) or `examples/` (demos) |
 | **Step** | The atomic unit of work. Each step has a `name`, a `type` (`http`, `shell`, or custom), and a `config` dict. | Inline inside a workflow YAML |
 | **Step Fragment** | A standalone YAML file containing one reusable step, imported via `include:`. Think of it as a function you call from any workflow. | `steps/` |
-| **Plugin** | The executor behind a step type. Built-in: `http` (REST calls), `shell` (subprocess). Extend by subclassing `StepPlugin`. | `executors/python/orchestrio/plugins/` |
+| **Plugin** | The executor behind a step type. Built-in: `http` (REST calls), `shell` (subprocess). Extend by subclassing `StepPlugin`. | `yaml-workflows/executor/orchestrio/plugins/` |
 | **Template** | A `{{ }}` expression resolved at runtime. Two forms: `{{ steps.<name>.<path> }}` (output of a prior step) and `{{ env.KEY }}` (environment variable). | Inside any string value in `config` |
 | **Defaults** | Type-level config merged into every step of that type. Avoids repeating headers, auth, timeouts across steps. | `defaults:` block at workflow root |
 
 ### Folder conventions
 
 ```
-orchestrio/
-├── workflows/              # complete, runnable workflow files
-├── steps/                  # reusable step fragments (imported via include:)
-├── examples/               # tutorial / demo workflows
-├── workflow-spec/          # language-agnostic JSON schema (versioned)
-├── executors/              # language-specific CLI implementations
-│   └── python/             #   Python reference executor
-├── automation-examples/    # equivalent examples in Python, Ansible, Terraform
-│   ├── python/
-│   ├── ansible/
-│   └── terraform/
-└── docs/                   # guides and comparison documentation
+os_orchestrio/
+├── python/                 # Python script examples
+├── ansible/                # Ansible playbook examples
+├── terraform/              # Terraform module examples
+├── yaml-workflows/         # Declarative YAML workflow executor (Orchestrio CLI)
+│   ├── executor/           #   Python CLI package
+│   ├── workflows/          #   Complete, runnable workflow files
+│   ├── steps/              #   Reusable step fragments (imported via include:)
+│   ├── examples/           #   Tutorial / demo workflows
+│   └── workflow-spec/      #   Language-agnostic JSON schema (versioned)
+└── docs/                   # Guides and comparison documentation
 ```
 
 Step names inside YAML follow `snake_case`: `get_cluster`, `poll_job`, `discover_nodes`.
@@ -180,12 +179,13 @@ Step fragment files mirror the name: `ontap_get_cluster.yaml`, `ontap_poll_job.y
 ## Architecture
 
 ```
-orchestrio/
-├── workflow-spec/v1/schema.json   # language-agnostic schema
-├── examples/                      # sample workflows
-├── workflows/                     # real-world workflow samples
-└── executors/python/              # Python reference executor
-    └── orchestrio/
+os_orchestrio/
+├── yaml-workflows/
+│   ├── workflow-spec/v1/schema.json   # language-agnostic schema
+│   ├── examples/                      # sample workflows
+│   ├── workflows/                     # real-world workflow samples
+│   └── executor/                      # Python reference executor
+│       └── orchestrio/
         ├── cli.py                 # Click CLI entry point
         ├── engine.py              # template resolution + step orchestration
         ├── parser.py              # YAML / JSON loader
@@ -211,7 +211,7 @@ flowchart LR
 
 ### How it works
 
-1. You write a workflow in YAML (or JSON) following the [spec](workflow-spec/v1/schema.json).
+1. You write a workflow in YAML (or JSON) following the [spec](yaml-workflows/workflow-spec/v1/schema.json).
 2. The executor parses it, resolves templates, and runs each step via plugins (`http`, `shell`, etc.).
 3. Steps can reference outputs from earlier steps with `{{ steps.<name>.<path> }}` templates.
 4. Failed steps can be retried automatically and the workflow can continue or stop on failure.
@@ -303,10 +303,10 @@ Reference earlier step outputs with `{{ steps.<step_name>.<path> }}`:
 
 | File | What it demonstrates |
 |---|---|
-| [hello.yaml](examples/hello.yaml) | Minimal workflow — HTTP call + shell echo |
-| [chained.yaml](examples/chained.yaml) | Step chaining via template references |
-| [cluster_info.yaml](workflows/cluster_info.yaml) | ONTAP cluster info retrieval |
-| [cluster_setup_basic.yaml](workflows/cluster_setup_basic.yaml) | Full cluster setup with polling |
+| [hello.yaml](yaml-workflows/examples/hello.yaml) | Minimal workflow — HTTP call + shell echo |
+| [chained.yaml](yaml-workflows/examples/chained.yaml) | Step chaining via template references |
+| [cluster_info.yaml](yaml-workflows/workflows/cluster_info.yaml) | ONTAP cluster info retrieval |
+| [cluster_setup_basic.yaml](yaml-workflows/workflows/cluster_setup_basic.yaml) | Full cluster setup with polling |
 
 ### Real-world example — ONTAP cluster info
 

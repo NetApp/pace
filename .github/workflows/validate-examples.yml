@@ -4,11 +4,15 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "automation-examples/**"
+      - "python/**"
+      - "ansible/**"
+      - "terraform/**"
   push:
     branches: [main]
     paths:
-      - "automation-examples/**"
+      - "python/**"
+      - "ansible/**"
+      - "terraform/**"
 
 permissions:
   contents: read
@@ -28,10 +32,10 @@ jobs:
         run: pip install ruff>=0.3
 
       - name: Lint Python examples
-        run: ruff check automation-examples/python/
+        run: ruff check python/
 
       - name: Format check Python examples
-        run: ruff format --check automation-examples/python/
+        run: ruff format --check python/
 
   # ── Ansible examples: syntax check + ansible-lint ────────────
   ansible-lint:
@@ -47,19 +51,19 @@ jobs:
         run: pip install ansible ansible-lint
 
       - name: Install NetApp ONTAP collection
-        run: ansible-galaxy collection install -r automation-examples/ansible/requirements.yml
+        run: ansible-galaxy collection install -r ansible/requirements.yml
 
       - name: Syntax check playbooks
         run: |
-          for f in automation-examples/ansible/*.yml; do
+          for f in ansible/*.yml; do
             # Skip requirements.yml — it is not a playbook
             [ "$(basename "$f")" = "requirements.yml" ] && continue
             echo "Checking $f …"
-            ansible-playbook --syntax-check "$f" -i automation-examples/ansible/inventory/hosts.yml
+            ansible-playbook --syntax-check "$f" -i ansible/inventory/hosts.yml
           done
 
       - name: Run ansible-lint
-        run: ansible-lint automation-examples/ansible/*.yml --exclude automation-examples/ansible/requirements.yml
+        run: ansible-lint ansible/*.yml --exclude ansible/requirements.yml
         continue-on-error: true
 
   # ── Terraform examples: fmt check + validate ─────────────────
@@ -75,7 +79,7 @@ jobs:
       - name: Format check and validate Terraform examples
         run: |
           ERRORS=0
-          for dir in automation-examples/terraform/*/; do
+          for dir in terraform/*/; do
             echo "=== $(basename "$dir") ==="
 
             echo "  fmt check …"

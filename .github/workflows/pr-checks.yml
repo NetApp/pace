@@ -22,13 +22,13 @@ jobs:
 
       - name: Install dependencies
         run: pip install -e ".[dev]" jsonschema
-        working-directory: executors/python
+        working-directory: yaml-workflows/executor
 
       - name: Ruff lint
-        run: ruff check executors/python/orchestrio/
+        run: ruff check yaml-workflows/executor/orchestrio/
 
       - name: Ruff format check
-        run: ruff format --check executors/python/
+        run: ruff format --check yaml-workflows/executor/
 
       - name: Validate workflow YAML against schema
         run: |
@@ -36,12 +36,12 @@ jobs:
           import json, sys, glob, yaml
           from jsonschema import validate, ValidationError
 
-          with open("workflow-spec/v1/schema.json") as f:
+          with open("yaml-workflows/workflow-spec/v1/schema.json") as f:
               schema = json.load(f)
 
           files = sorted(
-              glob.glob("examples/*.yaml")
-              + glob.glob("workflows/*.yaml")
+              glob.glob("yaml-workflows/examples/*.yaml")
+              + glob.glob("yaml-workflows/workflows/*.yaml")
           )
 
           if not files:
@@ -78,7 +78,7 @@ jobs:
 
       - name: Install dependencies
         run: pip install -e ".[dev]"
-        working-directory: executors/python
+        working-directory: yaml-workflows/executor
 
       - name: Run tests
-        run: pytest executors/python/tests/ -v
+        run: pytest yaml-workflows/executor/tests/ -v

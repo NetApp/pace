@@ -18,7 +18,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: executors/python
+        working-directory: yaml-workflows/executor
 
     steps:
       - uses: actions/checkout@v5

@@ -1,15 +1,16 @@
 # Default — catches anything not matched below
-*                   @hvinn
+*                          @hvinn
+
+# Primary: automation examples
+/python/                   @hvinn
+/ansible/                  @hvinn
+/terraform/                @hvinn
+
+# YAML workflow executor (Orchestrio CLI)
+/yaml-workflows/                 @hvinn
 
 # Workflow spec (schema changes need careful review)
-/workflow-spec/     @hvinn
-
-# Python reference executor
-/executors/python/  @hvinn
+/yaml-workflows/workflow-spec/   @hvinn
 
 # CI / GitHub config (protect the pipeline itself)
-/.github/           @hvinn
-
-# Workflow and step definitions
-/workflows/         @hvinn
-/steps/             @hvinn
+/.github/                  @hvinn

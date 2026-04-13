@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO="https://github.com/NetApp/orchestrio.git"
-PKG="orchestrio @ git+${REPO}#subdirectory=executors/python"
+PKG="orchestrio @ git+${REPO}#subdirectory=yaml-workflows/executor"
 MIN_PY="3.11"
 
 die()  { printf '\033[1;31mError:\033[0m %s\n' "$1" >&2; exit 1; }
@@ -38,7 +38,7 @@ if command -v orchestrio >/dev/null 2>&1; then
   echo ""
   echo "  Try it now:"
   echo ""
-  echo "    orchestrio run examples/hello.yaml"
+  echo "    orchestrio run yaml-workflows/examples/hello.yaml"
   echo ""
 else
   ok "Install finished. You may need to add ~/.local/bin to your PATH:"

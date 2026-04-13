@@ -1,15 +1,10 @@
 # Automation Examples — Choose Your Approach
 
-This directory contains equivalent ONTAP automation examples implemented in
+This repository contains equivalent ONTAP automation examples implemented in
 **Python**, **Ansible**, and **Terraform**. Each example mirrors a workflow
-already available as low-code YAML in the parent repo's
-[`workflows/`](../workflows/) directory, so you can compare approaches
-side-by-side and pick the one that fits your team.
-
-> **Orchestrio's low-code YAML workflows are the recommended starting point.**
-> The examples here show the traditional scripting equivalent — useful for teams
-> that already have investment in a specific toolchain or need capabilities
-> beyond what declarative YAML provides.
+already available as low-code YAML in the
+[`yaml-workflows/workflows/`](../yaml-workflows/workflows/) directory, so you can compare
+approaches side-by-side and pick the one that fits your team.
 
 ---
 
@@ -28,7 +23,7 @@ side-by-side and pick the one that fits your team.
 
 ## When to Use What
 
-### Orchestrio YAML — start here
+### Orchestrio YAML
 
 Use Orchestrio when you want to automate ONTAP REST API workflows with
 **minimal code**. Write a YAML file, run `orchestrio run`, done. Best when:
@@ -39,7 +34,7 @@ Use Orchestrio when you want to automate ONTAP REST API workflows with
 - You want CI/CD-friendly automation without writing glue code
 
 ```yaml
-# workflows/cluster_info.yaml — 15 lines, zero code
+# yaml-workflows/workflows/cluster_info.yaml — 15 lines, zero code
 name: cluster_info
 version: "1"
 env:
@@ -57,7 +52,7 @@ steps:
 ```
 
 ```bash
-orchestrio run workflows/cluster_info.yaml -E cluster.env
+orchestrio run yaml-workflows/workflows/cluster_info.yaml -E cluster.env
 ```
 
 ### Python scripts — when you need full control
@@ -69,7 +64,7 @@ Use plain Python when your workflow has **complex conditional logic**,
 - You are integrating with other Python libraries or internal tools
 - Your team already has Python expertise and existing code to build on
 
-See: [python/](python/)
+See: [python/](../python/)
 
 ### Ansible playbooks — when you manage fleets
 
@@ -80,7 +75,7 @@ across hosts and want ONTAP automation to fit into that workflow. Best when:
 - You want idempotent operations (run the same playbook repeatedly, safely)
 - Your team already uses Ansible Tower / AWX for orchestration
 
-See: [ansible/](ansible/)
+See: [ansible/](../ansible/)
 
 ### Terraform — when infrastructure is code
 
@@ -91,7 +86,7 @@ and want plan/apply lifecycle management. Best when:
 - You need drift detection and state management
 - Your team already uses Terraform for infrastructure provisioning
 
-See: [terraform/](terraform/)
+See: [terraform/](../terraform/)
 
 ---
 
@@ -101,8 +96,8 @@ Each approach implements the same use cases for direct comparison:
 
 | Use Case | Orchestrio YAML | Python | Ansible | Terraform |
 |---|---|---|---|---|
-| **Cluster info** — retrieve cluster version and node list | [`workflows/cluster_info.yaml`](../workflows/cluster_info.yaml) | [`cluster_info.py`](python/cluster_info.py) | [`cluster_info.yml`](ansible/cluster_info.yml) | [`cluster-info/`](terraform/cluster-info/) |
-| **NFS provision** — create volume, export policy, assign policy | [`workflows/nfs_provision.yaml`](../workflows/nfs_provision.yaml) | [`nfs_provision.py`](python/nfs_provision.py) | [`nfs_provision.yml`](ansible/nfs_provision.yml) | [`nfs-provision/`](terraform/nfs-provision/) |
+| **Cluster info** — retrieve cluster version and node list | [`cluster_info.yaml`](../yaml-workflows/workflows/cluster_info.yaml) | [`cluster_info.py`](../python/cluster_info.py) | [`cluster_info.yml`](../ansible/cluster_info.yml) | [`cluster-info/`](../terraform/cluster-info/) |
+| **NFS provision** — create volume, export policy, assign policy | [`nfs_provision.yaml`](../yaml-workflows/workflows/nfs_provision.yaml) | [`nfs_provision.py`](../python/nfs_provision.py) | [`nfs_provision.yml`](../ansible/nfs_provision.yml) | [`nfs-provision/`](../terraform/nfs-provision/) |
 
 ---
 
@@ -117,29 +112,3 @@ All examples assume:
 Credentials are **never hardcoded** in any example. Each approach uses its
 native mechanism for secrets: environment variables, `.env` files, Ansible Vault,
 or Terraform variables marked `sensitive`.
-
----
-
-## Repository Structure
-
-```
-automation-examples/
-├── README.md              ← you are here
-├── python/                ← Python script equivalents
-│   ├── README.md
-│   ├── requirements.txt
-│   ├── ontap_client.py
-│   ├── cluster_info.py
-│   └── nfs_provision.py
-├── ansible/               ← Ansible playbook equivalents
-│   ├── README.md
-│   ├── requirements.yml
-│   ├── inventory/
-│   ├── group_vars/
-│   ├── cluster_info.yml
-│   └── nfs_provision.yml
-└── terraform/             ← Terraform config equivalents
-    ├── README.md
-    ├── cluster-info/
-    └── nfs-provision/
-```
