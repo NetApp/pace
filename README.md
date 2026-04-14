@@ -109,6 +109,21 @@ orchestrio/
 
 ---
 
+## SSL Verification
+
+All examples in this repo set SSL verification to **disabled** (`verify_ssl=false` /
+`validate_certs=false`) to support environments that use self-signed
+certificates. We recommend enabling SSL verification once CA-signed
+certificates are in place.
+
+| Tool | How to enable |
+|------|---------------|
+| **Python** | `export ONTAP_VERIFY_SSL=true` |
+| **Ansible** | `ontap_validate_certs: true` in `group_vars/ontap.yml` |
+| **Terraform** | `validate_certs = true` in `terraform.tfvars` |
+
+---
+
 ## License
 
 Apache-2.0 — see [LICENSE](LICENSE) for details.

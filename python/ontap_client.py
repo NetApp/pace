@@ -22,9 +22,11 @@ import urllib3
 
 logger = logging.getLogger("ontap_client")
 
-# ONTAP lab clusters commonly use self-signed certificates.  Suppress the
-# resulting InsecureRequestWarning when SSL verification is disabled so that
-# script output stays readable.
+# All examples in this repo disable SSL verification to support environments
+# that use self-signed certificates.  We recommend setting
+# ONTAP_VERIFY_SSL=true once CA-signed certificates are in place.  The
+# warning suppression below keeps script output readable when verification
+# is disabled.
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 _DEFAULT_TIMEOUT = 30
@@ -60,7 +62,8 @@ class OntapClient:
     password:
         ONTAP admin password.
     verify_ssl:
-        Set to ``False`` for self-signed certs (lab environments only).
+        Defaults to ``False`` to support self-signed certificates.
+        Set to ``True`` once CA-signed certificates are in place.
     timeout:
         Default request timeout in seconds.
     """

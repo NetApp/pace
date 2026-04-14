@@ -19,7 +19,7 @@ https://<cluster-management-ip-or-hostname>/api/<category>/<resource>
 |-------|-------|-------|
 | `username` | Admin user | Basic auth — typically `admin` |
 | `password` | Admin password | Never hardcode; use env vars or vault |
-| `verify_ssl` | `false` | Required for lab / self-signed certs |
+| `verify_ssl` | `false` | Supports self-signed certs; set `true` once CA-signed certs are in place |
 
 ## Standard Headers
 

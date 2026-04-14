@@ -4,4 +4,4 @@
 ontap_host     = "10.0.0.1"
 ontap_username = "admin"
 ontap_password = "CHANGEME"
-validate_certs = false
+validate_certs = false  # supports self-signed certs; set true once CA-signed certs are in place

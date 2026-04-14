@@ -16,7 +16,7 @@ variable "ontap_password" {
 }
 
 variable "validate_certs" {
-  description = "Validate TLS certificates (set false for self-signed certs in lab)"
+  description = "Validate TLS certificates — false to support self-signed certs; set true once CA-signed certs are in place"
   type        = bool
   default     = false
 }

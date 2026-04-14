@@ -52,7 +52,7 @@ ontap_hostname: "{{ inventory_hostname }}"
 ontap_username: admin
 ontap_password: your_password
 ontap_https: true
-ontap_validate_certs: false   # set true for CA-signed certificates
+ontap_validate_certs: false   # supports self-signed certs; set true once CA-signed certs are in place
 ```
 
 For production, encrypt the file with Ansible Vault:

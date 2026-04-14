@@ -49,8 +49,9 @@ ONTAP_PASS=your_password
 set -a && source cluster.env && set +a
 ```
 
-> SSL verification is disabled by default for lab environments with
-> self-signed certificates. Set `ONTAP_VERIFY_SSL=true` for production.
+> SSL verification is disabled by default to support environments that use
+> self-signed certificates. We recommend setting `ONTAP_VERIFY_SSL=true`
+> once CA-signed certificates are in place.
 
 ---
 
