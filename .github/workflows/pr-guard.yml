@@ -1,0 +1,68 @@
+name: PR Guard
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  commitlint:
+    name: Lint commit messages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: wagoid/commitlint-github-action@v6
+
+  secrets:
+    name: Scan for secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: TruffleHog scan
+        uses: trufflesecurity/trufflehog@v3
+        with:
+          extra_args: --only-verified
+
+  yaml-syntax:
+    name: Validate YAML syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Check changed YAML files
+        run: |
+          CHANGED_YAML=$(git diff --name-only --diff-filter=ACM origin/main...HEAD \
+            | grep '\.ya\?ml$' || true)
+
+          if [ -z "$CHANGED_YAML" ]; then
+            echo "No YAML files changed"
+            exit 0
+          fi
+
+          pip install -q pyyaml
+
+          ERRORS=0
+          while IFS= read -r f; do
+            if ! python -c "import yaml; yaml.safe_load(open('$f'))" 2>/dev/null; then
+              echo "::error file=$f::YAML syntax error in $f"
+              ERRORS=$((ERRORS + 1))
+            else
+              echo "  OK  $f"
+            fi
+          done <<< "$CHANGED_YAML"
+
+          [ "$ERRORS" -eq 0 ] || exit 1
