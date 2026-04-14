@@ -1,46 +1,114 @@
-name: CI — Orchestrio Executor
+name: CI
 
 on:
   push:
     branches: [main]
-    paths:
-      - "yaml-workflows/executor/**"
-      - "yaml-workflows/workflow-spec/**"
   pull_request:
     branches: [main]
-    paths:
-      - "yaml-workflows/executor/**"
-      - "yaml-workflows/workflow-spec/**"
 
 permissions:
   contents: read
 
 jobs:
-  lint-and-test:
+  lint:
+    name: Lint & format
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11", "3.12"]
-
-    defaults:
-      run:
-        working-directory: yaml-workflows/executor
-
     steps:
       - uses: actions/checkout@v5
 
       - uses: actions/setup-python@v6
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Install executor dev deps
         run: pip install -e ".[dev]"
+        working-directory: yaml-workflows/executor
 
-      - name: Lint
-        run: ruff check orchestrio/
+      - name: Ruff lint — executor
+        run: ruff check yaml-workflows/executor/orchestrio/
 
-      - name: Format check
-        run: ruff format --check .
+      - name: Ruff lint — Python examples
+        run: ruff check python/
 
-      - name: Test
+      - name: Ruff format check
+        run: ruff format --check yaml-workflows/executor/ python/
+
+      - name: Verify example directories have READMEs
+        run: |
+          ERRORS=0
+          for dir in python ansible terraform; do
+            if [ ! -f "$dir/README.md" ]; then
+              echo "::error::Missing README.md in $dir/"
+              ERRORS=$((ERRORS + 1))
+            else
+              echo "  OK  $dir/README.md"
+            fi
+          done
+          [ "$ERRORS" -eq 0 ] || exit 1
+
+  test:
+    name: Test (executor)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install executor dev deps
+        run: pip install -e ".[dev]"
+        working-directory: yaml-workflows/executor
+
+      - name: Run tests
         run: pytest -v
+        working-directory: yaml-workflows/executor
+
+  schema-validate:
+    name: Validate YAML schemas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install schema deps
+        run: pip install pyyaml jsonschema
+
+      - name: Validate workflow YAML against schema
+        run: |
+          python - <<'SCRIPT'
+          import json, sys, glob, yaml
+          from jsonschema import validate, ValidationError
+
+          with open("yaml-workflows/workflow-spec/v1/schema.json") as f:
+              schema = json.load(f)
+
+          files = sorted(
+              glob.glob("yaml-workflows/examples/*.yaml")
+              + glob.glob("yaml-workflows/workflows/*.yaml")
+          )
+
+          if not files:
+              print("No YAML files found to validate")
+              sys.exit(0)
+
+          errors = 0
+          for path in files:
+              with open(path) as f:
+                  doc = yaml.safe_load(f)
+              try:
+                  validate(instance=doc, schema=schema)
+                  print(f"  OK  {path}")
+              except ValidationError as e:
+                  print(f"  FAIL  {path}: {e.message}")
+                  errors += 1
+
+          if errors:
+              print(f"\n{errors} file(s) failed schema validation")
+              sys.exit(1)
+          else:
+              print(f"\nAll {len(files)} file(s) passed")
+          SCRIPT
