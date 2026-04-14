@@ -53,7 +53,9 @@ docs/                   # guides and comparison documentation
 - Async execution: plugins are `async def execute(...)`.
 - Linter: `ruff` (line length 99, target py311). Run `ruff check yaml-workflows/executor/orchestrio/`.
 - Tests: `pytest` with `pytest-asyncio` (auto mode). Tests live in `yaml-workflows/executor/tests/`.
-- Step names and fragment filenames use `snake_case`.
+- Step `name:` fields use `snake_case` (they are code identifiers referenced in `{{ steps.<name>.* }}`).
+- Workflow and step fragment **filenames** use `kebab-case` (e.g. `cluster-info.yaml`, `ontap-get-cluster.yaml`).
+- Workflow top-level `name:` fields use `kebab-case` (e.g. `name: cluster-info`).
 - Workflow YAML uses the schema at `yaml-workflows/workflow-spec/v1/schema.json`.
 
 ## Creating a new plugin
