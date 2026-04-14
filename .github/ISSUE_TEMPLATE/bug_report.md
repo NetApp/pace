@@ -12,7 +12,7 @@ A clear and concise description of what the bug is.
 **To reproduce**
 Steps to reproduce the behaviour:
 
-1. Workflow file (paste relevant YAML or attach):
+1. Which example? (e.g. `python/cluster_info.py`, `ansible/nfs_provision.yml`)
 2. Command run:
 3. Error output:
 
@@ -22,7 +22,7 @@ What you expected to happen.
 **Environment**
 - OS: [e.g. macOS 15, Ubuntu 24.04]
 - Python version: [e.g. 3.12.3]
-- Orchestrio version: [e.g. 0.1.0]
+- Tool versions: [e.g. Ansible 2.16, Terraform 1.7]
 
 **Additional context**
 Add any other context about the problem here (logs with `-v`, stack traces, etc.).

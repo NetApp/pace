@@ -1,8 +1,6 @@
 ---
 # cifs_provision.yml — Create a CIFS (SMB) share with volume and ACL.
 #
-# Equivalent to:  orchestrio run yaml-workflows/workflows/cifs_provision.yaml
-#
 # Usage:
 #   ansible-playbook -i inventory/hosts.yml cifs_provision.yml
 #
