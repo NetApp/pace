@@ -105,3 +105,16 @@ These scripts demonstrate several patterns you can reuse:
   HTTP session is properly closed
 - **Structured logging** — all output goes through `logging`, not `print()`,
   so you can control verbosity and format
+
+## Adapting for Your Environment
+
+These scripts illustrate workflows using simple API call sequences. When
+adapting them, consider adding the following based on your requirements:
+
+- **Idempotency** — check whether a resource exists before creating it
+- **Retry and backoff** — handle transient network or API errors gracefully
+- **Partial failure recovery** — clean up or resume when a multi-step workflow
+  fails midway
+- **Dry-run mode** — log intended actions without executing them
+- **Input validation** — enforce constraints on volume sizes, naming
+  conventions, or CIDR ranges before calling the API
