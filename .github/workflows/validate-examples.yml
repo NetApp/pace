@@ -1,0 +1,89 @@
+name: Validate Examples
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ansible/**"
+      - "terraform/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "ansible/**"
+      - "terraform/**"
+
+permissions:
+  contents: read
+
+jobs:
+  ansible-lint:
+    name: Ansible — syntax & lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Ansible toolchain
+        run: pip install ansible ansible-lint
+
+      - name: Install NetApp ONTAP collection
+        run: ansible-galaxy collection install -r ansible/requirements.yml
+
+      - name: Syntax check playbooks
+        run: |
+          for f in ansible/*.yml; do
+            [ "$(basename "$f")" = "requirements.yml" ] && continue
+            echo "Checking $f …"
+            ansible-playbook --syntax-check "$f" -i ansible/inventory/hosts.yml
+          done
+
+      - name: Run ansible-lint
+        run: ansible-lint ansible/*.yml --exclude ansible/requirements.yml
+
+  terraform-validate:
+    name: Terraform — fmt, validate & lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7"
+
+      - name: Install tflint
+        run: |
+          curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+
+      - name: Validate Terraform modules
+        run: |
+          ERRORS=0
+          for dir in terraform/*/; do
+            echo "=== $(basename "$dir") ==="
+
+            echo "  fmt check …"
+            if ! terraform -chdir="$dir" fmt -check; then
+              echo "  FAIL: terraform fmt"
+              ERRORS=$((ERRORS + 1))
+            fi
+
+            echo "  init …"
+            terraform -chdir="$dir" init -backend=false -input=false > /dev/null 2>&1 || true
+
+            echo "  validate …"
+            if ! terraform -chdir="$dir" validate; then
+              echo "  FAIL: terraform validate"
+              ERRORS=$((ERRORS + 1))
+            fi
+
+            echo "  tflint …"
+            if ! tflint --chdir="$dir" --no-color; then
+              echo "  WARN: tflint reported issues"
+            fi
+
+            echo ""
+          done
+
+          [ "$ERRORS" -eq 0 ] || exit 1
