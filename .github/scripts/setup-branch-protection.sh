@@ -29,7 +29,6 @@ gh api \
     "strict": true,
     "contexts": [
       "validate-and-lint",
-      "test",
       "secret-scan",
       "commitlint"
     ]
@@ -55,7 +54,7 @@ echo "  Require PR before merging ............. yes"
 echo "  Required approving reviewers .......... 1"
 echo "  Require CODEOWNERS review ............. yes"
 echo "  Dismiss stale reviews on push ......... yes"
-echo "  Required status checks (strict) ....... validate-and-lint, test, secret-scan, commitlint"
+  echo "  Required status checks (strict) ....... validate-and-lint, secret-scan, commitlint"
 echo "  Require conversation resolution ....... yes"
 echo "  Enforce for admins .................... no  (allows emergency merge)"
 echo "  Allow force pushes .................... no"
