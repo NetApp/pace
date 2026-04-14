@@ -93,6 +93,27 @@ ansible-playbook -i inventory/hosts.yml nfs_provision.yml \
     -e client_match=10.0.0.0/8
 ```
 
+### CIFS Share Provisioning
+
+Create a FlexVol volume with NTFS security style, create a CIFS share, set the
+share ACL, and verify the result.
+
+```bash
+ansible-playbook -i inventory/hosts.yml cifs_provision.yml \
+    -e volume_name=cifs_test_env
+```
+
+Override variables on the command line:
+
+```bash
+ansible-playbook -i inventory/hosts.yml cifs_provision.yml \
+    -e volume_name=cifs_demo \
+    -e share_name=demo_share \
+    -e aggregate_name=aggr1 \
+    -e acl_user=Everyone \
+    -e acl_permission=full_control
+```
+
 ---
 
 ## File Overview
@@ -104,6 +125,7 @@ ansible-playbook -i inventory/hosts.yml nfs_provision.yml \
 | `group_vars/ontap.yml.example` | Connection and default variable template |
 | `cluster_info.yml` | Get cluster version + node list |
 | `nfs_provision.yml` | Create NFS volume with export policy |
+| `cifs_provision.yml` | Create CIFS share with volume and ACL |
 
 ## Design Decisions
 
