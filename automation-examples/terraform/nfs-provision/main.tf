@@ -1,6 +1,6 @@
 # nfs-provision — Create an NFS volume with a dedicated export policy.
 #
-# Equivalent to:  orchestrio run workflows/nfs_provision.yaml
+# Equivalent to:  orchestrio run yaml-workflows/workflows/nfs-provision.yaml
 
 terraform {
   required_version = ">= 1.4"
@@ -44,14 +44,14 @@ resource "netapp-ontap_volume" "nfs_vol" {
 
 # Step 2 — Add a client-match rule to the default export policy
 resource "netapp-ontap_nfs_export_policy_rule" "client_rule" {
-  cx_profile_name   = "cluster1"
-  svm_name          = var.svm_name
+  cx_profile_name    = "cluster1"
+  svm_name           = var.svm_name
   export_policy_name = "default"
-  clients_match  = [var.client_match]
-  ro_rule        = ["any"]
-  rw_rule        = ["any"]
-  superuser      = ["any"]
-  protocols      = ["nfs"]
+  clients_match      = [var.client_match]
+  ro_rule            = ["any"]
+  rw_rule            = ["any"]
+  superuser          = ["any"]
+  protocols          = ["nfs"]
 
   depends_on = [
     netapp-ontap_volume.nfs_vol,
