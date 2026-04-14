@@ -92,10 +92,55 @@ All lint checks are **hard gates** — PRs must pass before merge.
 
 ## Naming Conventions
 
-- **Python**: `snake_case` for filenames and functions (`cluster_info.py`, `nfs_provision.py`)
-- **Ansible**: `snake_case` for playbook filenames (`cluster_info.yml`, `nfs_provision.yml`)
-- **Terraform**: `kebab-case` for module directories (`cluster-info/`, `nfs-provision/`)
-- **YAML workflows**: `snake_case` for workflow files and step names
+When in doubt, follow the pattern used by existing files in the same directory.
+
+### File and directory naming
+
+| Area | Convention | Examples |
+|------|-----------|----------|
+| **Python files** | `snake_case` | `cluster_info.py`, `nfs_provision.py` |
+| **Ansible playbooks** | `snake_case` | `cluster_info.yml`, `nfs_provision.yml` |
+| **Terraform modules** | `kebab-case` directories | `cluster-info/`, `nfs-provision/` |
+| **YAML workflow files** | `kebab-case` | `cluster-info.yaml`, `nfs-provision.yaml` |
+| **GitHub workflow files** | `kebab-case` `.yml` | `pr-checks.yml`, `validate-examples.yml` |
+| **Documentation** | `kebab-case` `.md` for multi-word | `ontap-api-patterns.md` |
+| **Shell scripts** | `kebab-case` for multi-word | `setup-branch-protection.sh` |
+| **Community files** | `UPPERCASE.md` | `CONTRIBUTING.md`, `CHANGELOG.md`, `CODE_OF_CONDUCT.md` |
+
+### Branch naming
+
+| Branch type | Pattern | Example |
+|-------------|---------|---------|
+| Feature | `feature/<short-description>` | `feature/add-snapmirror-example` |
+| Bug fix | `fix/<short-description>` | `fix/nfs-provision-timeout` |
+| Release | `release/<version>` | `release/0.2.0` |
+
+The default branch is `main`. All PRs target `main`.
+
+### Tags and releases
+
+- **Tags** follow [Semantic Versioning](https://semver.org/): `vMAJOR.MINOR.PATCH` (e.g. `v0.2.0`)
+- **Release titles** omit the `v` prefix: `0.2.0`
+- **Artifacts** use the pattern `orchestrio-<version>.<ext>` (e.g. `orchestrio-0.2.0.tar.gz`)
+- All notable changes are recorded in [CHANGELOG.md](CHANGELOG.md)
+
+### Commit messages
+
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/):
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+**Types:** `build`, `chore`, `ci`, `doc`, `feat`, `fix`, `perf`, `refactor`,
+`revert`, `style`, `test`
+
+**Scopes:** `python`, `ansible`, `terraform`, `executor`, `workflows`, `docs`,
+`ci`, `deps`
 
 ---
 
