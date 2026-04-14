@@ -1,6 +1,4 @@
 # cluster-info — Retrieve ONTAP cluster version and list all nodes.
-#
-# Equivalent to:  orchestrio run yaml-workflows/workflows/cluster-info.yaml
 
 terraform {
   required_version = ">= 1.4"

@@ -1,9 +1,0 @@
-# Reusable step: fetch a volume by name and SVM.
-# Returns body.records[0].uuid for use in downstream PATCH steps.
-# Expects env: ONTAP_HOST, VOLUME_NAME, SVM_NAME
-# Best used with defaults for auth (username/password/headers/verify_ssl).
-name: get_volume
-type: http
-config:
-  method: GET
-  url: "https://{{ env.ONTAP_HOST }}/api/storage/volumes?name={{ env.VOLUME_NAME }}&svm.name={{ env.SVM_NAME }}&fields=name,uuid&return_timeout=30"

@@ -2,46 +2,13 @@ review:
   auto_review: true
 
   instructions:
-    - "This is a YAML workflow executor. The spec lives at yaml-workflows/workflow-spec/v1/schema.json."
     - "Python code must follow ruff conventions (line-length 99, target py311)."
-    - "Never commit secrets, passwords, or API tokens. Env values in workflow YAML must be empty placeholders or template expressions."
-    - "Workflow YAML files must conform to the Orchestrio v1 schema (required keys: name, steps)."
-    - "Step names (the name: field inside steps) must match ^[a-zA-Z_][a-zA-Z0-9_]*$ (snake_case identifiers for template references)."
-    - "Workflow and step fragment filenames must use kebab-case (e.g. cluster-info.yaml, ontap-get-cluster.yaml)."
-    - "Workflow top-level name: fields must use kebab-case (e.g. name: cluster-info)."
-    - "Flag any use of verify_ssl: false outside the examples/ directory."
-    - "Flag hardcoded credentials in workflow env blocks (values should be empty or use {{ env.VAR }} templates)."
-    - "Prefer async/await over synchronous blocking calls in the Python executor."
+    - "Never commit secrets, passwords, or API tokens."
     - "All new Python code should have type hints."
 
   path_instructions:
-    - path: "yaml-workflows/executor/**"
-      instructions: >-
-        Check for proper async/await usage, Pydantic model validation,
-        and plugin registry patterns. Ensure new plugins subclass StepPlugin
-        and use the @StepPlugin.register decorator. Verify StepResult is
-        returned with correct StepStatus.
-
-    - path: "yaml-workflows/workflows/**"
-      instructions: >-
-        Ensure env values are empty placeholders, not real credentials.
-        Verify schema compliance. Flag verify_ssl: false — acceptable in
-        lab workflows but should be called out.
-
-    - path: "yaml-workflows/steps/**"
-      instructions: >-
-        Step fragments are included via the include directive. They must
-        have name, type, and config fields. Verify they are valid
-        standalone against the step definition in the schema.
-
     - path: ".github/**"
       instructions: >-
         Review for CI security: no secret leaks in workflow files,
         least-privilege permissions on each job, and pinned action
         versions (major tags like @v4, not @main).
-
-    - path: "yaml-workflows/workflow-spec/**"
-      instructions: >-
-        Schema changes affect the executor. Verify backward
-        compatibility — new fields should have defaults, existing
-        required fields must not be removed.

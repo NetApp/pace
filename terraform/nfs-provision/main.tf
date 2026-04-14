@@ -1,6 +1,4 @@
 # nfs-provision — Create an NFS volume with a dedicated export policy.
-#
-# Equivalent to:  orchestrio run yaml-workflows/workflows/nfs-provision.yaml
 
 terraform {
   required_version = ">= 1.4"

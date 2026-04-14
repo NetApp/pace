@@ -1,7 +1,7 @@
 # ONTAP REST API Patterns
 
 Canonical reference for ONTAP REST API conventions used across all automation
-examples in this repository (Python, Ansible, Terraform, and YAML workflows).
+examples in this repository (Python, Ansible, and Terraform).
 For the full API specification, see the
 [ONTAP REST API documentation](https://docs.netapp.com/us-en/ontap-restapi/swagger-ui/index.html).
 
@@ -13,14 +13,12 @@ All ONTAP REST endpoints follow this pattern:
 https://<cluster-management-ip-or-hostname>/api/<category>/<resource>
 ```
 
-In Orchestrio templates: `https://{{ env.ONTAP_HOST }}/api/...`
-
 ## Authentication
 
 | Field | Value | Notes |
 |-------|-------|-------|
-| `username` | `{{ env.ONTAP_USER }}` | Basic auth — typically `admin` |
-| `password` | `{{ env.ONTAP_PASS }}` | Never hardcode; always use env template |
+| `username` | Admin user | Basic auth — typically `admin` |
+| `password` | Admin password | Never hardcode; use env vars or vault |
 | `verify_ssl` | `false` | Required for lab / self-signed certs |
 
 ## Standard Headers
@@ -28,22 +26,7 @@ In Orchestrio templates: `https://{{ env.ONTAP_HOST }}/api/...`
 | Header | Value | When |
 |--------|-------|------|
 | `Accept` | `application/hal+json` | All requests |
-| `X-Dot-Client-App` | `orchestrio` | All requests (client identification) |
 | `Content-Type` | `application/json` | POST and PATCH requests |
-
-In Orchestrio, declare these once in the workflow `defaults:` block:
-
-```yaml
-defaults:
-  http:
-    headers:
-      Accept: "application/hal+json"
-      X-Dot-Client-App: "orchestrio"
-    username: "{{ env.ONTAP_USER }}"
-    password: "{{ env.ONTAP_PASS }}"
-    timeout: 30
-    verify_ssl: false
-```
 
 ## Query Parameters
 
@@ -55,7 +38,7 @@ defaults:
 | `return_timeout` | Server-side wait (seconds) before returning | `&return_timeout=30` |
 | `max_records` | Limit number of returned records | `&max_records=100` |
 
-Combine with `&`: `?name={{ env.VOLUME_NAME }}&svm.name={{ env.SVM_NAME }}&fields=name,uuid&return_timeout=30`
+Combine with `&`: `?name=vol1&svm.name=vs0&fields=name,uuid&return_timeout=30`
 
 ## Response Shapes
 
@@ -74,10 +57,7 @@ Returned when querying a list of resources (e.g. volumes, nodes, export policies
 }
 ```
 
-Template access:
-- `{{ steps.<name>.body.records.0.uuid }}` — first record UUID
-- `{{ steps.<name>.body.records.0.name }}` — first record name
-- `{{ steps.<name>.body.num_records }}` — total count
+Key fields: `records[].uuid`, `records[].name`, `num_records`.
 
 ### Single Resource (GET by UUID)
 
@@ -91,9 +71,7 @@ Returned when fetching a specific resource by its UUID.
 }
 ```
 
-Template access:
-- `{{ steps.<name>.body.name }}`
-- `{{ steps.<name>.body.version.full }}` — nested fields via dot notation
+Key fields: `name`, `version.full` (nested via dot notation).
 
 ### Async Job (POST / PATCH response)
 
@@ -109,8 +87,7 @@ instead of completing synchronously.
 }
 ```
 
-Template access:
-- `{{ steps.<name>.body.job.uuid }}` — used to construct the poll URL
+Key field: `job.uuid` — used to construct the poll URL.
 
 ### Job Poll Result
 
@@ -127,30 +104,14 @@ Returned by `GET /api/cluster/jobs/{uuid}` after polling completes.
 
 Job states: `queued`, `running`, `success`, `failure`.
 
-Template access:
-- `{{ steps.<poll_name>.body.state }}`
-- `{{ steps.<poll_name>.body.message }}`
-
 ## Async Job Flow
 
 Any POST or PATCH that triggers a long-running operation returns a `job` object.
-The standard pattern in Orchestrio is:
+The standard pattern is:
 
 1. **Trigger** — POST/PATCH returns `{ "job": { "uuid": "..." } }`
 2. **Poll** — GET `/api/cluster/jobs/{uuid}?fields=state,message&return_timeout=120` until `state != running`
-3. **Continue** — use the poll result's `state` and `message` in downstream steps
-
-In Orchestrio, use the `ontap-poll-job.yaml` fragment:
-
-```yaml
-- include: ../steps/ontap-poll-job.yaml
-  override:
-    name: track_<operation>_job
-    config:
-      url: "https://{{ env.ONTAP_HOST }}/api/cluster/jobs/{{ steps.<trigger_step>.body.job.uuid }}?fields=state,message&return_timeout=120"
-      poll:
-        interval_seconds: 5
-```
+3. **Continue** — use the poll result's `state` and `message` in downstream logic
 
 ## Common API Categories
 

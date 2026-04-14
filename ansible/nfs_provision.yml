@@ -1,8 +1,6 @@
 ---
 # nfs_provision.yml — Create an NFS volume with a dedicated export policy.
 #
-# Equivalent to:  orchestrio run yaml-workflows/workflows/nfs-provision.yaml
-#
 # Usage:
 #   ansible-playbook -i inventory/hosts.yml nfs_provision.yml
 #

@@ -29,4 +29,3 @@ We use GitHub for tracking bugs and feature requests.
 * [README](README.md) — project overview and quick start
 * [Contributing](CONTRIBUTING.md) — how to add examples and what CI expects
 * [ONTAP API Patterns](docs/ontap-api-patterns.md) — REST endpoint conventions
-* [Orchestrio Workflows](docs/orchestrio.md) — YAML workflow authoring guide

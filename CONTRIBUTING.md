@@ -11,14 +11,9 @@ covers how to add new examples, what CI expects, and how the repo is organized.
 python/               # Python script examples
 ansible/              # Ansible playbook examples
 terraform/            # Terraform module examples
-yaml-workflows/       # Orchestrio YAML workflow executor
 docs/                 # Shared documentation
 .github/              # CI workflows, templates, review config
 ```
-
-The primary investment area is **`python/`**, **`ansible/`**, and **`terraform/`**.
-The `yaml-workflows/` directory contains the Orchestrio CLI executor and its
-workflow definitions.
 
 ---
 
@@ -68,7 +63,7 @@ auth patterns, async job handling, and standard environment variables.
 
 | Tool | Version | Purpose | Install |
 |------|---------|---------|---------|
-| **Python** | >= 3.11 | Executor, linting, tests | [python.org](https://www.python.org/downloads/) or `brew install python@3.11` |
+| **Python** | >= 3.11 | Linting | [python.org](https://www.python.org/downloads/) or `brew install python@3.11` |
 | **make** | any | Task runner | Pre-installed on macOS/Linux |
 | **pre-commit** | any | Git hook manager | `pip install pre-commit` or `brew install pre-commit` |
 
@@ -80,13 +75,13 @@ Optional (only needed for example validation):
 | **Terraform** | >= 1.7 | Terraform example validation | [terraform.io](https://developer.hashicorp.com/terraform/install) or `brew install terraform` |
 | **tflint** | any | Terraform linting | [github.com/terraform-linters/tflint](https://github.com/terraform-linters/tflint) |
 
-`make install` automatically creates a `.venv/` and installs **ruff**, **pytest**, **jsonschema**,
-and **pyyaml** inside it — you do not need to install these manually.
+`make install` automatically creates a `.venv/` and installs **ruff**
+inside it — you do not need to install it manually.
 
 ### First-time setup
 
 ```bash
-# Create venv and install all dev deps (ruff, pytest, jsonschema, pyyaml)
+# Create venv and install dev deps (ruff)
 make install
 
 # Install pre-commit hooks (auto-runs checks on commit and push)
@@ -120,10 +115,8 @@ Use the Makefile to mirror exactly what CI runs:
 
 ```bash
 make help                # Show all available targets
-make ci                  # Run lint + test + schema validation (mirrors ci.yml)
-make lint                # Ruff lint + format check only
-make test                # Executor pytest suite only
-make schema              # YAML schema validation only
+make ci                  # Run lint (mirrors ci.yml)
+make lint                # Ruff lint + format check
 make ansible-lint        # Ansible syntax-check + ansible-lint
 make terraform-validate  # Terraform fmt, validate, tflint
 ```
@@ -150,9 +143,7 @@ PRs are validated by three GitHub Actions workflows:
 
 | What | Workflow | Trigger | Scope |
 |------|----------|---------|-------|
-| **Python lint + format** | `ci.yml` | Every push & PR | `ruff check` + `ruff format --check` on executor and `python/` |
-| **Executor tests** | `ci.yml` | Every push & PR | `pytest` on executor test suite |
-| **Schema validation** | `ci.yml` | Every push & PR | YAML workflows against `yaml-workflows/workflow-spec/v1/schema.json` |
+| **Python lint + format** | `ci.yml` | Every push & PR | `ruff check` + `ruff format --check` on `python/` |
 | **README check** | `ci.yml` | Every push & PR | Verifies `python/`, `ansible/`, `terraform/` each have a `README.md` |
 | **Commit lint** | `pr-guard.yml` | PRs only | Conventional commit messages via commitlint |
 | **Secret scan** | `pr-guard.yml` | PRs only | TruffleHog scans PR diff for leaked credentials |
@@ -184,7 +175,6 @@ When in doubt, follow the pattern used by existing files in the same directory.
 | **Python files** | `snake_case` | `cluster_info.py`, `nfs_provision.py` |
 | **Ansible playbooks** | `snake_case` | `cluster_info.yml`, `nfs_provision.yml` |
 | **Terraform modules** | `kebab-case` directories | `cluster-info/`, `nfs-provision/` |
-| **YAML workflow files** | `kebab-case` | `cluster-info.yaml`, `nfs-provision.yaml` |
 | **GitHub workflow files** | `kebab-case` `.yml` | `pr-checks.yml`, `validate-examples.yml` |
 | **Documentation** | `kebab-case` `.md` for multi-word | `ontap-api-patterns.md` |
 | **Shell scripts** | `kebab-case` for multi-word | `setup-branch-protection.sh` |
@@ -222,14 +212,5 @@ Commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 **Types:** `build`, `chore`, `ci`, `doc`, `feat`, `fix`, `perf`, `refactor`,
 `revert`, `style`, `test`
 
-**Scopes:** `python`, `ansible`, `terraform`, `executor`, `workflows`, `docs`,
-`ci`, `deps`
+**Scopes:** `python`, `ansible`, `terraform`, `docs`, `ci`, `deps`
 
----
-
-## What Not to Change
-
-The `yaml-workflows/` directory contains the Orchestrio executor and its workflow
-definitions. Unless you are fixing a bug or security issue in the executor, avoid
-modifying files under `yaml-workflows/executor/`. Schema changes under
-`yaml-workflows/workflow-spec/` require careful backward-compatibility review.

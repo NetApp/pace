@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Retrieve ONTAP cluster version and list all nodes with serial numbers.
 
-Equivalent to:  orchestrio run yaml-workflows/workflows/cluster-info.yaml
-
 Usage::
 
     export ONTAP_HOST=10.0.0.1 ONTAP_USER=admin ONTAP_PASS=secret

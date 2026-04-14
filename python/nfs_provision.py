@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Create an ONTAP NFS volume with a dedicated export policy.
 
-Equivalent to:  orchestrio run yaml-workflows/workflows/nfs-provision.yaml
-
 Steps:
     1. Create a FlexVol volume
     2. Poll the volume-creation job

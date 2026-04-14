@@ -7,7 +7,7 @@ adapted, and used in production.
 
 For ONTAP REST API conventions (endpoints, auth, headers, async jobs), see the
 [ONTAP API patterns guide](../docs/ontap-api-patterns.md).
-To compare this approach with Python, Terraform, or YAML workflows, see
+To compare this approach with Python or Terraform, see
 [Choosing an approach](../docs/choosing-an-approach.md).
 
 ---

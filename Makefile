@@ -1,10 +1,9 @@
 .DEFAULT_GOAL := help
 SHELL := /bin/bash
 
-EXECUTOR_DIR := yaml-workflows/executor
-VENV         := .venv
-PYTHON       := $(VENV)/bin/python
-PIP          := $(VENV)/bin/pip
+VENV   := .venv
+PYTHON := $(VENV)/bin/python
+PIP    := $(VENV)/bin/pip
 
 # ── Setup ──────────────────────────────────────────────────────
 
@@ -14,25 +13,17 @@ $(VENV)/bin/activate:
 
 .PHONY: install
 install: $(VENV)/bin/activate ## Create venv and install dev deps
-	$(PIP) install -q -e "$(EXECUTOR_DIR)[dev]" jsonschema pyyaml
+	$(PIP) install -q ruff
 
 # ── Mirrors ci.yml ─────────────────────────────────────────────
 
 .PHONY: lint
-lint: ## Ruff lint + format check (executor + python examples)
-	$(PYTHON) -m ruff check $(EXECUTOR_DIR)/orchestrio/ python/
-	$(PYTHON) -m ruff format --check $(EXECUTOR_DIR)/ python/
-
-.PHONY: test
-test: ## Run executor pytest suite
-	cd $(EXECUTOR_DIR) && ../../$(PYTHON) -m pytest -v
-
-.PHONY: schema
-schema: ## Validate YAML workflows against JSON schema
-	$(PYTHON) .github/scripts/validate-schema.py
+lint: ## Ruff lint + format check (python examples)
+	$(PYTHON) -m ruff check python/
+	$(PYTHON) -m ruff format --check python/
 
 .PHONY: ci
-ci: lint test schema ## Run all core CI checks locally
+ci: lint ## Run all core CI checks locally
 
 # ── Mirrors validate-examples.yml ──────────────────────────────
 

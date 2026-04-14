@@ -1,7 +1,7 @@
 # Choosing an Automation Approach
 
 This guide helps you pick the right tool for automating ONTAP workflows.
-All four approaches in this repo do the same things — the difference is
+All three approaches in this repo do the same things — the difference is
 **how much you write**, **what you control**, and **what the tool manages
 for you**.
 
@@ -17,9 +17,7 @@ flowchart TD
     Q2 -->|Yes| Ansible[Ansible]
     Q2 -->|No| Q3{Custom logic, branching,\nor Python integrations?}
     Q3 -->|Yes| Python[Python scripts]
-    Q3 -->|No| Q4{Need the fastest path\nwith minimal code?}
-    Q4 -->|Yes| YAML[YAML Workflows]
-    Q4 -->|No| Any[Any approach works —\npick what your team knows]
+    Q3 -->|No| Any[Any approach works —\npick what your team knows]
 ```
 
 Each tool has clear strengths. There is no single "right" answer — choose based
@@ -31,44 +29,42 @@ on your team's existing skills and the operational requirements of your workflow
 
 ### Lines of code (real counts from this repo)
 
-| Use case | YAML Workflows | Python | Ansible | Terraform |
-|---|---|---|---|---|
-| Cluster info | 41 | 54 (+188 shared client) | 63 | 72 |
-| NFS provision | 118 | 145 (+188 shared client) | 96 | 155 |
+| Use case | Python | Ansible | Terraform |
+|---|---|---|---|
+| Cluster info | 54 (+188 shared client) | 63 | 72 |
+| NFS provision | 145 (+188 shared client) | 96 | 155 |
 
 Notes:
 - Python scripts depend on a shared `ontap_client.py` (188 lines). The
-  Orchestrio engine, Ansible collection, and Terraform provider provide
-  this layer for you.
-- YAML workflow line counts include `defaults:` blocks and comments.
+  Ansible collection and Terraform provider provide this layer for you.
 - Terraform counts include `variables.tf` and `outputs.tf` boilerplate.
 
 ### Feature matrix
 
-| Capability | Python | Ansible | Terraform | YAML Workflows |
-|---|---|---|---|---|
-| Idempotency | You build it | Yes (modules) | Yes (plan/apply) | No |
-| State tracking | You build it | No (stateless runs) | Yes (.tfstate) | No |
-| Drift detection | No | No | Yes (plan) | No |
-| Destroy/rollback | You build it | Re-run with `state: absent` | `terraform destroy` | No |
-| Retry on failure | You build it | `retries:` on tasks | Provider-level | Built-in (`retry:`) |
-| Dry run / preview | No | `--check` (module-dependent) | `terraform plan` | `--dry-run` with template resolution |
-| Interactive debug | Debugger (pdb) | `--step` (basic) | No | `--interactive` step-through |
-| Structured logging | You build it | Callback plugins | JSON plan output | JSONL auto-logging |
-| Step output chaining | Variables | `register` + Jinja2 | Resource references | `{{ steps.x.y }}` |
-| Parallelism | Threading/asyncio | `serial`, `async` | Dependency graph | No (sequential) |
-| Fleet / multi-target | Loops (you write) | Inventory groups | `for_each`, modules | No |
-| Secret management | Env vars | Vault, external lookups | `sensitive`, backends | Env vars, `.env` files |
-| Custom logic | Full language | Jinja2, filters | HCL expressions, functions | Shell steps, plugins |
-| Ecosystem size | All of PyPI | 150+ ONTAP modules | Provider resources | 2 plugins (http, shell) |
+| Capability | Python | Ansible | Terraform |
+|---|---|---|---|
+| Idempotency | You build it | Yes (modules) | Yes (plan/apply) |
+| State tracking | You build it | No (stateless runs) | Yes (.tfstate) |
+| Drift detection | No | No | Yes (plan) |
+| Destroy/rollback | You build it | Re-run with `state: absent` | `terraform destroy` |
+| Retry on failure | You build it | `retries:` on tasks | Provider-level |
+| Dry run / preview | No | `--check` (module-dependent) | `terraform plan` |
+| Interactive debug | Debugger (pdb) | `--step` (basic) | No |
+| Structured logging | You build it | Callback plugins | JSON plan output |
+| Step output chaining | Variables | `register` + Jinja2 | Resource references |
+| Parallelism | Threading/asyncio | `serial`, `async` | Dependency graph |
+| Fleet / multi-target | Loops (you write) | Inventory groups | `for_each`, modules |
+| Secret management | Env vars | Vault, external lookups | `sensitive`, backends |
+| Custom logic | Full language | Jinja2, filters | HCL expressions, functions |
+| Ecosystem size | All of PyPI | 150+ ONTAP modules | Provider resources |
 
 ### Setup effort
 
-| | Python | Ansible | Terraform | YAML Workflows |
-|---|---|---|---|---|
-| **Install** | `pip install requests` | `pip install ansible` + `ansible-galaxy collection install netapp.ontap` | Download binary + `terraform init` | `git clone` + `pip install -e .` ([details](orchestrio.md#install)) |
-| **Config files needed** | 1 (script) + env | Inventory + group_vars + playbook | main.tf + variables.tf + tfvars | 1 (workflow YAML) |
-| **Time to first run** | ~5 minutes | ~10 minutes | ~10 minutes | ~2 minutes |
+| | Python | Ansible | Terraform |
+|---|---|---|---|
+| **Install** | `pip install requests` | `pip install ansible` + `ansible-galaxy collection install netapp.ontap` | Download binary + `terraform init` |
+| **Config files needed** | 1 (script) + env | Inventory + group_vars + playbook | main.tf + variables.tf + tfvars |
+| **Time to first run** | ~5 minutes | ~10 minutes | ~10 minutes |
 
 ---
 
@@ -95,14 +91,6 @@ Notes:
 - **Multi-provider** — manage ONTAP alongside AWS/Azure/GCP in one plan
 - **Compliance / auditability** — state file is the source of truth
 
-### YAML Workflows (Orchestrio)
-
-- **Rapid prototyping** — quickest way to test an ONTAP REST API sequence
-- **CI/CD pipeline steps** — single command, no server, deterministic output
-- **API learning** — see exact REST calls (method, URL, headers, body)
-- **Operational runbooks** — trigger backup, verify status, send notification
-- **Interactive debugging** — step through a failing workflow one call at a time
-
 ---
 
 ## Migration Paths
@@ -110,17 +98,12 @@ Notes:
 As your automation needs grow, you may migrate between approaches:
 
 ```
-                    ┌──→ Python      (need custom logic or integrations)
-YAML Workflows ─────┼──→ Ansible     (need fleet management or idempotency)
-                    └──→ Terraform   (need lifecycle management or multi-provider)
-
 Python ─────────────┬──→ Ansible     (need inventory-driven fleet ops)
                     └──→ Terraform   (need state tracking and drift detection)
 ```
 
-The YAML workflows serve as living documentation of the REST API sequence
-regardless of which tool you ultimately use. The API endpoints, request
-bodies, and response paths translate directly across all approaches.
+The API endpoints, request bodies, and response paths translate directly
+across all approaches.
 
 ---
 
@@ -128,9 +111,7 @@ bodies, and response paths translate directly across all approaches.
 
 | I want to... | Use |
 |---|---|
-| Get a workflow running in 2 minutes | YAML Workflows |
-| See the exact REST API calls being made | YAML Workflows or Python |
-| Step through a workflow interactively | YAML Workflows |
+| See the exact REST API calls being made | Python |
 | Create resources that I can later destroy cleanly | Terraform |
 | See what changed on my cluster since last run | Terraform |
 | Run the same automation across many clusters | Ansible |

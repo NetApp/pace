@@ -6,12 +6,6 @@
 /ansible/                        @hvinn
 /terraform/                      @hvinn
 
-# YAML workflow executor (Orchestrio CLI)
-/yaml-workflows/                 @hvinn
-
-# Workflow spec (schema changes need careful review)
-/yaml-workflows/workflow-spec/   @hvinn
-
 # Documentation
 /docs/                           @hvinn
 

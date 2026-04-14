@@ -12,10 +12,8 @@ export default {
         'ci',
         'deps',
         'docs',
-        'executor',
         'python',
         'terraform',
-        'workflows',
       ],
     ],
     'type-enum': [
