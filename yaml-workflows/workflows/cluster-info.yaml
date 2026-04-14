@@ -1,4 +1,4 @@
-name: cluster_info
+name: cluster-info
 version: "1"
 description: >-
   Get cluster version and list all nodes with serial numbers.
@@ -22,7 +22,7 @@ defaults:
 steps:
 
   # Step 1 — Get cluster version (reusable fragment)
-  - include: ../steps/ontap_get_cluster.yaml
+  - include: ../steps/ontap-get-cluster.yaml
 
   # Print cluster name + version
   - name: print_version
@@ -32,7 +32,7 @@ steps:
         echo "Cluster: {{ steps.get_cluster.body.name }} — {{ steps.get_cluster.body.version.full }}"
 
   # Step 2 — Get all nodes with serial numbers (reusable fragment)
-  - include: ../steps/ontap_get_nodes.yaml
+  - include: ../steps/ontap-get-nodes.yaml
 
   # Print node count
   - name: print_nodes

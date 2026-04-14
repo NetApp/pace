@@ -1,4 +1,4 @@
-name: cifs_share_provision
+name: cifs-share-provision
 version: "1"
 description: >-
   Provision a CIFS (SMB) share on ONTAP: create a FlexVol volume with NTFS
@@ -44,7 +44,7 @@ steps:
   # ── Step 1 — Create FlexVol with NTFS security style ────────────
   #             Reuses the create_volume fragment; overrides nas block
   #             to set security_style: ntfs for CIFS.
-  - include: ../steps/ontap_create_volume.yaml
+  - include: ../steps/ontap-create-volume.yaml
     override:
       config:
         body:
@@ -53,7 +53,7 @@ steps:
             path: "/{{ env.VOLUME_NAME }}"
 
   # ── Step 2 — Poll volume-creation job until complete ────────────
-  - include: ../steps/ontap_poll_job.yaml
+  - include: ../steps/ontap-poll-job.yaml
     override:
       name: track_create_volume_job
       config:

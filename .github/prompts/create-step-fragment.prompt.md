@@ -11,7 +11,7 @@ fragment YAML file that can be imported via `include:` in any workflow.
 1. A step fragment is a single YAML file containing exactly one step definition.
 2. The step must have `name` (snake_case), `type`, and `config`.
 3. Use `{{ env.VAR }}` for any value that should be supplied by the calling workflow.
-4. The filename should match the step name: `ontap_get_cluster.yaml` for a step named `get_cluster`.
+4. The filename should match the step name: `ontap-get-cluster.yaml` for a step named `get_cluster`.
 5. Place fragments in the `steps/` directory.
 6. Add `retry` config for network-dependent operations.
 7. Omit auth fields (`username`, `password`, `headers`, `verify_ssl`) — these come from the
@@ -25,7 +25,7 @@ showing how a workflow would use it.
 
 ## Example
 
-Fragment (`steps/ontap_get_cluster.yaml`):
+Fragment (`steps/ontap-get-cluster.yaml`):
 
 ```yaml
 # Reusable step: fetch cluster version info.
@@ -42,14 +42,14 @@ Usage in a workflow:
 
 ```yaml
 steps:
-  - include: steps/ontap_get_cluster.yaml
+  - include: steps/ontap-get-cluster.yaml
 ```
 
 With overrides:
 
 ```yaml
 steps:
-  - include: steps/ontap_get_cluster.yaml
+  - include: steps/ontap-get-cluster.yaml
     override:
       name: get_cluster_full
       config:

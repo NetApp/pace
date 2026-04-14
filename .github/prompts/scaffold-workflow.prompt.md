@@ -18,7 +18,7 @@ generate a complete multi-step Orchestrio workflow skeleton ready for customizat
 6. Use `{{ env.VAR }}` for credentials and host addresses — never hardcode secrets.
 7. Wire step outputs with `{{ steps.<name>.<path> }}`.
 8. For any ONTAP POST/PATCH that returns a job, add a `poll_job` step immediately after
-   using the `ontap_poll_job.yaml` fragment.
+   using the `ontap-poll-job.yaml` fragment.
 9. Add `retry: { attempts: 3, delay_seconds: 5 }` on network-dependent GET steps.
 10. Set `on_failure: continue` on non-critical steps (logging, summary); leave critical steps
     as the default `stop`.
@@ -31,12 +31,12 @@ generate a complete multi-step Orchestrio workflow skeleton ready for customizat
 
 | Fragment | Step name | Purpose | Key outputs |
 |----------|-----------|---------|-------------|
-| `ontap_create_volume.yaml` | `create_volume` | POST a FlexVol volume | `body.job.uuid` |
-| `ontap_poll_job.yaml` | `poll_job` | Poll an async job until completion | `body.state`, `body.message` |
-| `ontap_get_volume.yaml` | `get_volume` | Fetch volume by name + SVM | `body.records.0.uuid` |
-| `ontap_get_cluster.yaml` | `get_cluster` | Fetch cluster version info | `body.name`, `body.version.full` |
-| `ontap_get_nodes.yaml` | `get_nodes` | List nodes with serial numbers | `body.num_records`, `body.records` |
-| `ontap_discover_nodes.yaml` | `discover_nodes` | Discover available nodes (detailed) | `body.records` |
+| `ontap-create-volume.yaml` | `create_volume` | POST a FlexVol volume | `body.job.uuid` |
+| `ontap-poll-job.yaml` | `poll_job` | Poll an async job until completion | `body.state`, `body.message` |
+| `ontap-get-volume.yaml` | `get_volume` | Fetch volume by name + SVM | `body.records.0.uuid` |
+| `ontap-get-cluster.yaml` | `get_cluster` | Fetch cluster version info | `body.name`, `body.version.full` |
+| `ontap-get-nodes.yaml` | `get_nodes` | List nodes with serial numbers | `body.num_records`, `body.records` |
+| `ontap-discover-nodes.yaml` | `discover_nodes` | Discover available nodes (detailed) | `body.records` |
 
 ## Output format
 
@@ -77,7 +77,7 @@ defaults:
 steps:
 
   # ── Step 1 — Fetch cluster version ──────────────────────────────
-  - include: ../steps/ontap_get_cluster.yaml
+  - include: ../steps/ontap-get-cluster.yaml
 
   # ── Step 2 — Print cluster name and version ─────────────────────
   - name: print_version
@@ -87,7 +87,7 @@ steps:
         echo "Cluster: {{ steps.get_cluster.body.name }} — {{ steps.get_cluster.body.version.full }}"
 
   # ── Step 3 — List all nodes ─────────────────────────────────────
-  - include: ../steps/ontap_get_nodes.yaml
+  - include: ../steps/ontap-get-nodes.yaml
 
   # ── Step 4 — Print node count ──────────────────────────────────
   - name: print_nodes

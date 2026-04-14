@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Retrieve ONTAP cluster version and list all nodes with serial numbers.
 
-Equivalent to:  orchestrio run yaml-workflows/workflows/cluster_info.yaml
+Equivalent to:  orchestrio run yaml-workflows/workflows/cluster-info.yaml
 
 Usage::
 

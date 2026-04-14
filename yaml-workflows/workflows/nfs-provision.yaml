@@ -1,4 +1,4 @@
-name: nfs_volume_provision
+name: nfs-volume-provision
 version: "1"
 description: >-
   Create an ONTAP FlexVol volume, create a dedicated NFS export policy,
@@ -35,10 +35,10 @@ defaults:
 steps:
 
   # ── Step 1 — Create volume (reusable fragment) ──────────────────
-  - include: ../steps/ontap_create_volume.yaml
+  - include: ../steps/ontap-create-volume.yaml
 
   # ── Step 2 — Poll volume-creation job until complete ────────────
-  - include: ../steps/ontap_poll_job.yaml
+  - include: ../steps/ontap-poll-job.yaml
     override:
       name: track_create_volume_job
       config:
@@ -47,7 +47,7 @@ steps:
           interval_seconds: 5
 
   # ── Step 3 — Fetch the new volume UUID (reusable fragment) ──────
-  - include: ../steps/ontap_get_volume.yaml
+  - include: ../steps/ontap-get-volume.yaml
 
   # ── Step 4 — Create a dedicated export policy for this volume ───
   - name: create_export_policy
@@ -101,7 +101,7 @@ steps:
             name: "{{ env.VOLUME_NAME }}_export_policy"
 
   # ── Step 8 — Poll PATCH job until complete ──────────────────────
-  - include: ../steps/ontap_poll_job.yaml
+  - include: ../steps/ontap-poll-job.yaml
     override:
       name: track_assign_policy_job
       config:

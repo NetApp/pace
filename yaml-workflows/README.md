@@ -13,7 +13,7 @@ For the full CLI reference, workflow syntax, and plugin guide, see
 cd yaml-workflows/executor
 pip install -e ".[dev]"
 cd ../..
-orchestrio run yaml-workflows/workflows/cluster_info.yaml
+orchestrio run yaml-workflows/workflows/cluster-info.yaml
 ```
 
 ## Directory Layout

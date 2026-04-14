@@ -22,7 +22,7 @@ pip install -e ".[dev]"
 ```
 
 This gives you the `orchestrio` CLI command. Run from the repo root so that
-workflow paths like `yaml-workflows/workflows/cluster_info.yaml` resolve correctly.
+workflow paths like `yaml-workflows/workflows/cluster-info.yaml` resolve correctly.
 
 <details>
 <summary>One-liner install (requires public repo access)</summary>
@@ -56,9 +56,9 @@ orchestrio run yaml-workflows/examples/chained.yaml
 ### Use with ONTAP
 
 ```bash
-cp yaml-workflows/workflows/cluster_info.env.example yaml-workflows/workflows/cluster_info.env
-# edit cluster_info.env with your ONTAP host, user, password
-orchestrio run yaml-workflows/workflows/cluster_info.yaml -E yaml-workflows/workflows/cluster_info.env
+cp yaml-workflows/workflows/cluster-info.env.example yaml-workflows/workflows/cluster-info.env
+# edit cluster-info.env with your ONTAP host, user, password
+orchestrio run yaml-workflows/workflows/cluster-info.yaml -E yaml-workflows/workflows/cluster-info.env
 ```
 
 ---
@@ -163,8 +163,8 @@ Reference earlier step outputs with `{{ steps.<step_name>.<path> }}`:
 |---|---|
 | [hello.yaml](../yaml-workflows/examples/hello.yaml) | Minimal workflow — HTTP call + shell echo |
 | [chained.yaml](../yaml-workflows/examples/chained.yaml) | Step chaining via template references |
-| [cluster_info.yaml](../yaml-workflows/workflows/cluster_info.yaml) | ONTAP cluster info retrieval |
-| [cluster_setup_basic.yaml](../yaml-workflows/workflows/cluster_setup_basic.yaml) | Full cluster setup with polling |
+| [cluster-info.yaml](../yaml-workflows/workflows/cluster-info.yaml) | ONTAP cluster info retrieval |
+| [cluster-setup-basic.yaml](../yaml-workflows/workflows/cluster-setup-basic.yaml) | Full cluster setup with polling |
 
 ---
 

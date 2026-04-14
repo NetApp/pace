@@ -1,4 +1,4 @@
-name: cluster_setup_basic
+name: cluster-setup-basic
 version: "1"
 description: >-
   ONTAP cluster setup: discover local and partner nodes (retry 3x/30s),
@@ -34,7 +34,7 @@ defaults:
 steps:
 
   # Step 1 — Discover available nodes (reusable fragment, retry 3x/30s built in)
-  - include: ../steps/ontap_discover_nodes.yaml
+  - include: ../steps/ontap-discover-nodes.yaml
 
   # Step 2 — Discover LOCAL node only (has management_interfaces → the node we connected to)
   - name: discover_local
@@ -90,7 +90,7 @@ steps:
         configuration_backup: {}
 
   # Step 5 — Poll job until complete (reusable fragment, override URL for this job)
-  - include: ../steps/ontap_poll_job.yaml
+  - include: ../steps/ontap-poll-job.yaml
     override:
       name: track_job
       config:

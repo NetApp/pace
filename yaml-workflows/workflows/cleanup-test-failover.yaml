@@ -1,16 +1,16 @@
-name: cleanup_test_failover
+name: cleanup-test-failover
 version: "1"
 description: >-
   SnapMirror Test Failover Cleanup
   ====================================================================
-  Safely removes a FlexClone test-failover volume created by test_failover.yaml.
+  Safely removes a FlexClone test-failover volume created by test-failover.yaml.
 
   The cleanup identifies the correct clone via the SnapMirror relationship:
     1. Takes SOURCE_VOLUME + SOURCE_SVM as input (same as provision workflow)
     2. Searches both clusters for the SM relationship matching that source path
     3. Retrieves the relationship UUID from the destination cluster
     4. Finds clone volumes tagged with "<uuid>:test" - only clones created
-       by test_failover.yaml carry this tag; manually created volumes are safe
+       by test-failover.yaml carry this tag; manually created volumes are safe
     5. Deletes only the tagged clone
 
   Phase 0  Relationship-pick  - Find SM relationship on correct cluster via source.path
@@ -19,7 +19,7 @@ description: >-
   Phase C  Delete             - Delete the clone and confirm removal
 
   Run:
-  orchestrio run cleanup_test_failover.yaml
+  orchestrio run cleanup-test-failover.yaml
 
 env:
   # ----------------------------------------------------------------
@@ -31,7 +31,7 @@ env:
   # ----------------------------------------------------------------
   # SOURCE VOLUME DETAILS  (same inputs as provision / test_failover)
   # The workflow resolves the SM relationship for this source, then
-  # finds and deletes ONLY the clone tagged by test_failover.yaml.
+  # finds and deletes ONLY the clone tagged by test-failover.yaml.
   # ----------------------------------------------------------------
   SOURCE_VOLUME: ""   # source volume name  (e.g. "vol_12")
   SOURCE_SVM:    ""   # source SVM name     (e.g. "vs1")
@@ -133,7 +133,7 @@ steps:
   # ================================================================
   # PHASE A - TAG-BASED CLONE DISCOVERY
   # Find the clone volume tagged with "<sm_uuid>:test".
-  # Only clones created by test_failover.yaml carry this tag -
+  # Only clones created by test-failover.yaml carry this tag -
   # manually created volumes are never matched or deleted.
   # ================================================================
 

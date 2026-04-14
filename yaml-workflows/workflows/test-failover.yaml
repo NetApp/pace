@@ -1,4 +1,4 @@
-name: test_failover
+name: test-failover
 version: "1"
 description: >-
   SnapMirror Test Failover
@@ -24,11 +24,11 @@ description: >-
 
   Clone tagging: after creation the clone volume is PATCH-ed with
     _tags: ["<sm_relationship_uuid>:test"]
-  This tag lets cleanup_test_failover.yaml identify ONLY workflow-created
+  This tag lets cleanup-test-failover.yaml identify ONLY workflow-created
   clones and safely ignore any manually created volumes.
 
   Run:
-  orchestrio run test_failover.yaml
+  orchestrio run test-failover.yaml
 
 env:
   # ----------------------------------------------------------------
@@ -282,7 +282,7 @@ steps:
 
   # Step D2 - Tag clone with SM relationship UUID so cleanup can safely identify it.
   #           Tag format: "<sm_relationship_uuid>:test"
-  #           cleanup_test_failover.yaml uses this tag to find ONLY workflow-created
+  #           cleanup-test-failover.yaml uses this tag to find ONLY workflow-created
   #           clones - manually created volumes are never touched.
   - name: tag_clone_volume
     type: http

@@ -19,7 +19,7 @@ generate a single Orchestrio step definition or a reusable step fragment YAML fi
 6. Add `retry` for network-dependent or discovery operations (see retry guidance in
    `docs/ontap-api-patterns.md`).
 7. For asynchronous ONTAP operations, generate a companion poll step using the
-   `ontap_poll_job.yaml` fragment.
+   `ontap-poll-job.yaml` fragment.
 
 ## Reusable fragment rules
 
@@ -75,7 +75,7 @@ Usage in a workflow:
 steps:
   - include: ../steps/ontap_create_snapshot.yaml
 
-  - include: ../steps/ontap_poll_job.yaml
+  - include: ../steps/ontap-poll-job.yaml
     override:
       name: track_snapshot_job
       config:

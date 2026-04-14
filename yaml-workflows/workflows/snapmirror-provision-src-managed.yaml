@@ -1,4 +1,4 @@
-name: snapmirror_provision_src_managed
+name: snapmirror-provision-src-managed
 version: "1"
 description: >-
   SnapMirror Provision (Source-Managed View)
@@ -33,7 +33,7 @@ description: >-
   DEST_VOLUME is auto-derived as  SOURCE_VOLUME + "_dest"  - no entry needed.
 
   Run:
-  orchestrio run snapmirror_provision_src_managed.yaml
+  orchestrio run snapmirror-provision-src-managed.yaml
 
 env:
   # ----------------------------------------------------------------

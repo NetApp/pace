@@ -29,8 +29,8 @@ Each use case is implemented across all approaches so you can compare side-by-si
 
 | Use Case | Python | Ansible | Terraform | YAML |
 |---|---|---|---|---|
-| **Cluster info** — version and node list | [cluster_info.py](python/cluster_info.py) | [cluster_info.yml](ansible/cluster_info.yml) | [cluster-info/](terraform/cluster-info/) | [cluster_info.yaml](yaml-workflows/workflows/cluster_info.yaml) |
-| **NFS provision** — volume + export policy | [nfs_provision.py](python/nfs_provision.py) | [nfs_provision.yml](ansible/nfs_provision.yml) | [nfs-provision/](terraform/nfs-provision/) | [nfs_provision.yaml](yaml-workflows/workflows/nfs_provision.yaml) |
+| **Cluster info** — version and node list | [cluster_info.py](python/cluster_info.py) | [cluster_info.yml](ansible/cluster_info.yml) | [cluster-info/](terraform/cluster-info/) | [cluster-info.yaml](yaml-workflows/workflows/cluster-info.yaml) |
+| **NFS provision** — volume + export policy | [nfs_provision.py](python/nfs_provision.py) | [nfs_provision.yml](ansible/nfs_provision.yml) | [nfs-provision/](terraform/nfs-provision/) | [nfs-provision.yaml](yaml-workflows/workflows/nfs-provision.yaml) |
 
 More use cases (CIFS, SnapMirror, snapshots, SVM) are on the roadmap.
 
@@ -72,7 +72,7 @@ terraform init && terraform apply
 cd yaml-workflows/executor
 pip install -e .
 cd ../..
-orchestrio run yaml-workflows/workflows/cluster_info.yaml -E yaml-workflows/workflows/cluster_info.env
+orchestrio run yaml-workflows/workflows/cluster-info.yaml -E yaml-workflows/workflows/cluster-info.env
 ```
 
 See the full [Orchestrio CLI documentation](docs/orchestrio.md) for install options,

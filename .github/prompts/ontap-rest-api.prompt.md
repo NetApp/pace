@@ -72,7 +72,7 @@ Access: `{{ steps.<poll_name>.body.state }}`, `{{ steps.<poll_name>.body.message
 POST/PATCH that trigger long-running ops return a job. Poll with:
 
 ```yaml
-- include: ../steps/ontap_poll_job.yaml
+- include: ../steps/ontap-poll-job.yaml
   override:
     name: track_<operation>_job
     config:

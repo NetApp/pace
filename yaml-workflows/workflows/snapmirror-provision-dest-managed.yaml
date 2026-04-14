@@ -1,4 +1,4 @@
-name: snapmirror_provision_dest_managed
+name: snapmirror-provision-dest-managed
 version: "1"
 description: >-
   SnapMirror Provision (Destination-Managed) - Relationship Setup & Validation
@@ -24,7 +24,7 @@ description: >-
   SM_POLICY       SnapMirror policy  (Asynchronous | MirrorAllSnapshots | MirrorAndVault)
 
   Run:
-    orchestrio run snapmirror_provision_dest_managed.yaml
+    orchestrio run snapmirror-provision-dest-managed.yaml
 
 env:
   # ----------------------------------------------------------------

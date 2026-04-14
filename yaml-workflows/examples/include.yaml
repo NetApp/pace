@@ -26,10 +26,10 @@ defaults:
 steps:
 
   # Include a fragment as-is — inherits name, type, config, retry from the file
-  - include: ../steps/ontap_discover_nodes.yaml
+  - include: ../steps/ontap-discover-nodes.yaml
 
   # Include with overrides — rename the step and set the job URL
-  - include: ../steps/ontap_poll_job.yaml
+  - include: ../steps/ontap-poll-job.yaml
     override:
       name: track_cluster_job
       config:

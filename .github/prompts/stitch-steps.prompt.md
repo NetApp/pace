@@ -11,18 +11,18 @@ appropriate `override:` blocks and template wiring.
 
 | Fragment file | Step name | What it does | Key outputs |
 |---------------|-----------|--------------|-------------|
-| `ontap_create_volume.yaml` | `create_volume` | POST a FlexVol volume | `body.job.uuid` |
-| `ontap_poll_job.yaml` | `poll_job` | Poll async job to completion | `body.state`, `body.message` |
-| `ontap_get_volume.yaml` | `get_volume` | Fetch volume by name + SVM | `body.records.0.uuid` |
-| `ontap_get_cluster.yaml` | `get_cluster` | Fetch cluster version | `body.name`, `body.version.full` |
-| `ontap_get_nodes.yaml` | `get_nodes` | List nodes + serial numbers | `body.num_records`, `body.records` |
-| `ontap_discover_nodes.yaml` | `discover_nodes` | Discover available nodes (detailed) | `body.records` |
+| `ontap-create-volume.yaml` | `create_volume` | POST a FlexVol volume | `body.job.uuid` |
+| `ontap-poll-job.yaml` | `poll_job` | Poll async job to completion | `body.state`, `body.message` |
+| `ontap-get-volume.yaml` | `get_volume` | Fetch volume by name + SVM | `body.records.0.uuid` |
+| `ontap-get-cluster.yaml` | `get_cluster` | Fetch cluster version | `body.name`, `body.version.full` |
+| `ontap-get-nodes.yaml` | `get_nodes` | List nodes + serial numbers | `body.num_records`, `body.records` |
+| `ontap-discover-nodes.yaml` | `discover_nodes` | Discover available nodes (detailed) | `body.records` |
 
 ## Rules
 
 1. Use `include:` to reference fragments. Paths are relative to the workflow file:
    ```yaml
-   - include: ../steps/ontap_get_cluster.yaml
+   - include: ../steps/ontap-get-cluster.yaml
    ```
 2. Use `override:` to customize a fragment. `config` is **deep-merged** (fragment values
    are the base, override values win). Other fields (`name`, `retry`, `on_failure`) **replace**.
@@ -48,7 +48,7 @@ appropriate `override:` blocks and template wiring.
 
 Goal: "Create a volume and verify it exists."
 
-Fragments used: `ontap_create_volume.yaml`, `ontap_poll_job.yaml`, `ontap_get_volume.yaml`.
+Fragments used: `ontap-create-volume.yaml`, `ontap-poll-job.yaml`, `ontap-get-volume.yaml`.
 
 ```yaml
 name: create-and-verify-volume
@@ -87,10 +87,10 @@ defaults:
 steps:
 
   # ── Step 1 — Create the volume ──────────────────────────────────
-  - include: ../steps/ontap_create_volume.yaml
+  - include: ../steps/ontap-create-volume.yaml
 
   # ── Step 2 — Poll creation job ─────────────────────────────────
-  - include: ../steps/ontap_poll_job.yaml
+  - include: ../steps/ontap-poll-job.yaml
     override:
       name: track_create_job
       config:
@@ -99,7 +99,7 @@ steps:
           interval_seconds: 5
 
   # ── Step 3 — Fetch the volume to confirm it exists ──────────────
-  - include: ../steps/ontap_get_volume.yaml
+  - include: ../steps/ontap-get-volume.yaml
 
   # ── Step 4 — Print confirmation ────────────────────────────────
   - name: print_result

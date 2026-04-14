@@ -63,7 +63,7 @@ The chained template expressions are:
 
 ```yaml
 # Step 2 needs job UUID from step 1
-- include: ../steps/ontap_poll_job.yaml
+- include: ../steps/ontap-poll-job.yaml
   override:
     name: track_create_job
     config:

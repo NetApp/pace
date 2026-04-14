@@ -140,10 +140,10 @@ The standard pattern in Orchestrio is:
 2. **Poll** — GET `/api/cluster/jobs/{uuid}?fields=state,message&return_timeout=120` until `state != running`
 3. **Continue** — use the poll result's `state` and `message` in downstream steps
 
-In Orchestrio, use the `ontap_poll_job.yaml` fragment:
+In Orchestrio, use the `ontap-poll-job.yaml` fragment:
 
 ```yaml
-- include: ../steps/ontap_poll_job.yaml
+- include: ../steps/ontap-poll-job.yaml
   override:
     name: track_<operation>_job
     config:
