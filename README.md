@@ -3,9 +3,9 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 
-Production-ready automation examples for NetApp ONTAP, implemented in **Python**,
-**Ansible**, and **Terraform**. Pick the tool your team already uses and get a
-working script in minutes.
+Automation examples for NetApp ONTAP, implemented in **Python**, **Ansible**,
+and **Terraform**. Pick the tool your team already uses and get a working
+script in minutes.
 
 ---
 
@@ -31,8 +31,9 @@ Each use case is implemented across all approaches so you can compare side-by-si
 |---|---|---|---|
 | **Cluster info** — version and node list | [cluster_info.py](python/cluster_info.py) | [cluster_info.yml](ansible/cluster_info.yml) | [cluster-info/](terraform/cluster-info/) |
 | **NFS provision** — volume + export policy | [nfs_provision.py](python/nfs_provision.py) | [nfs_provision.yml](ansible/nfs_provision.yml) | [nfs-provision/](terraform/nfs-provision/) |
+| **CIFS provision** — share + ACL | — | [cifs_provision.yml](ansible/cifs_provision.yml) | — |
 
-More use cases (CIFS, SnapMirror, snapshots, SVM) are on the roadmap.
+More use cases (SnapMirror, snapshots, SVM) are on the roadmap.
 
 ---
 

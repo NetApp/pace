@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Initial ONTAP automation examples for Python, Ansible, and Terraform
-- CI workflows for linting, testing, and secret scanning
+- CI workflows for linting, syntax validation, and secret scanning
 - Documentation for ONTAP API patterns
 
 ## [0.1.0] - 2025-01-01

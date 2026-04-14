@@ -23,8 +23,7 @@ def main() -> None:
 
     with OntapClient.from_env() as client:
         # 1. Retrieve or create resources
-        resp = client.get("/api/cluster", params={"fields": "name,version"})
-        cluster = resp.json()
+        cluster = client.get("/cluster", fields="name,version")
         log.info("Cluster: %s — %s", cluster["name"], cluster["version"]["full"])
 
         # 2. Add your logic here

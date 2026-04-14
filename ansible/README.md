@@ -2,8 +2,8 @@
 
 Ansible playbooks that automate ONTAP workflows using the
 [`netapp.ontap`](https://galaxy.ansible.com/ui/repo/published/netapp/ontap/)
-Galaxy collection. Each playbook is self-contained and designed to be copied,
-adapted, and used in production.
+Galaxy collection. Each playbook is self-contained and designed to be copied
+and adapted for your environment.
 
 For ONTAP REST API conventions (endpoints, auth, headers, async jobs), see the
 [ONTAP API patterns guide](../docs/ontap-api-patterns.md).

@@ -1,8 +1,8 @@
 # Orchestrio Support and Getting Help
 
 Orchestrio is an open-source project developed and published by NetApp providing
-production-ready automation examples for ONTAP, implemented in Python, Ansible,
-and Terraform. Orchestrio is not an officially supported NetApp product. NetApp
+automation examples for ONTAP, implemented in Python, Ansible, and Terraform.
+Orchestrio is not an officially supported NetApp product. NetApp
 maintains and updates Orchestrio with bug fixes, security updates, and feature
 development. For assistance, refer to [Getting Help](#getting-help).
 

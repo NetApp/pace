@@ -2,8 +2,8 @@
 
 Terraform configurations that manage ONTAP resources using the
 [NetApp ONTAP provider](https://registry.terraform.io/providers/NetApp/netapp-ontap/latest).
-Each module is self-contained and designed to be copied, adapted, and used
-in production.
+Each module is self-contained and designed to be copied and adapted for your
+environment.
 
 For ONTAP REST API conventions (endpoints, auth, headers, async jobs), see the
 [ONTAP API patterns guide](../docs/ontap-api-patterns.md).

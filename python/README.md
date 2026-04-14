@@ -1,8 +1,8 @@
 # Python Script Examples
 
 Plain Python scripts that automate ONTAP workflows using the REST API with the
-`requests` library. Each script is self-contained and designed to be copied,
-adapted, and used in production.
+`requests` library. Each script is self-contained and designed to be copied
+and adapted for your environment.
 
 For ONTAP REST API conventions (endpoints, auth, headers, async jobs), see the
 [ONTAP API patterns guide](../docs/ontap-api-patterns.md).
