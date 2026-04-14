@@ -62,22 +62,105 @@ auth patterns, async job handling, and standard environment variables.
 
 ---
 
+## Local Development Workflow
+
+### Prerequisites
+
+| Tool | Version | Purpose | Install |
+|------|---------|---------|---------|
+| **Python** | >= 3.11 | Executor, linting, tests | [python.org](https://www.python.org/downloads/) or `brew install python@3.11` |
+| **make** | any | Task runner | Pre-installed on macOS/Linux |
+| **pre-commit** | any | Git hook manager | `pip install pre-commit` or `brew install pre-commit` |
+
+Optional (only needed for example validation):
+
+| Tool | Version | Purpose | Install |
+|------|---------|---------|---------|
+| **Ansible** | any | Ansible example validation | `pip install ansible ansible-lint` |
+| **Terraform** | >= 1.7 | Terraform example validation | [terraform.io](https://developer.hashicorp.com/terraform/install) or `brew install terraform` |
+| **tflint** | any | Terraform linting | [github.com/terraform-linters/tflint](https://github.com/terraform-linters/tflint) |
+
+`make install` automatically creates a `.venv/` and installs **ruff**, **pytest**, **jsonschema**,
+and **pyyaml** inside it — you do not need to install these manually.
+
+### First-time setup
+
+```bash
+# Create venv and install all dev deps (ruff, pytest, jsonschema, pyyaml)
+make install
+
+# Install pre-commit hooks (auto-runs checks on commit and push)
+make hooks
+```
+
+### Editor setup (Cursor / VS Code)
+
+Both Cursor and VS Code read the `.vscode/` config shipped with this repo.
+Open the repo and accept the **recommended extensions** prompt, or search
+`@recommended` in the Extensions sidebar. The workspace ships `.vscode/extensions.json` with:
+
+| Extension | What it does |
+|-----------|-------------|
+| **Ruff** (`charliermarsh.ruff`) | Python lint + format on save (replaces black, isort, flake8) |
+| **YAML** (`redhat.vscode-yaml`) | YAML syntax highlighting and validation |
+| **Terraform** (`hashicorp.terraform`) | HCL formatting and validation |
+| **Ansible** (`redhat.ansible`) | Playbook syntax and lint |
+| **EditorConfig** (`editorconfig.editorconfig`) | Applies `.editorconfig` indent/whitespace rules |
+
+The workspace `.vscode/settings.json` configures:
+- **Python format-on-save** via Ruff (matches CI exactly)
+- **Terraform format-on-save** via the Terraform extension
+- **Python interpreter** pointed at `.venv/bin/python` (from `make install`)
+
+No manual formatter configuration needed — just save the file and it formats.
+
+### Running checks locally
+
+Use the Makefile to mirror exactly what CI runs:
+
+```bash
+make help                # Show all available targets
+make ci                  # Run lint + test + schema validation (mirrors ci.yml)
+make lint                # Ruff lint + format check only
+make test                # Executor pytest suite only
+make schema              # YAML schema validation only
+make ansible-lint        # Ansible syntax-check + ansible-lint
+make terraform-validate  # Terraform fmt, validate, tflint
+```
+
+Run `make ci` before pushing to catch issues before they hit CI.
+
+### Pre-commit hooks
+
+The `.pre-commit-config.yaml` runs automatically on every commit:
+
+| Hook | Stage | What it catches |
+|------|-------|-----------------|
+| `ruff` (lint + fix) | `pre-commit` | Python lint issues (auto-fixes safe ones) |
+| `ruff-format` | `pre-commit` | Python formatting |
+| `commitlint` | `commit-msg` | Conventional commit message violations |
+| `check-yaml` | `pre-commit` | YAML syntax errors |
+| `trufflehog` | `pre-push` | Leaked secrets (runs before push, not every commit) |
+
+---
+
 ## CI Expectations
 
-PRs are validated by several GitHub Actions workflows:
+PRs are validated by three GitHub Actions workflows:
 
 | What | Workflow | Trigger | Scope |
 |------|----------|---------|-------|
-| **Python lint** | `validate-examples.yml` | Every PR | `ruff check python/`, `ruff format --check python/`, `py_compile` |
-| **Ansible lint** | `validate-examples.yml` | Every PR | `ansible-playbook --syntax-check`, `ansible-lint` |
-| **Terraform lint** | `validate-examples.yml` | Every PR | `terraform fmt -check`, `terraform validate`, `tflint` |
-| **Executor lint + tests** | `pr-checks.yml` | Every PR | `ruff check` on executor + `python/`, `pytest` on executor tests |
-| **Executor deep CI** | `ci.yml` | `yaml-workflows/**` changes only | Additional `ruff` + `pytest` run scoped to the executor |
-| **Schema validation** | `pr-checks.yml` | Every PR | YAML workflows against `yaml-workflows/workflow-spec/v1/schema.json` |
-| **README check** | `pr-checks.yml` | Every PR | Verifies `python/`, `ansible/`, `terraform/` each have a `README.md` |
-| **Secret scan** | `review-bot.yml` | Every PR | Blocks `.env` files and known secret patterns in diffs |
+| **Python lint + format** | `ci.yml` | Every push & PR | `ruff check` + `ruff format --check` on executor and `python/` |
+| **Executor tests** | `ci.yml` | Every push & PR | `pytest` on executor test suite |
+| **Schema validation** | `ci.yml` | Every push & PR | YAML workflows against `yaml-workflows/workflow-spec/v1/schema.json` |
+| **README check** | `ci.yml` | Every push & PR | Verifies `python/`, `ansible/`, `terraform/` each have a `README.md` |
+| **Commit lint** | `pr-guard.yml` | PRs only | Conventional commit messages via commitlint |
+| **Secret scan** | `pr-guard.yml` | PRs only | TruffleHog scans PR diff for leaked credentials |
+| **YAML syntax** | `pr-guard.yml` | PRs only | Parse-checks changed YAML files |
+| **Ansible lint** | `validate-examples.yml` | `ansible/**` changes | `ansible-playbook --syntax-check`, `ansible-lint` |
+| **Terraform lint** | `validate-examples.yml` | `terraform/**` changes | `terraform fmt -check`, `terraform validate`, `tflint` |
 
-All lint checks are **hard gates** — PRs must pass before merge.
+All checks are **hard gates** — PRs must pass before merge.
 
 ---
 

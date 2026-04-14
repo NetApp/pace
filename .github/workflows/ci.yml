@@ -78,37 +78,4 @@ jobs:
         run: pip install pyyaml jsonschema
 
       - name: Validate workflow YAML against schema
-        run: |
-          python - <<'SCRIPT'
-          import json, sys, glob, yaml
-          from jsonschema import validate, ValidationError
-
-          with open("yaml-workflows/workflow-spec/v1/schema.json") as f:
-              schema = json.load(f)
-
-          files = sorted(
-              glob.glob("yaml-workflows/examples/*.yaml")
-              + glob.glob("yaml-workflows/workflows/*.yaml")
-          )
-
-          if not files:
-              print("No YAML files found to validate")
-              sys.exit(0)
-
-          errors = 0
-          for path in files:
-              with open(path) as f:
-                  doc = yaml.safe_load(f)
-              try:
-                  validate(instance=doc, schema=schema)
-                  print(f"  OK  {path}")
-              except ValidationError as e:
-                  print(f"  FAIL  {path}: {e.message}")
-                  errors += 1
-
-          if errors:
-              print(f"\n{errors} file(s) failed schema validation")
-              sys.exit(1)
-          else:
-              print(f"\nAll {len(files)} file(s) passed")
-          SCRIPT
+        run: python .github/scripts/validate-schema.py
