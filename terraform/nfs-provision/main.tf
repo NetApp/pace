@@ -36,8 +36,8 @@ resource "netapp-ontap_volume" "nfs_vol" {
     size_unit = var.volume_size_unit
   }
   nas = {
-    junction_path = "/${var.volume_name}"
-    export_policy = netapp-ontap_nfs_export_policy.vol_policy.name
+    junction_path      = "/${var.volume_name}"
+    export_policy_name = netapp-ontap_nfs_export_policy.vol_policy.name
   }
 
 }
