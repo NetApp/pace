@@ -37,14 +37,23 @@ resource "netapp-ontap_volume" "nfs_vol" {
   }
   nas = {
     junction_path = "/${var.volume_name}"
+    export_policy = netapp-ontap_nfs_export_policy.vol_policy.name
   }
+
 }
 
-# Step 2 — Add a client-match rule to the default export policy
+# Step 2 — Create a dedicated NFS export policy
+resource "netapp-ontap_nfs_export_policy" "vol_policy" {
+  cx_profile_name = "cluster1"
+  name            = "${var.volume_name}_export_policy"
+  svm_name        = var.svm_name
+}
+
+# Step 3 — Add a client-match rule to the dedicated policy
 resource "netapp-ontap_nfs_export_policy_rule" "client_rule" {
   cx_profile_name    = "cluster1"
   svm_name           = var.svm_name
-  export_policy_name = "default"
+  export_policy_name = netapp-ontap_nfs_export_policy.vol_policy.name
   clients_match      = [var.client_match]
   ro_rule            = ["any"]
   rw_rule            = ["any"]
@@ -52,6 +61,6 @@ resource "netapp-ontap_nfs_export_policy_rule" "client_rule" {
   protocols          = ["nfs"]
 
   depends_on = [
-    netapp-ontap_volume.nfs_vol,
+    netapp-ontap_nfs_export_policy.vol_policy,
   ]
 }
