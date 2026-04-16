@@ -12,6 +12,14 @@
   hosts: ontap
   gather_facts: false
   connection: local
+  module_defaults:
+    group/netapp.ontap.netapp_ontap:
+      hostname: "{{ ontap_hostname }}"
+      username: "{{ ontap_username }}"
+      password: "{{ ontap_password }}"
+      https: "{{ ontap_https }}"
+      validate_certs: "{{ ontap_validate_certs }}"
+      use_rest: always
 
   vars:
     export_policy_name: "{{ volume_name }}_export_policy"
@@ -20,12 +28,6 @@
     # -- Step 1: Create the FlexVol volume ------------------------------
     - name: Create volume '{{ volume_name }}'
       netapp.ontap.na_ontap_volume:
-        hostname: "{{ ontap_hostname }}"
-        username: "{{ ontap_username }}"
-        password: "{{ ontap_password }}"
-        https: "{{ ontap_https }}"
-        validate_certs: "{{ ontap_validate_certs }}"
-        use_rest: always
         state: present
         name: "{{ volume_name }}"
         vserver: "{{ svm_name }}"
@@ -39,12 +41,6 @@
     # -- Step 2: Create a dedicated NFS export policy -------------------
     - name: Create export policy '{{ export_policy_name }}'
       netapp.ontap.na_ontap_export_policy:
-        hostname: "{{ ontap_hostname }}"
-        username: "{{ ontap_username }}"
-        password: "{{ ontap_password }}"
-        https: "{{ ontap_https }}"
-        validate_certs: "{{ ontap_validate_certs }}"
-        use_rest: always
         state: present
         name: "{{ export_policy_name }}"
         vserver: "{{ svm_name }}"
@@ -53,12 +49,6 @@
     # -- Step 3: Add a client-match rule to the policy ------------------
     - name: Add client rule '{{ client_match }}' to export policy
       netapp.ontap.na_ontap_export_policy_rule:
-        hostname: "{{ ontap_hostname }}"
-        username: "{{ ontap_username }}"
-        password: "{{ ontap_password }}"
-        https: "{{ ontap_https }}"
-        validate_certs: "{{ ontap_validate_certs }}"
-        use_rest: always
         state: present
         policy_name: "{{ export_policy_name }}"
         vserver: "{{ svm_name }}"
@@ -72,12 +62,6 @@
     # -- Step 4: Assign the export policy to the volume -----------------
     - name: Assign export policy to volume '{{ volume_name }}'
       netapp.ontap.na_ontap_volume:
-        hostname: "{{ ontap_hostname }}"
-        username: "{{ ontap_username }}"
-        password: "{{ ontap_password }}"
-        https: "{{ ontap_https }}"
-        validate_certs: "{{ ontap_validate_certs }}"
-        use_rest: always
         state: present
         name: "{{ volume_name }}"
         vserver: "{{ svm_name }}"

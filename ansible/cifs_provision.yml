@@ -12,17 +12,19 @@
   hosts: ontap
   gather_facts: false
   connection: local
+  module_defaults:
+    group/netapp.ontap.netapp_ontap:
+      hostname: "{{ ontap_hostname }}"
+      username: "{{ ontap_username }}"
+      password: "{{ ontap_password }}"
+      https: "{{ ontap_https }}"
+      validate_certs: "{{ ontap_validate_certs }}"
+      use_rest: always
 
   tasks:
     # -- Step 1: Create FlexVol with NTFS security style ----------------
     - name: Create volume '{{ volume_name }}' with NTFS security style
       netapp.ontap.na_ontap_volume:
-        hostname: "{{ ontap_hostname }}"
-        username: "{{ ontap_username }}"
-        password: "{{ ontap_password }}"
-        https: "{{ ontap_https }}"
-        validate_certs: "{{ ontap_validate_certs }}"
-        use_rest: always
         state: present
         name: "{{ volume_name }}"
         vserver: "{{ svm_name }}"
@@ -37,12 +39,6 @@
     # -- Step 2: Create CIFS share on the volume ------------------------
     - name: Create CIFS share '{{ share_name }}'
       netapp.ontap.na_ontap_cifs:
-        hostname: "{{ ontap_hostname }}"
-        username: "{{ ontap_username }}"
-        password: "{{ ontap_password }}"
-        https: "{{ ontap_https }}"
-        validate_certs: "{{ ontap_validate_certs }}"
-        use_rest: always
         state: present
         share_name: "{{ share_name }}"
         path: "/{{ volume_name }}"
@@ -53,12 +49,6 @@
     # -- Step 3: Set share ACL ------------------------------------------
     - name: Set ACL — '{{ acl_user }}' → {{ acl_permission }}
       netapp.ontap.na_ontap_cifs_acl:
-        hostname: "{{ ontap_hostname }}"
-        username: "{{ ontap_username }}"
-        password: "{{ ontap_password }}"
-        https: "{{ ontap_https }}"
-        validate_certs: "{{ ontap_validate_certs }}"
-        use_rest: always
         state: present
         share_name: "{{ share_name }}"
         vserver: "{{ svm_name }}"
@@ -69,12 +59,6 @@
     # -- Step 4: Verify share exists ------------------------------------
     - name: Verify CIFS share '{{ share_name }}'
       netapp.ontap.na_ontap_rest_info:
-        hostname: "{{ ontap_hostname }}"
-        username: "{{ ontap_username }}"
-        password: "{{ ontap_password }}"
-        https: "{{ ontap_https }}"
-        validate_certs: "{{ ontap_validate_certs }}"
-        use_rest: always
         gather_subset:
           - protocols/cifs/shares
         parameters:
