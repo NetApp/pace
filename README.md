@@ -39,6 +39,11 @@ More use cases (SnapMirror, snapshots, SVM) are on the roadmap.
 
 ## Quick Start
 
+> **Important:** Host names, IP addresses, credentials, and resource names
+> (SVM, volume, aggregate, `client_match`) shown below are **placeholders
+> for illustration only**. Replace them with values from your environment
+> before running any example. See each tool's README for full details.
+
 ### Python
 
 ```bash
@@ -106,6 +111,7 @@ orchestrio/
 |---|---|
 | [Choosing an approach](docs/choosing-an-approach.md) | Decision guide and feature matrix across all three tools |
 | [ONTAP API patterns](docs/ontap-api-patterns.md) | REST API conventions: endpoints, auth, headers, async jobs |
+| [Troubleshooting](docs/troubleshooting.md) | Common errors and how to fix them |
 
 ---
 

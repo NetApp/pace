@@ -19,6 +19,14 @@ Usage::
         --size 100MB \\
         --aggregate aggr1 \\
         --client-match 0.0.0.0/0
+
+Default values (vs0, vol_nfs_test_01, 0.0.0.0/0, etc.) are for illustration
+only.  Replace them with values appropriate for your environment —
+in particular, restrict ``--client-match`` to your actual client subnet.
+
+This script is *not* idempotent: running it twice with the same volume name
+will fail.  See ``python/README.md`` → "Adapting for Your Environment" for
+guidance on adding existence checks.
 """
 
 from __future__ import annotations

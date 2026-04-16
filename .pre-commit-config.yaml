@@ -17,7 +17,7 @@ repos:
 
   # ── Secret scanning ─────────────────────────────────────────
   - repo: https://github.com/trufflesecurity/trufflehog
-    rev: v3.88.0
+    rev: v3.94.2
     hooks:
       - id: trufflehog
         entry: trufflehog git file://. --since-commit HEAD --only-verified --fail

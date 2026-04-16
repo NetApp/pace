@@ -12,10 +12,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial ONTAP automation examples for Python, Ansible, and Terraform
 - CI workflows for linting, syntax validation, and secret scanning
 - Documentation for ONTAP API patterns
+- Dockerfile and docker-compose.yml for reproducible dev environment
+- Dependabot configuration for GitHub Actions, pip, and Terraform
+- Troubleshooting guide (`docs/troubleshooting.md`)
+- Documentation: default-values warning, no-tests disclaimer, idempotency guidance
 
-## [0.1.0] - 2025-01-01
+### Changed
 
-Initial release.
+- Reconciled TruffleHog versions between pre-commit and CI (both now `v3.94.2`)
+- CHANGELOG restructured with granular categories
 
-[Unreleased]: https://github.com/NetApp/orchestrio/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/NetApp/orchestrio/releases/tag/v0.1.0
+### Fixed
+
+- TruffleHog flag mismatch: pre-commit used `--fail` but CI did not — both now use `--only-verified --fail`
+
+[Unreleased]: https://github.com/NetApp/orchestrio/commits/main

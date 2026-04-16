@@ -49,6 +49,16 @@ terraform-validate: ## Format-check, validate, and lint Terraform modules
 	done; \
 	[ "$$ERRORS" -eq 0 ] || exit 1
 
+# ── Docker ─────────────────────────────────────────────────────
+
+.PHONY: docker-build
+docker-build: ## Build the dev container
+	docker build -t orchestrio-dev .
+
+.PHONY: docker-ci
+docker-ci: docker-build ## Run CI checks inside the container
+	docker run --rm orchestrio-dev make ci
+
 # ── Pre-commit hooks ───────────────────────────────────────────
 
 .PHONY: hooks

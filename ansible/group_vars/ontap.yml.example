@@ -2,6 +2,12 @@
 # Connection settings for all hosts in the "ontap" group.
 # Copy this file to ontap.yml and fill in your values.
 #
+# WARNING: All values below are for illustration only.
+# Replace svm_name, aggregate_name, volume_name, client_match, and
+# credentials with values appropriate for your environment.
+# In particular, client_match "0.0.0.0/0" allows ALL clients — restrict
+# it to your actual client subnet in production.
+#
 # For production use, encrypt with:
 #   ansible-vault encrypt group_vars/ontap.yml
 

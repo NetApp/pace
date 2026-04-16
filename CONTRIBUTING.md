@@ -49,6 +49,11 @@ Every example must:
 - Pass CI lint checks (see below)
 - Follow the conventions of the target tool (idiomatic Python, Ansible FQCNs, HCL style)
 
+> **Testing:** The example scripts intentionally have no unit tests — CI
+> validates lint and formatting only. These are runnable illustrations,
+> not a library. If you adapt a script for production use, add tests
+> appropriate to your environment.
+
 ### ONTAP API reference
 
 All examples target ONTAP 9.8+ REST APIs. See
@@ -122,6 +127,25 @@ make terraform-validate  # Terraform fmt, validate, tflint
 ```
 
 Run `make ci` before pushing to catch issues before they hit CI.
+
+### Using Docker
+
+If you prefer not to install toolchains locally, use the provided
+Dockerfile to get a reproducible environment:
+
+```bash
+# Build the dev container
+make docker-build
+
+# Run all CI checks inside the container
+make docker-ci
+
+# Or use docker compose for an interactive shell
+docker compose run --rm dev bash
+```
+
+The container includes Python 3.11, Ruff, pre-commit, Ansible, ansible-lint,
+Terraform, and tflint — everything CI expects.
 
 ### Pre-commit hooks
 

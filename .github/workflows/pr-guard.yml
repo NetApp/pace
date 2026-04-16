@@ -30,7 +30,7 @@ jobs:
       - name: TruffleHog scan
         uses: trufflesecurity/trufflehog@v3.94.2
         with:
-          extra_args: --only-verified
+          extra_args: --only-verified --fail
 
   yaml-syntax:
     name: Validate YAML syntax

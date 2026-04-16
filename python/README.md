@@ -9,6 +9,11 @@ For ONTAP REST API conventions (endpoints, auth, headers, async jobs), see the
 To compare this approach with Ansible or Terraform, see
 [Choosing an approach](../docs/choosing-an-approach.md).
 
+> **Note:** These scripts are runnable illustrations, not a tested library.
+> There are no unit tests by design — CI validates only lint and formatting
+> via Ruff. When you adapt a script for production, add tests appropriate
+> to your environment.
+
 ---
 
 ## Prerequisites
@@ -28,7 +33,11 @@ pip install -r requirements.txt
 
 ## Configuration
 
-All scripts read connection details from environment variables:
+All scripts read connection details from environment variables.
+
+> **Important:** The values below are placeholders for illustration only.
+> Replace `ONTAP_HOST`, `ONTAP_USER`, and `ONTAP_PASS` with your actual
+> cluster details before running any script.
 
 ```bash
 export ONTAP_HOST=10.0.0.1       # cluster management LIF
@@ -112,6 +121,9 @@ These scripts illustrate workflows using simple API call sequences. When
 adapting them, consider adding the following based on your requirements:
 
 - **Idempotency** — check whether a resource exists before creating it
+  (e.g. `GET /storage/volumes?name=vol01&svm.name=vs0` before calling
+  `POST /storage/volumes`). Ansible modules handle this natively; Python
+  and Terraform scripts require explicit checks or state tracking.
 - **Retry and backoff** — handle transient network or API errors gracefully
 - **Partial failure recovery** — clean up or resume when a multi-step workflow
   fails midway

@@ -51,7 +51,7 @@ variable "aggregate_name" {
 }
 
 variable "client_match" {
-  description = "Client IP or CIDR for the NFS export policy rule"
+  description = "Client IP or CIDR for the NFS export policy rule (default 0.0.0.0/0 is for illustration only — restrict to your actual client subnet)"
   type        = string
   default     = "0.0.0.0/0"
 }
