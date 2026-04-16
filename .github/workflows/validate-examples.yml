@@ -20,7 +20,7 @@ jobs:
     name: Ansible — syntax & lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v6
         with:
@@ -47,7 +47,7 @@ jobs:
     name: Terraform — fmt, validate & lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: hashicorp/setup-terraform@v3
         with:
