@@ -89,6 +89,25 @@ To tear down the resources:
 terraform destroy
 ```
 
+### CIFS (SMB) Share Provisioning
+
+Creates a FlexVol volume with NTFS security style, a CIFS share pointing to the
+volume, and an ACL granting the specified user/group the requested permission level.
+
+```bash
+cd cifs-provision
+cp terraform.tfvars.example terraform.tfvars
+# edit terraform.tfvars
+terraform init && terraform plan   # review the plan
+terraform apply                     # create resources
+```
+
+To tear down the resources:
+
+```bash
+terraform destroy
+```
+
 ---
 
 ## File Overview
@@ -101,10 +120,15 @@ terraform/
 │   ├── variables.tf                  # Input variables
 │   ├── outputs.tf                    # Cluster name, version, nodes
 │   └── terraform.tfvars.example      # Variable template
-└── nfs-provision/
-    ├── main.tf                       # Provider + resources
+├── nfs-provision/
+│   ├── main.tf                       # Provider + resources
+│   ├── variables.tf                  # Input variables
+│   ├── outputs.tf                    # Volume name, mount path, policy
+│   └── terraform.tfvars.example      # Variable template
+└── cifs-provision/
+    ├── main.tf                       # Provider + volume + CIFS share with ACL
     ├── variables.tf                  # Input variables
-    ├── outputs.tf                    # Volume name, mount path, policy
+    ├── outputs.tf                    # Volume name, mount path, share name/path
     └── terraform.tfvars.example      # Variable template
 ```
 
