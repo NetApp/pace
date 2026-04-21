@@ -20,7 +20,7 @@
         validate_certs: "{{ ontap_validate_certs }}"
         use_rest: always
         gather_subset:
-          - cluster/node_info
+          - cluster/nodes
         fields:
           - "version"
       register: cluster_result
@@ -29,12 +29,8 @@
     - name: Display cluster version
       ansible.builtin.debug:
         msg: >-
-          Cluster: {{ cluster_result.ontap_info['cluster/node_info']
-            | dict2items | first
-            | json_query('value.cluster_name') | default('unknown') }}
-          — ONTAP {{ cluster_result.ontap_info['cluster/node_info']
-            | dict2items | first
-            | json_query('value.version') | default('unknown') }}
+          Cluster node: {{ cluster_result.ontap_info['cluster/nodes']['records'][0].name | default('unknown') }}
+          — ONTAP {{ cluster_result.ontap_info['cluster/nodes']['records'][0].version.full | default('unknown') }}
 
     # -- Step 2: List nodes with serial numbers -------------------------
     - name: Get node details
@@ -46,7 +42,7 @@
         validate_certs: "{{ ontap_validate_certs }}"
         use_rest: always
         gather_subset:
-          - cluster/node_info
+          - cluster/nodes
         fields:
           - "name"
           - "serial_number"
@@ -55,7 +51,7 @@
 
     - name: Display node list
       ansible.builtin.debug:
-        msg: "Node: {{ item.value.name }} — serial: {{ item.value.serial_number | default('N/A') }}"
-      loop: "{{ nodes_result.ontap_info['cluster/node_info'] | dict2items }}"
+        msg: "Node: {{ item.name }} — serial: {{ item.serial_number | default('N/A') }}"
+      loop: "{{ nodes_result.ontap_info['cluster/nodes']['records'] }}"
       loop_control:
-        label: "{{ item.value.name }}"
+        label: "{{ item.name }}"
