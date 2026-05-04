@@ -1,0 +1,394 @@
+---
+# cleanup_test_failover.yaml — Delete the FlexClone created by test_failover.
+#
+# Finds the clone via SnapMirror relationship UUID tag ("<uuid>:test").
+# Only clones tagged by the test failover workflow are touched — manually
+# created volumes are never matched or deleted.
+#
+# Phases:
+#   0  Relationship-pick  — find SM relationship on correct cluster
+#   A  Tag-based find     — locate clone tagged with "<uuid>:test"
+#   B  SMAS removal       — delete any SMAS relationship on the clone
+#   C  Unmount            — remove NAS junction path (with retry)
+#   D  Offline            — set volume state to offline
+#   E  Delete             — delete the clone and confirm removal
+#
+# Prerequisites:
+#   1. ONTAP 9.8+ on both clusters
+#   2. test_failover must have been run first — this playbook only finds
+#      clones tagged by that workflow
+#   3. The SnapMirror relationship must still be accessible on one cluster
+#   4. Admin credentials for both clusters
+#
+# Credentials are injected via environment variables:
+#   CLUSTER_A, CLUSTER_B
+#   DEST_USER, DEST_PASS
+#   SOURCE_VOLUME, SOURCE_SVM
+#
+# Usage:
+#   export CLUSTER_A=10.x.x.x   CLUSTER_B=10.y.y.y
+#   export DEST_USER=admin       DEST_PASS=secret
+#   export SOURCE_VOLUME=vol_rw_01
+#   export SOURCE_SVM=vs0
+#   ansible-playbook ansible/cleanup_test_failover.yml
+#
+- name: "SnapMirror — Cleanup Test Failover (Clone Deletion)"
+  hosts: localhost
+  gather_facts: false
+  connection: local
+
+  vars:
+    cluster_a: "{{ lookup('env', 'CLUSTER_A') }}"
+    cluster_b: "{{ lookup('env', 'CLUSTER_B') }}"
+    dest_user: "{{ lookup('env', 'DEST_USER') | default('admin', true) }}"
+    dest_pass: "{{ lookup('env', 'DEST_PASS') }}"
+    source_volume: "{{ lookup('env', 'SOURCE_VOLUME') }}"
+    source_svm: "{{ lookup('env', 'SOURCE_SVM') }}"
+    source_path: "{{ source_svm }}:{{ source_volume }}"
+    validate_certs: false
+
+  module_defaults:
+    ansible.builtin.uri:
+      force_basic_auth: true
+      validate_certs: "{{ validate_certs }}"
+      headers:
+        Accept: "application/json"
+        Content-Type: "application/json"
+        X-Dot-Client-App: "orchestrio"
+      timeout: 30
+      status_code: [200, 201, 202]
+
+  tasks:
+    # ================================================================
+    # Phase 0: Find SnapMirror relationship on correct cluster
+    # ================================================================
+
+    - name: "Phase 0 — Validate required environment variables"
+      ansible.builtin.assert:
+        that:
+          - cluster_a | length > 0
+          - cluster_b | length > 0
+          - dest_pass | length > 0
+          - source_volume | length > 0
+          - source_svm | length > 0
+        fail_msg: >-
+          Missing env vars. Export CLUSTER_A, CLUSTER_B, DEST_PASS,
+          SOURCE_VOLUME, SOURCE_SVM.
+      no_log: false
+
+    - name: "Phase 0 — Try cluster A for SnapMirror relationship"
+      ansible.builtin.uri:
+        url: "https://{{ cluster_a }}/api/snapmirror/relationships?source.path={{ source_path }}&fields=uuid,source.path,destination.path,state,healthy&max_records=1"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+        timeout: 20
+      register: rel_a
+      failed_when: false
+      no_log: false
+
+    - name: "Phase 0 — Try cluster B for SnapMirror relationship"
+      ansible.builtin.uri:
+        url: "https://{{ cluster_b }}/api/snapmirror/relationships?source.path={{ source_path }}&fields=uuid,source.path,destination.path,state,healthy&max_records=1"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+        timeout: 20
+      register: rel_b
+      failed_when: false
+      when: >-
+        rel_a.status | default(0) not in [200]
+        or (rel_a.json.num_records | default(0) | int) == 0
+      no_log: false
+
+    - name: "Phase 0 — Determine which cluster owns the relationship"
+      ansible.builtin.set_fact:
+        dest_host: >-
+          {{ cluster_a
+             if (rel_a.status | default(0) == 200 and (rel_a.json.num_records | default(0) | int) > 0)
+             else cluster_b }}
+        sm_rel: >-
+          {{ rel_a.json.records[0]
+             if (rel_a.status | default(0) == 200 and (rel_a.json.num_records | default(0) | int) > 0)
+             else rel_b.json.records[0] }}
+
+    - name: "Phase 0 — Validate a relationship was found"
+      ansible.builtin.assert:
+        that:
+          - sm_rel.uuid is defined
+          - sm_rel.uuid | length > 0
+        fail_msg: >-
+          No SnapMirror relationship found for {{ source_path }}
+          on either cluster ({{ cluster_a }}, {{ cluster_b }}).
+      no_log: false
+
+    - name: "Phase 0 — Store relationship UUID"
+      ansible.builtin.set_fact:
+        rel_uuid: "{{ sm_rel.uuid }}"
+        dest_api: "https://{{ dest_host }}/api"
+
+    - name: "Phase 0 — Log relationship found"
+      ansible.builtin.debug:
+        msg: >-
+          RELATIONSHIP FOUND | cluster={{ dest_host }}
+          | uuid={{ rel_uuid }}
+          | source={{ sm_rel.source.path | default('unknown') }}
+          | dest={{ sm_rel.destination.path | default('unknown') }}
+          | state={{ sm_rel.state | default('unknown') }}
+          | healthy={{ sm_rel.healthy | default('unknown') }}
+
+    - name: "Phase 0 — Warn if relationship is not snapmirrored"
+      ansible.builtin.debug:
+        msg: >-
+          WARNING — Relationship state={{ sm_rel.state }}
+          healthy={{ sm_rel.healthy | default('unknown') }}
+          — proceeding with cleanup anyway.
+      when: sm_rel.state | default('') != 'snapmirrored'
+
+    # ================================================================
+    # Phase A: Tag-based find — locate clone tagged "<uuid>:test"
+    # ================================================================
+
+    - name: "Phase A — Search for tagged clone volume"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/storage/volumes?_tags={{ rel_uuid }}:test&fields=name,uuid,svm.name,state,nas.path&max_records=1"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      register: tagged_resp
+      no_log: false
+
+    - name: "Phase A — Exit cleanly if no tagged clone found"
+      ansible.builtin.debug:
+        msg: >-
+          NO TAGGED CLONE FOUND for {{ source_path }} on {{ dest_host }}
+          — nothing to clean up.
+      when: tagged_resp.json.num_records | default(0) | int == 0
+
+    - name: "Phase A — End play if no clone"
+      ansible.builtin.meta: end_play
+      when: tagged_resp.json.num_records | default(0) | int == 0
+
+    - name: "Phase A — Store clone details"
+      ansible.builtin.set_fact:
+        clone_uuid: "{{ tagged_resp.json.records[0].uuid }}"
+        clone_name: "{{ tagged_resp.json.records[0].name }}"
+        clone_svm: "{{ tagged_resp.json.records[0].svm.name }}"
+
+    - name: "Phase A — Log clone found"
+      ansible.builtin.debug:
+        msg: >-
+          CLONE FOUND | name={{ clone_name }}
+          | uuid={{ clone_uuid }}
+          | svm={{ clone_svm }}
+          | cluster={{ dest_host }}
+
+    # ================================================================
+    # Phase B: SMAS removal — delete SnapMirror relationships on clone
+    # ================================================================
+
+    - name: "Phase B — Find SMAS relationships on clone"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/snapmirror/relationships?destination.path={{ clone_svm }}:{{ clone_name }}&fields=uuid,state&max_records=10"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      register: smas_resp
+      no_log: false
+
+    - name: "Phase B — Log no SMAS relationships"
+      ansible.builtin.debug:
+        msg: "No SMAS relationships found on clone — continuing."
+      when: smas_resp.json.num_records | default(0) | int == 0
+
+    - name: "Phase B — Delete each SMAS relationship"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/snapmirror/relationships/{{ item.uuid }}?return_timeout=120&force=true"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: DELETE
+      loop: "{{ smas_resp.json.records | default([]) }}"
+      loop_control:
+        label: "{{ item.uuid }}"
+      register: smas_delete
+      failed_when: false
+      no_log: false
+
+    - name: "Phase B — Poll SMAS delete jobs"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/cluster/jobs/{{ item.json.job.uuid }}"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      loop: "{{ smas_delete.results | default([]) }}"
+      loop_control:
+        label: "{{ item.json.job.uuid | default('n/a') }}"
+      register: smas_jobs
+      until: smas_jobs.json.state | default('success') in ['success', 'failure']
+      retries: 30
+      delay: 10
+      when: >-
+        item.json is defined
+        and item.json.job is defined
+        and item.json.job.uuid is defined
+      failed_when: false
+      no_log: false
+
+    - name: "Phase B — Bring clone online (in case previous run left it offline)"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/storage/volumes/{{ clone_uuid }}?return_timeout=120"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: PATCH
+        body_format: json
+        body:
+          state: online
+      register: bring_online
+      failed_when: false
+      no_log: false
+
+    - name: "Phase B — Poll bring-online job"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/cluster/jobs/{{ bring_online.json.job.uuid }}"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      register: online_job
+      until: online_job.json.state in ['success', 'failure']
+      retries: 30
+      delay: 10
+      when: >-
+        bring_online.json is defined
+        and bring_online.json.job is defined
+      failed_when: false
+      no_log: false
+
+    # ================================================================
+    # Phase C: Unmount clone — remove NAS junction path (with retry)
+    # ================================================================
+
+    - name: "Phase C — Unmount clone (remove junction path)"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/storage/volumes/{{ clone_uuid }}?return_timeout=120"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: PATCH
+        body_format: json
+        body:
+          nas:
+            path: ""
+      register: unmount_result
+      until: unmount_result.status | default(0) in [200, 201, 202]
+      retries: 6
+      delay: 10
+      failed_when: false
+      no_log: false
+
+    - name: "Phase C — Validate unmount succeeded"
+      ansible.builtin.assert:
+        that:
+          - unmount_result.status | default(0) in [200, 201, 202]
+        fail_msg: >-
+          Failed to unmount clone after 6 attempts — aborting.
+          Last response: {{ unmount_result.msg | default(unmount_result.json | default('unknown')) }}
+      no_log: false
+
+    - name: "Phase C — Poll unmount job"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/cluster/jobs/{{ unmount_result.json.job.uuid }}"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      register: unmount_job
+      until: unmount_job.json.state in ['success', 'failure']
+      retries: 30
+      delay: 10
+      failed_when: unmount_job.json.state == 'failure'
+      when: >-
+        unmount_result.json is defined
+        and unmount_result.json.job is defined
+      no_log: false
+
+    # ================================================================
+    # Phase D: Offline clone
+    # ================================================================
+
+    - name: "Phase D — Set clone volume offline"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/storage/volumes/{{ clone_uuid }}?return_timeout=120"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: PATCH
+        body_format: json
+        body:
+          state: offline
+      register: offline_result
+      failed_when: false
+      no_log: false
+
+    - name: "Phase D — Poll offline job"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/cluster/jobs/{{ offline_result.json.job.uuid }}"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      register: offline_job
+      until: offline_job.json.state in ['success', 'failure']
+      retries: 30
+      delay: 10
+      when: >-
+        offline_result.json is defined
+        and offline_result.json.job is defined
+      failed_when: false
+      no_log: false
+
+    # ================================================================
+    # Phase E: Delete clone and confirm removal
+    # ================================================================
+
+    - name: "Phase E — Delete clone volume"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/storage/volumes/{{ clone_uuid }}?return_timeout=120"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: DELETE
+      register: delete_result
+      failed_when: false
+      no_log: false
+
+    - name: "Phase E — Poll delete job"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/cluster/jobs/{{ delete_result.json.job.uuid }}"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      register: delete_job
+      until: delete_job.json.state in ['success', 'failure']
+      retries: 30
+      delay: 10
+      when: >-
+        delete_result.json is defined
+        and delete_result.json.job is defined
+      failed_when: false
+      no_log: false
+
+    - name: "Phase E — Confirm clone was deleted"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/storage/volumes?uuid={{ clone_uuid }}&fields=name,uuid&max_records=1"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      register: confirm_delete
+      no_log: false
+
+    - name: "Phase E — Log cleanup success"
+      ansible.builtin.debug:
+        msg: >-
+          === CLEANUP COMPLETE — clone '{{ clone_name }}' deleted
+          from cluster {{ dest_host }} ===
+      when: confirm_delete.json.num_records | default(0) | int == 0
+
+    - name: "Phase E — Fail if clone still exists"
+      ansible.builtin.fail:
+        msg: "Clone '{{ clone_name }}' still exists after delete attempt."
+      when: confirm_delete.json.num_records | default(0) | int > 0
