@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report a bug to help us improve Orchestrio
+about: Report a bug to help us improve Pace
 title: ""
 labels: bug
 assignees: ""

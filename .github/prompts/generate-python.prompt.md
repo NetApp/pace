@@ -4,7 +4,7 @@ description: "Generate a Python script that automates an ONTAP storage task usin
 
 # Generate ONTAP Python Workflow
 
-You are generating a Python script for the **os_orchestrio** repository.
+You are generating a Python script for the **pace** repository.
 The script automates a NetApp ONTAP storage task using exclusively REST APIs.
 
 ## Task

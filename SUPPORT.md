@@ -1,14 +1,14 @@
-# Orchestrio Support and Getting Help
+# Pace Support and Getting Help
 
-Orchestrio is an open-source project developed and published by NetApp providing
+Pace is an open-source project developed and published by NetApp providing
 automation examples for ONTAP, implemented in Python, Ansible, and Terraform.
-Orchestrio is not an officially supported NetApp product. NetApp
-maintains and updates Orchestrio with bug fixes, security updates, and feature
+Pace is not an officially supported NetApp product. NetApp
+maintains and updates Pace with bug fixes, security updates, and feature
 development. For assistance, refer to [Getting Help](#getting-help).
 
 ## Release and Support Lifecycle
 
-Orchestrio follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Pace follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Each release is tagged as `vMAJOR.MINOR.PATCH` and published on GitHub Releases.
 
 All examples target ONTAP 9.8+ REST APIs. When breaking changes are required,
@@ -20,9 +20,9 @@ We recommend always running the latest version.
 
 We use GitHub for tracking bugs and feature requests.
 
-- **Bug reports** — [open an issue](https://github.com/NetApp/orchestrio/issues/new?template=bug_report.md)
-- **Feature requests** — [open an issue](https://github.com/NetApp/orchestrio/issues/new?template=feature_request.md)
-- **Questions and discussion** — [GitHub Discussions](https://github.com/NetApp/orchestrio/discussions)
+- **Bug reports** — [open an issue](https://github.com/NetApp/pace/issues/new?template=bug_report.md)
+- **Feature requests** — [open an issue](https://github.com/NetApp/pace/issues/new?template=feature_request.md)
+- **Questions and discussion** — [GitHub Discussions](https://github.com/NetApp/pace/discussions)
 
 ## Documentation
 

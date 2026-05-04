@@ -59,7 +59,7 @@ variable "share_name" {
 variable "share_comment" {
   description = "Descriptive comment for the CIFS share"
   type        = string
-  default     = "Provisioned by orchestrio"
+  default     = "Provisioned by Pace"
 }
 
 variable "acl_user" {

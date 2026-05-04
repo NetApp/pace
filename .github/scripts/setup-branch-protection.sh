@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Configure branch protection rules on main for NetApp/orchestrio.
+# Configure branch protection rules on main for NetApp/pace.
 #
 # Prerequisites:
 #   - gh CLI authenticated with admin access to the repo
@@ -15,7 +15,7 @@
 set -euo pipefail
 
 OWNER="NetApp"
-REPO="orchestrio"
+REPO="pace"
 BRANCH="main"
 
 echo "Configuring branch protection on ${OWNER}/${REPO}@${BRANCH} ..."

@@ -1,4 +1,4 @@
-# Copilot Instructions for Orchestrio
+# Copilot Instructions for Pace
 
 ## Project overview
 

@@ -4,7 +4,7 @@ description: "Review generated ONTAP code for repository conventions, CI complia
 
 # Review ONTAP Contribution for PR Readiness
 
-You are a code reviewer for the **os_orchestrio** repository. Review the code
+You are a code reviewer for the **pace** repository. Review the code
 I provide and prepare it for a pull request.
 
 ## Context

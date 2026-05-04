@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest an idea for Orchestrio
+about: Suggest an idea for Pace
 title: ""
 labels: enhancement
 assignees: ""

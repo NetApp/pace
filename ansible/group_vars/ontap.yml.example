@@ -30,6 +30,6 @@ client_match: "0.0.0.0/0"
 # CIFS provisioning defaults (used by cifs_provision.yml)
 # volume_name: vol_cifs_test_01         # uncomment to override for CIFS
 share_name: cifs_share_test
-share_comment: "Provisioned by orchestrio"
+share_comment: "Provisioned by Pace"
 acl_user: Everyone
 acl_permission: full_control

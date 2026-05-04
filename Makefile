@@ -53,11 +53,11 @@ terraform-validate: ## Format-check, validate, and lint Terraform modules
 
 .PHONY: docker-build
 docker-build: ## Build the dev container
-	docker build -t orchestrio-dev .
+	docker build -t pace-dev .
 
 .PHONY: docker-ci
 docker-ci: docker-build ## Run CI checks inside the container
-	docker run --rm orchestrio-dev make ci
+	docker run --rm pace-dev make ci
 
 # ── Pre-commit hooks ───────────────────────────────────────────
 

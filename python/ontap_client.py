@@ -33,7 +33,7 @@ _DEFAULT_TIMEOUT = 30
 _DEFAULT_HEADERS = {
     "Accept": "application/hal+json",
     "Content-Type": "application/json",
-    "X-Dot-Client-App": "orchestrio-example",
+    "X-Dot-Client-App": "pace-example",
 }
 
 

@@ -1,4 +1,4 @@
-# Orchestrio — ONTAP Automation Examples
+# Pace — ONTAP Automation Examples
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
@@ -93,7 +93,7 @@ see the [ONTAP API patterns guide](docs/ontap-api-patterns.md).
 ## Repository Structure
 
 ```
-orchestrio/
+pace/
 ├── python/                 # Python script examples
 ├── ansible/                # Ansible playbook examples
 ├── terraform/              # Terraform module examples

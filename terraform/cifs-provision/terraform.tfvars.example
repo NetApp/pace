@@ -13,6 +13,6 @@ volume_size_unit = "mb"
 aggregate_name   = "aggr1"
 
 share_name     = "cifs_share_test"
-share_comment  = "Provisioned by orchestrio"
+share_comment  = "Provisioned by Pace"
 acl_user       = "Everyone"
 acl_permission = "full_control"

@@ -218,7 +218,7 @@ The default branch is `main`. All PRs target `main`.
 
 - **Tags** follow [Semantic Versioning](https://semver.org/): `vMAJOR.MINOR.PATCH` (e.g. `v0.2.0`)
 - **Release titles** omit the `v` prefix: `0.2.0`
-- **Artifacts** use the pattern `orchestrio-<version>.<ext>` (e.g. `orchestrio-0.2.0.tar.gz`)
+- **Artifacts** use the pattern `pace-<version>.<ext>` (e.g. `pace-0.2.0.tar.gz`)
 - All notable changes are recorded in [CHANGELOG.md](CHANGELOG.md)
 
 ### Commit messages

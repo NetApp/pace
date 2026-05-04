@@ -4,7 +4,7 @@ description: "Generate an Ansible playbook that automates an ONTAP storage task 
 
 # Generate ONTAP Ansible Playbook
 
-You are generating an Ansible playbook for the **os_orchestrio** repository.
+You are generating an Ansible playbook for the **pace** repository.
 The playbook automates a NetApp ONTAP storage task using the `netapp.ontap`
 collection, which calls exclusively REST APIs.
 

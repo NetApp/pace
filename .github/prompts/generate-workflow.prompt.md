@@ -4,7 +4,7 @@ description: "Generate a complete ONTAP workflow — Python + Ansible + Terrafor
 
 # Generate Complete ONTAP Workflow (All Three Tools)
 
-You are generating a full automation example set for the **os_orchestrio**
+You are generating a full automation example set for the **pace**
 repository. Every use case in this repo ships Python, Ansible, and Terraform
 implementations so users can compare side-by-side.
 
