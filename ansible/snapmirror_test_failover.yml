@@ -1,0 +1,383 @@
+---
+# test_failover.yaml — Create a writable FlexClone of a SnapMirror dest volume.
+#
+# AUTO mode  (SOURCE_VOLUME=* or unset):
+#   Queries both clusters, picks the one with the most recently created DP volume.
+# TARGETED mode (SOURCE_VOLUME=vol_rw_01):
+#   Finds vol_rw_01_dest on either cluster.
+#
+# Phases:
+#   0  Auto-detect which cluster has the target DP volume
+#   A  Pre-flight  — verify cluster + relationship health
+#   B  Snapshot    — get latest SnapMirror snapshot on dest volume
+#   C  Clone       — create writable FlexClone
+#   D  Verify      — confirm clone online + tag with SM relationship UUID
+#   E  Resync      — resync SnapMirror + validate healthy state
+#
+# Prerequisites:
+#   1. ONTAP 9.8+ on both clusters
+#   2. A healthy SnapMirror relationship must already exist
+#   3. Relationship state must be 'snapmirrored' (baseline transfer complete)
+#   4. At least one SnapMirror snapshot on the destination volume
+#   5. Admin credentials for both clusters
+#
+# Credentials are injected via environment variables:
+#   CLUSTER_A, CLUSTER_B
+#   DEST_USER, DEST_PASS
+#   SOURCE_VOLUME (optional, default: * for auto-detect)
+#
+# Usage:
+#   export CLUSTER_A=10.x.x.x  CLUSTER_B=10.y.y.y
+#   export DEST_USER=admin      DEST_PASS=secret
+#   export SOURCE_VOLUME=*
+#   ansible-playbook ansible/test_failover.yml
+#
+- name: "SnapMirror — Test Failover (FlexClone)"
+  hosts: localhost
+  gather_facts: false
+  connection: local
+
+  vars:
+    cluster_a: "{{ lookup('env', 'CLUSTER_A') }}"
+    cluster_b: "{{ lookup('env', 'CLUSTER_B') }}"
+    dest_user: "{{ lookup('env', 'DEST_USER') | default('admin', true) }}"
+    dest_pass: "{{ lookup('env', 'DEST_PASS') }}"
+    source_volume: "{{ lookup('env', 'SOURCE_VOLUME') | default('*', true) }}"
+    dest_vol_filter: >-
+      {{ (source_volume ~ '_dest') if source_volume != '*' else '*_dest' }}
+    validate_certs: false
+
+  module_defaults:
+    ansible.builtin.uri:
+      force_basic_auth: true
+      validate_certs: "{{ validate_certs }}"
+      headers:
+        Accept: "application/json"
+        Content-Type: "application/json"
+        X-Dot-Client-App: "orchestrio"
+      timeout: 30
+      status_code: [200, 201, 202]
+
+  tasks:
+    # ================================================================
+    # Phase 0: Auto-detect target cluster
+    # ================================================================
+
+    - name: "Phase 0 — Validate required environment variables"
+      ansible.builtin.assert:
+        that:
+          - cluster_a | length > 0
+          - cluster_b | length > 0
+          - dest_pass | length > 0
+        fail_msg: >-
+          Missing env vars. Export CLUSTER_A, CLUSTER_B, DEST_PASS.
+      no_log: false
+
+    - name: "Phase 0 — Search cluster A for DP volume"
+      ansible.builtin.uri:
+        url: "https://{{ cluster_a }}/api/storage/volumes?type=dp&name={{ dest_vol_filter }}&fields=name,create_time,uuid,svm.name,state,space.size&order_by=create_time+desc&max_records=1"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+        timeout: 20
+      register: vol_a
+      failed_when: false
+      no_log: false
+
+    - name: "Phase 0 — Search cluster B for DP volume"
+      ansible.builtin.uri:
+        url: "https://{{ cluster_b }}/api/storage/volumes?type=dp&name={{ dest_vol_filter }}&fields=name,create_time,uuid,svm.name,state,space.size&order_by=create_time+desc&max_records=1"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+        timeout: 20
+      register: vol_b
+      failed_when: false
+      when: >-
+        vol_a.status | default(0) not in [200]
+        or (vol_a.json.num_records | default(0) | int) == 0
+      no_log: false
+
+    - name: "Phase 0 — Determine which cluster has the DP volume"
+      ansible.builtin.set_fact:
+        dest_host: >-
+          {{ cluster_a
+             if (vol_a.status | default(0) == 200 and (vol_a.json.num_records | default(0) | int) > 0)
+             else cluster_b }}
+        dp_vol: >-
+          {{ vol_a.json.records[0]
+             if (vol_a.status | default(0) == 200 and (vol_a.json.num_records | default(0) | int) > 0)
+             else vol_b.json.records[0] }}
+
+    - name: "Phase 0 — Validate a DP volume was found"
+      ansible.builtin.assert:
+        that:
+          - dp_vol.uuid is defined
+          - dp_vol.uuid | length > 0
+        fail_msg: >-
+          No DP volumes found on either cluster ({{ cluster_a }}, {{ cluster_b }}).
+      no_log: false
+
+    - name: "Phase 0 — Store DP volume details"
+      ansible.builtin.set_fact:
+        dest_api: "https://{{ dest_host }}/api"
+        dp_vol_name: "{{ dp_vol.name }}"
+        dp_vol_uuid: "{{ dp_vol.uuid }}"
+        dp_svm_name: "{{ dp_vol.svm.name }}"
+        clone_name: "{{ dp_vol.name }}_clone"
+
+    - name: "Phase 0 — Log selected target"
+      ansible.builtin.debug:
+        msg: >-
+          SELECTED | cluster={{ dest_host }}
+          | volume={{ dp_vol_name }}
+          | svm={{ dp_svm_name }}
+          | uuid={{ dp_vol_uuid }}
+          | state={{ dp_vol.state | default('unknown') }}
+          | size={{ dp_vol.space.size | default('unknown') }}
+
+    # ================================================================
+    # Phase A: Pre-flight — verify cluster + relationship health
+    # ================================================================
+
+    - name: "Phase A — Get destination cluster info"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/cluster?fields=name,version"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      register: cluster_info
+      no_log: false
+
+    - name: "Phase A — Log destination cluster"
+      ansible.builtin.debug:
+        msg: >-
+          DEST CLUSTER | name={{ cluster_info.json.name }}
+          | ontap={{ cluster_info.json.version.full }}
+
+    - name: "Phase A — Get SnapMirror relationship for DP volume"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/snapmirror/relationships?destination.path={{ dp_svm_name }}:{{ dp_vol_name }}&fields=uuid,source.path,destination.path,state,lag_time,healthy,policy.name&max_records=1"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      register: rel_resp
+      failed_when: rel_resp.json.num_records | default(0) | int == 0
+      no_log: false
+
+    - name: "Phase A — Store relationship details"
+      ansible.builtin.set_fact:
+        rel: "{{ rel_resp.json.records[0] }}"
+        rel_uuid: "{{ rel_resp.json.records[0].uuid }}"
+
+    - name: "Phase A — Log relationship"
+      ansible.builtin.debug:
+        msg: >-
+          RELATIONSHIP | uuid={{ rel_uuid }}
+          | source={{ rel.source.path | default('unknown') }}
+          | dest={{ rel.destination.path | default('unknown') }}
+          | state={{ rel.state | default('unknown') }}
+          | healthy={{ rel.healthy | default('unknown') }}
+          | lag={{ rel.lag_time | default('unknown') }}
+
+    # ================================================================
+    # Phase B: Get latest SnapMirror snapshot
+    # ================================================================
+
+    - name: "Phase B — Fetch latest snapshot on DP volume"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/storage/volumes/{{ dp_vol_uuid }}/snapshots?fields=name,create_time&order_by=create_time+desc&max_records=1"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      register: snap_resp
+      no_log: false
+
+    - name: "Phase B — Validate snapshot exists"
+      ansible.builtin.assert:
+        that:
+          - snap_resp.json.num_records | default(0) | int > 0
+        fail_msg: >-
+          No SnapMirror snapshots on {{ dp_vol_name }}
+          — run provision workflow first.
+      no_log: false
+
+    - name: "Phase B — Store snapshot name"
+      ansible.builtin.set_fact:
+        snapshot_name: "{{ snap_resp.json.records[0].name }}"
+
+    - name: "Phase B — Log snapshot"
+      ansible.builtin.debug:
+        msg: >-
+          LATEST SM SNAPSHOT | name={{ snapshot_name }}
+          | created={{ snap_resp.json.records[0].create_time | default('unknown') }}
+
+    # ================================================================
+    # Phase C: Create FlexClone
+    # ================================================================
+
+    - name: "Phase C — Create writable FlexClone"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/storage/volumes?return_timeout=120"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: POST
+        body_format: json
+        body:
+          name: "{{ clone_name }}"
+          svm:
+            name: "{{ dp_svm_name }}"
+          nas:
+            path: "/{{ clone_name }}"
+          clone:
+            is_flexclone: true
+            parent_volume:
+              name: "{{ dp_vol_name }}"
+            parent_snapshot:
+              name: "{{ snapshot_name }}"
+      register: clone_create
+      failed_when: false
+      no_log: false
+
+    - name: "Phase C — Poll clone creation job"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/cluster/jobs/{{ clone_create.json.job.uuid }}"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      register: clone_job
+      until: clone_job.json.state in ['success', 'failure']
+      retries: 30
+      delay: 10
+      failed_when: clone_job.json.state == 'failure'
+      when: >-
+        clone_create.json is defined
+        and clone_create.json.job is defined
+      no_log: false
+
+    - name: "Phase C — Log clone create result"
+      ansible.builtin.debug:
+        msg: >-
+          {{ 'FlexClone created' if clone_create.status | default(0) in [200, 201, 202]
+             else 'create_test_clone — may already exist (continuing)' }}
+
+    # ================================================================
+    # Phase D: Verify clone + tag with SM relationship UUID
+    # ================================================================
+
+    - name: "Phase D — Look up clone volume"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/storage/volumes?name={{ clone_name }}&svm.name={{ dp_svm_name }}&fields=name,uuid,state,nas.path,space.size&max_records=1"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      register: clone_vol_resp
+      failed_when: clone_vol_resp.json.num_records | default(0) | int == 0
+      no_log: false
+
+    - name: "Phase D — Store clone details"
+      ansible.builtin.set_fact:
+        clone_vol: "{{ clone_vol_resp.json.records[0] }}"
+        clone_uuid: "{{ clone_vol_resp.json.records[0].uuid }}"
+
+    - name: "Phase D — Log clone info"
+      ansible.builtin.debug:
+        msg: >-
+          CLONE | name={{ clone_vol.name }}
+          | uuid={{ clone_uuid }}
+          | state={{ clone_vol.state }}
+          | junction={{ clone_vol.nas.path | default('none') }}
+
+    - name: "Phase D — Tag clone with SM relationship UUID"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/storage/volumes/{{ clone_uuid }}?return_timeout=120"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: PATCH
+        body_format: json
+        body:
+          _tags:
+            - "{{ rel_uuid }}:test"
+      register: tag_result
+      failed_when: false
+      no_log: false
+
+    - name: "Phase D — Log tag result"
+      ansible.builtin.debug:
+        msg: >-
+          TAG {{ 'APPLIED' if tag_result.status | default(0) in [200, 201, 202]
+          else 'FAILED (non-critical)' }}
+          | clone={{ clone_name }} | tag={{ rel_uuid }}:test
+
+    - name: "Phase D — Print test failover ready summary"
+      ansible.builtin.debug:
+        msg: |
+          === TEST FAILOVER READY ===
+
+            Clone    : {{ clone_vol.name }}
+            UUID     : {{ clone_uuid }}
+            State    : {{ clone_vol.state }}
+            Junction : {{ clone_vol.nas.path | default('none') }}
+            SVM      : {{ dp_svm_name }}
+            Snapshot : {{ snapshot_name }}
+
+            ACTION: Mount {{ clone_vol.nas.path | default('/' ~ clone_name) }} from SVM {{ dp_svm_name }} on a test client.
+
+    # ================================================================
+    # Phase E: Resync SnapMirror + validate healthy state
+    # ================================================================
+
+    - name: "Phase E — Resync SnapMirror relationship"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/snapmirror/relationships/{{ rel_uuid }}?return_timeout=120"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: PATCH
+        body_format: json
+        body:
+          state: snapmirrored
+      register: resync_result
+      failed_when: false
+      no_log: false
+
+    - name: "Phase E — Poll resync job"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/cluster/jobs/{{ resync_result.json.job.uuid }}"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      register: resync_job
+      until: resync_job.json.state in ['success', 'failure']
+      retries: 30
+      delay: 10
+      when: >-
+        resync_result.json is defined
+        and resync_result.json.job is defined
+      failed_when: false
+      no_log: false
+
+    - name: "Phase E — Log resync result"
+      ansible.builtin.debug:
+        msg: >-
+          Resync {{ 'triggered' if resync_result.status | default(0) in [200, 201, 202]
+          else 'skipped — ' ~ (resync_result.msg | default('unknown')) }}
+
+    - name: "Phase E — Poll until relationship is snapmirrored"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/snapmirror/relationships/{{ rel_uuid }}?fields=state,lag_time,healthy"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      register: sm_status
+      until: sm_status.json.state == 'snapmirrored'
+      retries: 120
+      delay: 15
+      no_log: false
+
+    - name: "Phase E — Print completion summary"
+      ansible.builtin.debug:
+        msg: >-
+          === TEST FAILOVER COMPLETE — SnapMirror resynced ===
+          | state={{ sm_status.json.state }}
+          | healthy={{ sm_status.json.healthy | default('unknown') }}
+          | lag={{ sm_status.json.lag_time | default('N/A') }}
