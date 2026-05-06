@@ -1,135 +1,71 @@
-# Pace — ONTAP Automation Examples
+# Pace — Storage automation, in three different styles.
 
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![Website](https://img.shields.io/badge/Website-netapp.github.io%2Fpace-0067C5?style=for-the-badge&logo=readthedocs&logoColor=white)](https://netapp.github.io/pace/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 
-Automation examples for NetApp ONTAP, implemented in **Python**, **Ansible**,
-and **Terraform**. Pick the tool your team already uses and get a working
-script in minutes.
+> **Full documentation, live examples, and the project home live at →
+> [netapp.github.io/pace](https://netapp.github.io/pace/)**
 
----
+Pace is an open-source library of ready-to-run **NetApp ONTAP** automation
+examples written in three styles, side by side:
 
-## Pick Your Tool
+- **Imperative scripts** — Python: you write each step yourself.
+- **Declarative playbooks** — Ansible: describe the outcome, not the steps.
+- **Stateful blueprints** — Terraform: track every change, full lifecycle.
 
-| | Python | Ansible | Terraform |
-|---|---|---|---|
-| **Directory** | [`python/`](python/) | [`ansible/`](ansible/) | [`terraform/`](terraform/) |
-| **Best for** | Custom logic, integrations | Fleet ops, config management | Infrastructure lifecycle |
-| **Install** | `pip install requests` | `pip install ansible` + Galaxy collection | `terraform` binary + provider |
-| **Learning curve** | Python fluency | Ansible + ONTAP modules | HCL + provider knowledge |
-| **State management** | You manage it | Idempotent modules | Full state tracking |
-
-Not sure which to choose? Read the [detailed comparison](docs/choosing-an-approach.md).
-
----
-
-## Use Cases
-
-Each use case is implemented across all approaches so you can compare side-by-side:
-
-| Use Case | Python | Ansible | Terraform |
-|---|---|---|---|
-| **Cluster info** — version and node list | [cluster_info.py](python/cluster_info.py) | [cluster_info.yml](ansible/cluster_info.yml) | [cluster-info/](terraform/cluster-info/) |
-| **NFS provision** — volume + export policy | [nfs_provision.py](python/nfs_provision.py) | [nfs_provision.yml](ansible/nfs_provision.yml) | [nfs-provision/](terraform/nfs-provision/) |
-| **CIFS provision** — share + ACL | — | [cifs_provision.yml](ansible/cifs_provision.yml) | — |
-
-More use cases (SnapMirror, snapshots, SVM) are on the roadmap.
+Same task, same outcome, different trade-offs. Pick the style your team
+already uses and copy a working example in minutes.
 
 ---
 
 ## Quick Start
 
-> **Important:** Host names, IP addresses, credentials, and resource names
-> (SVM, volume, aggregate, `client_match`) shown below are **placeholders
-> for illustration only**. Replace them with values from your environment
-> before running any example. See each tool's README for full details.
+| Style | Directory | Run it |
+|---|---|---|
+| Imperative scripts | [`python/`](python/) | `cd python && pip install -r requirements.txt && python cluster_info.py` |
+| Declarative playbooks | [`ansible/`](ansible/) | `cd ansible && ansible-playbook -i inventory/hosts.yml cluster_info.yml` |
+| Stateful blueprints | [`terraform/`](terraform/) | `cd terraform/cluster-info && terraform init && terraform apply` |
 
-### Python
-
-```bash
-cd python
-pip install -r requirements.txt
-export ONTAP_HOST=10.0.0.1 ONTAP_USER=admin ONTAP_PASS=changeme
-python cluster_info.py
-```
-
-### Ansible
-
-```bash
-cd ansible
-ansible-galaxy collection install -r requirements.yml
-cp group_vars/ontap.yml.example group_vars/ontap.yml
-# edit group_vars/ontap.yml with your cluster details
-ansible-playbook -i inventory/hosts.yml cluster_info.yml
-```
-
-### Terraform
-
-```bash
-cd terraform/cluster-info
-cp terraform.tfvars.example terraform.tfvars
-# edit terraform.tfvars with your cluster details
-terraform init && terraform apply
-```
-
----
-
-## Prerequisites
-
-All examples assume:
-
-- An ONTAP cluster reachable over HTTPS (9.8+ recommended for full REST API support)
-- Admin credentials (or a user with appropriate RBAC permissions)
-- Network access from your machine to the cluster management LIF
-
-Credentials are **never hardcoded**. Each approach uses its native secret mechanism:
-environment variables, `.env` files, Ansible Vault, or Terraform `sensitive` variables.
-
-For details on ONTAP REST API conventions (endpoints, auth, headers, async jobs),
-see the [ONTAP API patterns guide](docs/ontap-api-patterns.md).
-
----
-
-## Repository Structure
-
-```
-pace/
-├── python/                 # Python script examples
-├── ansible/                # Ansible playbook examples
-├── terraform/              # Terraform module examples
-├── docs/
-│   ├── choosing-an-approach.md
-│   └── ontap-api-patterns.md
-└── .github/                # CI workflows, templates, review config
-```
+> Host names, credentials, and resource names in every example are
+> **placeholders**. Replace them with values from your environment before
+> running. Each tool directory has its own README with full setup steps.
 
 ---
 
 ## Documentation
 
-| Document | Description |
-|---|---|
-| [Choosing an approach](docs/choosing-an-approach.md) | Decision guide and feature matrix across all three tools |
-| [ONTAP API patterns](docs/ontap-api-patterns.md) | REST API conventions: endpoints, auth, headers, async jobs |
-| [Troubleshooting](docs/troubleshooting.md) | Common errors and how to fix them |
+- **Project home:** [netapp.github.io/pace](https://netapp.github.io/pace/)
+- [Choosing an approach](docs/choosing-an-approach.md) — decision guide and feature matrix
+- [ONTAP API patterns](docs/ontap-api-patterns.md) — REST conventions, auth, async jobs
+- [Troubleshooting](docs/troubleshooting.md) — common errors and fixes
+- [Contributing](CONTRIBUTING.md) — fork, branch, run checks, open a PR
 
 ---
 
-## SSL Verification
+## Prerequisites
 
-All examples in this repo set SSL verification to **disabled** (`verify_ssl=false` /
-`validate_certs=false`) to support environments that use self-signed
-certificates. We recommend enabling SSL verification once CA-signed
-certificates are in place.
+- An ONTAP cluster reachable over HTTPS (9.8+ recommended)
+- Admin credentials (or a user with appropriate RBAC permissions)
+- Network access to the cluster management LIF
 
-| Tool | How to enable |
-|------|---------------|
-| **Python** | `export ONTAP_VERIFY_SSL=true` |
-| **Ansible** | `ontap_validate_certs: true` in `group_vars/ontap.yml` |
-| **Terraform** | `validate_certs = true` in `terraform.tfvars` |
+Credentials are **never hardcoded** — each style uses its native secret
+mechanism (env vars, Ansible Vault, Terraform `sensitive` variables).
+
+SSL verification is **disabled by default** for self-signed certificates.
+Enable it via `ONTAP_VERIFY_SSL=true` (Python), `ontap_validate_certs: true`
+(Ansible), or `validate_certs = true` (Terraform).
 
 ---
 
 ## License
 
-Apache-2.0 — see [LICENSE](LICENSE) for details.
+Apache-2.0 — see [LICENSE](LICENSE).
+
+---
+
+<p align="center">
+  <a href="https://netapp.github.io/pace/">
+    <strong>→ Visit the Pace website for the full guided tour</strong>
+  </a>
+</p>
