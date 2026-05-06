@@ -113,6 +113,7 @@ Once CA-signed certificates are in place, we recommend turning it on.
 | [Choosing an approach](docs/choosing-an-approach.md)                  | Decision guide and feature matrix              |
 | [ONTAP API patterns](docs/ontap-api-patterns.md)                      | REST conventions, auth, async jobs             |
 | [Troubleshooting](docs/troubleshooting.md)                            | Common errors and fixes                        |
+| [Testing](TESTING.md)                                                 | What to run and capture in the PR Test Report  |
 | [Contributing](CONTRIBUTING.md)                                       | Fork, branch, run checks, open a PR            |
 
 ---

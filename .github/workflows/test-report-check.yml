@@ -1,0 +1,131 @@
+name: Test Report Check
+
+# Soft gate: nudges contributors to fill in the PR body's Test Report section
+# whenever a PR touches example code under python/, ansible/, or terraform/.
+# Applies a 'needs-test-report' label and a sticky comment when the section
+# is empty; clears them once it's filled. Does NOT fail the build.
+#
+# Uses pull_request_target so it works on PRs from forks. Safe because the
+# workflow does no checkout and only calls REST APIs against PR metadata.
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+    branches: [main]
+
+permissions:
+  pull-requests: write
+  issues: write
+  contents: read
+
+jobs:
+  check:
+    name: Check for Test Report
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Detect example-code changes
+        id: scope
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              per_page: 100,
+            });
+            const touched = files.some(f =>
+              f.filename.startsWith('python/') ||
+              f.filename.startsWith('ansible/') ||
+              f.filename.startsWith('terraform/')
+            );
+            core.setOutput('touched', String(touched));
+
+      - name: Evaluate Test Report and label
+        env:
+          TOUCHED: ${{ steps.scope.outputs.touched }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const LABEL = 'needs-test-report';
+            const STICKY_KEY = '<!-- pace:test-report-check -->';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue_number = context.issue.number;
+            const TESTING_URL =
+              `https://github.com/${owner}/${repo}/blob/main/TESTING.md`;
+            const touched = process.env.TOUCHED === 'true';
+
+            async function findSticky() {
+              const { data } = await github.rest.issues.listComments({
+                owner, repo, issue_number, per_page: 100,
+              });
+              return data.find(c => c.body && c.body.includes(STICKY_KEY));
+            }
+            async function upsertSticky(msg) {
+              const existing = await findSticky();
+              const body = `${STICKY_KEY}\n${msg}`;
+              if (existing) {
+                await github.rest.issues.updateComment({
+                  owner, repo, comment_id: existing.id, body,
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number, body,
+                });
+              }
+            }
+            async function removeLabel() {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner, repo, issue_number, name: LABEL,
+                });
+              } catch (e) {
+                if (e.status !== 404) throw e;
+              }
+            }
+            async function addLabel() {
+              await github.rest.issues.addLabels({
+                owner, repo, issue_number, labels: [LABEL],
+              });
+            }
+
+            if (!touched) {
+              await removeLabel();
+              core.info(
+                'PR does not touch python/ansible/terraform - skipping.'
+              );
+              return;
+            }
+
+            const { data: pr } = await github.rest.pulls.get({
+              owner, repo, pull_number: issue_number,
+            });
+            const body = pr.body || '';
+
+            const hasSection = body.includes('## Test Report');
+            const stillRequiredMarker = body.includes('TEST_REPORT_REQUIRED');
+            const envMatch = body.match(/\*\*Environment:\*\*\s*([^\n<]*)/);
+            const envFilled = !!(envMatch && envMatch[1].trim().length > 0);
+            const filled = hasSection && envFilled && !stillRequiredMarker;
+
+            if (filled) {
+              await removeLabel();
+              await upsertSticky(
+                'Test Report looks present - thanks. Reviewers will verify ' +
+                'the captured output and idempotency evidence.'
+              );
+            } else {
+              await addLabel();
+              await upsertSticky(
+                '**Test Report missing or unfilled.**\n\n' +
+                'This PR touches `python/`, `ansible/`, or `terraform/`, so ' +
+                'a populated **Test Report** section is required in the PR ' +
+                `body. See [TESTING.md](${TESTING_URL}) for what to capture ` +
+                '(environment, ONTAP version, first-run output, idempotency ' +
+                'check, teardown).\n\n' +
+                'This is a soft gate - your CI checks are unaffected - but ' +
+                'reviewers will not approve until the report is filled in.'
+              );
+            }

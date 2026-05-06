@@ -13,6 +13,7 @@ ansible/              # Ansible playbook examples
 terraform/            # Terraform module examples
 docs/                 # Shared documentation
 .github/              # CI workflows, templates, review config
+TESTING.md            # What to capture in the PR Test Report
 ```
 
 ---
@@ -49,10 +50,15 @@ Every example must:
 - Pass CI lint checks (see below)
 - Follow the conventions of the target tool (idiomatic Python, Ansible FQCNs, HCL style)
 
-> **Testing:** The example scripts intentionally have no unit tests — CI
-> validates lint and formatting only. These are runnable illustrations,
-> not a library. If you adapt a script for production use, add tests
-> appropriate to your environment.
+> **Testing:** Every PR that touches `python/`, `ansible/`, or `terraform/`
+> must include a populated **Test Report** in the PR body — see
+> [TESTING.md](TESTING.md) for what to capture (environment, ONTAP
+> version, first-run output, idempotency / re-run check, teardown). A
+> soft-gate workflow applies a `needs-test-report` label until the
+> section is filled in.
+>
+> CI continues to validate lint, format, syntax, and secrets only — the
+> end-to-end run evidence is contributor-supplied.
 
 ### ONTAP API reference
 
@@ -163,7 +169,7 @@ The `.pre-commit-config.yaml` runs automatically on every commit:
 
 ## CI Expectations
 
-PRs are validated by three GitHub Actions workflows:
+PRs are validated by GitHub Actions workflows:
 
 | What | Workflow | Trigger | Scope |
 |------|----------|---------|-------|
@@ -174,8 +180,11 @@ PRs are validated by three GitHub Actions workflows:
 | **YAML syntax** | `pr-guard.yml` | PRs only | Parse-checks changed YAML files |
 | **Ansible lint** | `validate-examples.yml` | `ansible/**` changes | `ansible-playbook --syntax-check`, `ansible-lint` |
 | **Terraform lint** | `validate-examples.yml` | `terraform/**` changes | `terraform fmt -check`, `terraform validate`, `tflint` |
+| **Test Report check** | `test-report-check.yml` | PRs only | Soft gate: labels PR `needs-test-report` if the body's Test Report section is unfilled (see [TESTING.md](TESTING.md)) |
 
-All checks are **hard gates** — PRs must pass before merge.
+All checks except the Test Report check are **hard gates** — PRs must
+pass them before merge. The Test Report check is informational and
+reviewer-enforced.
 
 ---
 
