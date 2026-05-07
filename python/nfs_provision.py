@@ -59,7 +59,7 @@ ENV = {
     "SVM_NAME": "vs1",
     "VOLUME_NAME": "vol_001",
     "VOLUME_SIZE": "100MB",
-    "AGGR_NAME": "sti232_vsim_sr091o_aggr1",  # required - set via --aggregate or AGGR_NAME env var
+    "AGGR_NAME": "",  # required - set via --aggregate or AGGR_NAME env var
     "CLIENT_MATCH": "0.0.0.0/0",
 }
 
@@ -97,167 +97,165 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def main() -> None:
-    args = parse_args()
-
-    # Load env file first so its values can be read via os.environ below
+def _resolve_config(args: argparse.Namespace) -> dict[str, str]:
+    """Load env file and CLI args, then return the resolved configuration dict."""
     if args.env_file:
         _load_env_file(args.env_file)
 
-    # Push ENV block values into os.environ so OntapClient.from_env() picks them up
     for key, value in ENV.items():
         if value and key not in os.environ:
             os.environ[key] = value
 
-    # Resolve each value: CLI arg > env var > ENV block > built-in default (matches YAML priority)
-    svm = args.svm or os.environ.get("SVM_NAME") or ENV["SVM_NAME"] or "vs0"
-    volume = (
-        args.volume or os.environ.get("VOLUME_NAME") or ENV["VOLUME_NAME"] or "vol_nfs_test_01"
-    )
-    size = args.size or os.environ.get("VOLUME_SIZE") or ENV["VOLUME_SIZE"] or "100MB"
     aggregate = args.aggregate or os.environ.get("AGGR_NAME") or ENV["AGGR_NAME"] or ""
-    client_match = (
-        args.client_match or os.environ.get("CLIENT_MATCH") or ENV["CLIENT_MATCH"] or "0.0.0.0/0"
-    )
-
     if not aggregate:
         logger.error("--aggregate is required (or set AGGR_NAME in env / --env-file)")
         sys.exit(1)
 
+    return {
+        "svm": args.svm or os.environ.get("SVM_NAME") or ENV["SVM_NAME"] or "vs0",
+        "volume": (
+            args.volume or os.environ.get("VOLUME_NAME") or ENV["VOLUME_NAME"] or "vol_nfs_test_01"
+        ),
+        "size": args.size or os.environ.get("VOLUME_SIZE") or ENV["VOLUME_SIZE"] or "100MB",
+        "aggregate": aggregate,
+        "client_match": (
+            args.client_match
+            or os.environ.get("CLIENT_MATCH")
+            or ENV["CLIENT_MATCH"]
+            or "0.0.0.0/0"
+        ),
+    }
+
+
+def _ensure_volume(client: OntapClient, svm: str, volume: str, size: str, aggregate: str) -> str:
+    """Create the FlexVol if it does not exist. Returns the volume UUID."""
+    existing = client.get(
+        "/storage/volumes",
+        fields="name,uuid",
+        name=volume,
+        **{"svm.name": svm},
+    )
+    if existing.get("records"):
+        logger.info("Volume '%s' already exists - skipping create", volume)
+    else:
+        logger.info("Creating volume '%s' (%s) on SVM '%s'...", volume, size, svm)
+        resp = client.post(
+            "/storage/volumes",
+            body={
+                "name": volume,
+                "svm": {"name": svm},
+                "aggregates": [{"name": aggregate}],
+                "size": size,
+                "nas": {"path": f"/{volume}"},
+            },
+        )
+        job_uuid = resp["job"]["uuid"]
+        logger.info("Volume creation job: %s", job_uuid)
+        client.poll_job(job_uuid)
+        logger.info("Volume '%s' created successfully", volume)
+
+    vol_resp = client.get(
+        "/storage/volumes",
+        fields="name,uuid",
+        name=volume,
+        **{"svm.name": svm},
+    )
+    if not vol_resp.get("records"):
+        raise RuntimeError(f"Volume '{volume}' not found on SVM '{svm}' after creation")
+    return vol_resp["records"][0]["uuid"]
+
+
+def _ensure_export_policy(client: OntapClient, svm: str, policy_name: str) -> int:
+    """Create the NFS export policy if it does not exist. Returns the policy ID."""
+    existing = client.get(
+        "/protocols/nfs/export-policies",
+        fields="name,id",
+        name=policy_name,
+        **{"svm.name": svm},
+    )
+    if existing.get("records"):
+        logger.info("Export policy '%s' already exists - skipping create", policy_name)
+    else:
+        logger.info("Creating export policy '%s'...", policy_name)
+        client.post(
+            "/protocols/nfs/export-policies",
+            body={"name": policy_name, "svm": {"name": svm}},
+        )
+
+    policy_resp = client.get(
+        "/protocols/nfs/export-policies",
+        fields="name,id",
+        name=policy_name,
+        **{"svm.name": svm},
+    )
+    if not policy_resp.get("records"):
+        raise RuntimeError(
+            f"Export policy '{policy_name}' not found on SVM '{svm}' after creation"
+        )
+    return policy_resp["records"][0]["id"]
+
+
+def _ensure_client_rule(client: OntapClient, policy_id: int, client_match: str) -> None:
+    """Add a client-match rule to the export policy if one does not already exist."""
+    existing_rules = client.get(
+        f"/protocols/nfs/export-policies/{policy_id}/rules",
+        fields="index,clients",
+    )
+    rule_exists = any(
+        any(c.get("match") == client_match for c in r.get("clients", []))
+        for r in existing_rules.get("records", [])
+    )
+    if rule_exists:
+        logger.info("Client rule '%s' already exists in policy - skipping", client_match)
+        return
+    logger.info("Adding client rule '%s' to policy...", client_match)
+    client.post(
+        f"/protocols/nfs/export-policies/{policy_id}/rules",
+        body={
+            "clients": [{"match": client_match}],
+            "ro_rule": ["any"],
+            "rw_rule": ["any"],
+            "superuser": ["any"],
+        },
+    )
+
+
+def _assign_export_policy(client: OntapClient, volume_uuid: str, policy_name: str) -> None:
+    """Assign the export policy to the volume and wait for any async job to complete."""
+    logger.info("Assigning export policy to volume...")
+    patch_resp = client.patch(
+        f"/storage/volumes/{volume_uuid}",
+        body={"nas": {"export_policy": {"name": policy_name}}},
+    )
+    if "job" in patch_resp:
+        client.poll_job(patch_resp["job"]["uuid"])
+
+
+def main() -> None:
+    cfg = _resolve_config(parse_args())
+    svm = cfg["svm"]
+    volume = cfg["volume"]
+    size = cfg["size"]
+    aggregate = cfg["aggregate"]
+    client_match = cfg["client_match"]
     policy_name = f"{volume}_export_policy"
 
     with OntapClient.from_env() as client:
-        # Step 1 - create volume (idempotent: skip if already exists)
-        # POST /storage/volumes to create a new FlexVol with a NAS junction path.
-        # Volume creation is asynchronous - the response contains a job UUID.
-        existing_vol = client.get(
-            "/storage/volumes",
-            fields="name,uuid",
-            name=volume,
-            **{"svm.name": svm},
-        )
-        if existing_vol.get("records"):
-            logger.info("Volume '%s' already exists - skipping create", volume)
-        else:
-            logger.info("Creating volume '%s' (%s) on SVM '%s'...", volume, size, svm)
-            create_resp = client.post(
-                "/storage/volumes",
-                body={
-                    "name": volume,
-                    "svm": {"name": svm},
-                    "aggregates": [{"name": aggregate}],
-                    "size": size,
-                    "nas": {"path": f"/{volume}"},
-                },
-            )
+        volume_uuid = _ensure_volume(client, svm, volume, size, aggregate)
+        policy_id = _ensure_export_policy(client, svm, policy_name)
+        _ensure_client_rule(client, policy_id, client_match)
+        _assign_export_policy(client, volume_uuid, policy_name)
 
-            # Step 2 - poll volume-creation job
-            # Block until the async job finishes before proceeding.
-            # poll_job raises RuntimeError if the job ends in a failure state.
-            job_uuid = create_resp["job"]["uuid"]
-            logger.info("Volume creation job: %s", job_uuid)
-            client.poll_job(job_uuid)
-            logger.info("Volume '%s' created successfully", volume)
-
-        # Step 3 - fetch volume UUID
-        # The UUID is required to PATCH the volume later when assigning the export policy.
-        # Filter by name + svm.name to pinpoint exactly the volume just created.
-        vol_resp = client.get(
-            "/storage/volumes",
-            fields="name,uuid",
-            name=volume,
-            **{"svm.name": svm},
-        )
-        if not vol_resp.get("records"):
-            raise RuntimeError(f"Volume '{volume}' not found on SVM '{svm}' after creation")
-        volume_uuid = vol_resp["records"][0]["uuid"]
-
-        # Step 4 - create export policy (idempotent: skip if already exists)
-        # Creates a dedicated policy named <volume>_export_policy scoped to the SVM.
-        # A per-volume policy makes it easy to manage access rules independently.
-        existing_policy = client.get(
-            "/protocols/nfs/export-policies",
-            fields="name,id",
-            name=policy_name,
-            **{"svm.name": svm},
-        )
-        if existing_policy.get("records"):
-            logger.info("Export policy '%s' already exists - skipping create", policy_name)
-        else:
-            logger.info("Creating export policy '%s'...", policy_name)
-            client.post(
-                "/protocols/nfs/export-policies",
-                body={"name": policy_name, "svm": {"name": svm}},
-            )
-
-        # Step 5 - fetch export policy ID
-        # The numeric ID is required when POSTing rules to the policy.
-        # Filter by name + svm.name to retrieve only this policy's record.
-        policy_resp = client.get(
-            "/protocols/nfs/export-policies",
-            fields="name,id",
-            name=policy_name,
-            **{"svm.name": svm},
-        )
-        if not policy_resp.get("records"):
-            raise RuntimeError(
-                f"Export policy '{policy_name}' not found on SVM '{svm}' after creation"
-            )
-        policy_id = policy_resp["records"][0]["id"]
-
-        # Step 6 - add client rule (idempotent: skip if a matching rule already exists)
-        # POST a rule to the export policy allowing the given client IP or CIDR range.
-        # ro_rule, rw_rule, superuser = 'any' is suitable for lab; tighten for production.
-        existing_rules = client.get(
-            f"/protocols/nfs/export-policies/{policy_id}/rules",
-            fields="index,clients",
-        )
-        rule_exists = any(
-            any(c.get("match") == client_match for c in r.get("clients", []))
-            for r in existing_rules.get("records", [])
-        )
-        if rule_exists:
-            logger.info("Client rule '%s' already exists in policy - skipping", client_match)
-        else:
-            logger.info("Adding client rule '%s' to policy...", client_match)
-            client.post(
-                f"/protocols/nfs/export-policies/{policy_id}/rules",
-                body={
-                    "clients": [{"match": client_match}],
-                    "ro_rule": ["any"],
-                    "rw_rule": ["any"],
-                    "superuser": ["any"],
-                },
-            )
-
-        # Step 7 - assign export policy to volume
-        # PATCH the volume's nas.export_policy field to link the policy.
-        # This makes the volume accessible to NFS clients that match the rule.
-        logger.info("Assigning export policy to volume...")
-        patch_resp = client.patch(
-            f"/storage/volumes/{volume_uuid}",
-            body={"nas": {"export_policy": {"name": policy_name}}},
-        )
-
-        # Step 8 - poll assign-policy job
-        # The PATCH may return a job UUID if the operation is async.
-        # Only poll if a UUID was returned; sync responses skip this block.
-        if "job" in patch_resp:
-            client.poll_job(patch_resp["job"]["uuid"])
-
-        # Step 9 - print summary
-        # Log a single success line with volume, size, SVM, mount path,
-        # export policy name, and client rule for quick confirmation.
-        logger.info(
-            "[OK] Volume '%s' (%s) created on SVM '%s' | Mount path: /%s | "
-            "Export policy '%s' created with client rule '%s' and assigned to volume",
-            volume,
-            size,
-            svm,
-            volume,
-            policy_name,
-            client_match,
-        )
+    logger.info(
+        "[OK] Volume '%s' (%s) on SVM '%s' | Mount: /%s | "
+        "Export policy '%s' with client rule '%s' assigned",
+        volume,
+        size,
+        svm,
+        volume,
+        policy_name,
+        client_match,
+    )
 
 
 if __name__ == "__main__":

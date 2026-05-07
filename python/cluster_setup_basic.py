@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Create an ONTAP cluster from two pre-cluster nodes.
 
-Equivalent to:  orchestrio run yaml-workflows/workflows/cluster_setup_basic.yaml
 
 Steps:
     1. discover_nodes   — GET /api/cluster/nodes  (membership=available, retry 3x/30s)
@@ -50,15 +49,15 @@ logger = logging.getLogger(__name__)
 # USER INPUTS — fill in your values here before running
 # ---------------------------------------------------------------------------
 INPUTS = {
-    "ONTAP_HOST": "10.140.108.120",  # Node 1 management IP — set via ONTAP_HOST env var
+    "ONTAP_HOST": "",  # Node 1 management IP — set via ONTAP_HOST env var
     "ONTAP_USER": "admin",
     "ONTAP_PASS": "",  # set via ONTAP_PASS env var — leave empty for pre-cluster nodes
-    "CLUSTER_NAME": "sp57388-cluster",  # choose your cluster name — set via CLUSTER_NAME env var
+    "CLUSTER_NAME": "",  # choose your cluster name — set via CLUSTER_NAME env var
     "CLUSTER_PASS": "",  # set via CLUSTER_PASS env var — choose your cluster admin password
-    "CLUSTER_MGMT_IP": "10.140.108.120",  # cluster management IP — set via CLUSTER_MGMT_IP env var
-    "CLUSTER_NETMASK": "255.255.192.0",  # e.g. 255.255.255.0 — set via CLUSTER_NETMASK env var
-    "CLUSTER_GATEWAY": "10.140.64.1",  # default gateway — set via CLUSTER_GATEWAY env var
-    "PARTNER_MGMT_IP": "10.140.108.124",  # Node 2 management IP — set via PARTNER_MGMT_IP env var
+    "CLUSTER_MGMT_IP": "",  # cluster management IP — set via CLUSTER_MGMT_IP env var
+    "CLUSTER_NETMASK": "",  # e.g. 255.255.255.0 — set via CLUSTER_NETMASK env var
+    "CLUSTER_GATEWAY": "",  # default gateway — set via CLUSTER_GATEWAY env var
+    "PARTNER_MGMT_IP": "",  # Node 2 management IP — set via PARTNER_MGMT_IP env var
 }
 # ---------------------------------------------------------------------------
 
