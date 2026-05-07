@@ -171,12 +171,25 @@ class OntapClient:
         """Poll an async job until it leaves the ``running`` state.
 
         Raises :class:`OntapApiError` if the job ends in ``failure``.
+        Retries on transient connection errors (e.g. RemoteDisconnected).
         """
         url = f"/cluster/jobs/{job_uuid}"
         deadline = time.monotonic() + timeout
 
         while True:
-            job = self.get(url, fields="state,message")
+            try:
+                job = self.get(url, fields="state,message")
+            except requests.exceptions.ConnectionError as exc:
+                if time.monotonic() + interval > deadline:
+                    raise TimeoutError(
+                        f"Job {job_uuid} poll timed out after connection error: {exc}"
+                    ) from exc
+                logger.warning(
+                    "Job %s — connection error during poll, retrying: %s", job_uuid, exc
+                )
+                time.sleep(interval)
+                continue
+
             state = job.get("state", "unknown")
             logger.info("Job %s — state: %s", job_uuid, state)
 
