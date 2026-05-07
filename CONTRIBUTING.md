@@ -5,6 +5,23 @@ covers how to add new examples, what CI expects, and how the repo is organized.
 
 ---
 
+## Contributor License Agreement
+
+Before any code you contribute can be reviewed or merged, you must sign and
+submit NetApp's
+[Corporate Contributor License Agreement (CCLA)](https://netapp.tap.thinksmart.com/prod/Portal/ShowWorkFlow/AnonymousEmbed/3d2f3aa5-9161-4970-997d-e482b0b033fa).
+
+When completing the form, specify one of the following for the **Project Name**
+field:
+
+- `NetApp/pace`
+- `https://github.com/NetApp/pace`
+
+> **Important:** NetApp will **not** review your pull request or any code
+> submitted in it until the CCLA is on file with NetApp Legal.
+
+---
+
 ## Repository Layout
 
 ```
