@@ -2,8 +2,8 @@
 """Retrieve ONTAP cluster version and list all nodes with serial numbers.
 
 Steps:
-    1. GET /cluster ΓÇö retrieve cluster name and ONTAP version
-    2. GET /cluster/nodes ΓÇö list all nodes with serial numbers
+    1. GET /cluster - retrieve cluster name and ONTAP version
+    2. GET /cluster/nodes - list all nodes with serial numbers
 
 Prerequisites::
 
@@ -31,15 +31,15 @@ logger = logging.getLogger(__name__)
 
 def main() -> None:
     with OntapClient.from_env() as client:
-        # Step 1 ΓÇö cluster version
+        # Step 1: cluster version
         cluster = client.get("/cluster", fields="version")
         logger.info(
-            "Cluster: %s ΓÇö ONTAP %s",
+            "Cluster: %s - ONTAP %s",
             cluster.get("name", "unknown"),
             cluster.get("version", {}).get("full", "unknown"),
         )
 
-        # Step 2 ΓÇö node list with serial numbers
+        # Step 2: node list with serial numbers
         nodes_resp = client.get("/cluster/nodes", fields="name,serial_number")
         records = nodes_resp.get("records", [])
         logger.info("Nodes in cluster: %d", nodes_resp.get("num_records", len(records)))
@@ -47,8 +47,8 @@ def main() -> None:
         for node in records:
             logger.info(
                 "  %-30s  serial: %s",
-                node.get("name", "ΓÇö"),
-                node.get("serial_number", "ΓÇö"),
+                node.get("name", "N/A"),
+                node.get("serial_number", "N/A"),
             )
 
 

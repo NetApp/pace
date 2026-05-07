@@ -12,6 +12,7 @@ Steps:
 
 Usage::
 
+    # env vars directly
     export ONTAP_HOST=10.x.x.x   # pre-cluster node IP
     export ONTAP_USER=admin       # usually admin, empty pass on pre-cluster nodes
     export ONTAP_PASS=
@@ -22,14 +23,20 @@ Usage::
     export CLUSTER_GATEWAY=10.x.x.1
     export PARTNER_MGMT_IP=10.x.x.y
     python cluster_setup_basic.py
+
+    # or use a per-build .env file (analogous to -ir <build-path>)
+    python cluster_setup_basic.py --env-file r9141_build.env
+    python cluster_setup_basic.py --env-file r919_build.env
 """
 
 from __future__ import annotations
 
+import argparse
 import logging
 import os
 import sys
 import time
+from pathlib import Path
 
 from ontap_client import OntapClient
 
@@ -43,15 +50,15 @@ logger = logging.getLogger(__name__)
 # USER INPUTS — fill in your values here before running
 # ---------------------------------------------------------------------------
 INPUTS = {
-    "ONTAP_HOST": "",  # Node 1 management IP — set via ONTAP_HOST env var
+    "ONTAP_HOST": "10.140.108.120",  # Node 1 management IP — set via ONTAP_HOST env var
     "ONTAP_USER": "admin",
     "ONTAP_PASS": "",  # set via ONTAP_PASS env var — leave empty for pre-cluster nodes
-    "CLUSTER_NAME": "",  # choose your cluster name — set via CLUSTER_NAME env var
+    "CLUSTER_NAME": "sp57388-cluster",  # choose your cluster name — set via CLUSTER_NAME env var
     "CLUSTER_PASS": "",  # set via CLUSTER_PASS env var — choose your cluster admin password
-    "CLUSTER_MGMT_IP": "",  # cluster management IP — set via CLUSTER_MGMT_IP env var
-    "CLUSTER_NETMASK": "",  # e.g. 255.255.255.0 — set via CLUSTER_NETMASK env var
-    "CLUSTER_GATEWAY": "",  # default gateway — set via CLUSTER_GATEWAY env var
-    "PARTNER_MGMT_IP": "",  # Node 2 management IP — set via PARTNER_MGMT_IP env var
+    "CLUSTER_MGMT_IP": "10.140.108.120",  # cluster management IP — set via CLUSTER_MGMT_IP env var
+    "CLUSTER_NETMASK": "255.255.192.0",  # e.g. 255.255.255.0 — set via CLUSTER_NETMASK env var
+    "CLUSTER_GATEWAY": "10.140.64.1",  # default gateway — set via CLUSTER_GATEWAY env var
+    "PARTNER_MGMT_IP": "10.140.108.124",  # Node 2 management IP — set via PARTNER_MGMT_IP env var
 }
 # ---------------------------------------------------------------------------
 
@@ -259,7 +266,36 @@ def main() -> None:
     )
 
 
+def _load_env_file(path: str) -> None:
+    """Load KEY=VALUE pairs from a .env file into the INPUTS dict."""
+    for line in Path(path).read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        INPUTS[key.strip()] = value.strip().strip('"').strip("'")
+
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Create an ONTAP cluster from two pre-cluster nodes."
+    )
+    parser.add_argument(
+        "--env-file",
+        metavar="FILE",
+        help="Path to a .env file with KEY=VALUE pairs (one per build, like -ir in ha_create.exp).",
+    )
+    args = parser.parse_args()
+
+    if args.env_file:
+        _load_env_file(args.env_file)
+
+    # env vars always win over INPUTS block defaults
+    for key in list(INPUTS):
+        val = os.environ.get(key)
+        if val:
+            INPUTS[key] = val
+
     try:
         main()
     except KeyboardInterrupt:
