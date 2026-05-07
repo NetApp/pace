@@ -39,6 +39,23 @@ convention:
 - Never hardcode credentials — use env vars, Ansible Vault, or Terraform `sensitive`.
 - Ansible playbooks use `netapp.ontap` FQCNs with `use_rest: always`.
 - Terraform modules use the `NetApp/netapp-ontap` provider `~> 2.5`.
+- Every generated source file (`.py`, `.yml`, `.tf`, `.sh`, `.html`) MUST start
+  with the standard NetApp copyright header (see below).
+
+## Copyright header (required on all source files)
+
+Use the comment syntax of the file. Year is `2026`. Full trademark text
+lives in `NOTICE`; do not duplicate it in source files.
+
+```text
+© 2026 NetApp, Inc. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+See the NOTICE file in the repo root for trademark and attribution details.
+```
+
+The `insert-license` pre-commit hook adds and verifies it automatically.
+Exempt files: Markdown, `requirements.*`, `ansible/inventory/*`,
+`ansible/group_vars/*`, `*.example`, `dependabot.yml`.
 
 ## ONTAP API rules
 

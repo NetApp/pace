@@ -49,6 +49,26 @@ Every example must:
 - Include clear run instructions in the parent README
 - Pass CI lint checks (see below)
 - Follow the conventions of the target tool (idiomatic Python, Ansible FQCNs, HCL style)
+- Carry the standard NetApp copyright header (see *Copyright headers* below)
+
+### Copyright headers
+
+Every source file (`*.py`, `*.yml`/`*.yaml`, `*.tf`, `*.sh`, `*.html`) must
+begin with the short NetApp header in the language-appropriate comment
+syntax. The full trademark notice lives in [NOTICE](NOTICE) and the LICENSE
+appendix; source headers stay short and reference it.
+
+```text
+© 2026 NetApp, Inc. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+See the NOTICE file in the repo root for trademark and attribution details.
+```
+
+The `insert-license` pre-commit hook (configured in
+[.pre-commit-config.yaml](.pre-commit-config.yaml)) inserts and verifies the
+header automatically; CI rejects PRs that drop it. Exempt files: Markdown,
+`requirements.*`, `ansible/inventory/*`, `ansible/group_vars/*`, `*.example`,
+and `dependabot.yml` — all covered by the root [NOTICE](NOTICE).
 
 > **Testing:** Every PR that touches `python/`, `ansible/`, or `terraform/`
 > must include a populated **Test Report** in the PR body — see
@@ -246,4 +266,3 @@ Commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 `revert`, `style`, `test`
 
 **Scopes:** `python`, `ansible`, `terraform`, `docs`, `ci`, `deps`
-
