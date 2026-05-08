@@ -114,6 +114,11 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
+def _pick(cli_val: str | None, env_key: str, default: str = "") -> str:
+    """Return the first non-empty value from: CLI arg, env var, ENV dict, or default."""
+    return cli_val or os.environ.get(env_key) or ENV.get(env_key, "") or default
+
+
 def _resolve_config(args: argparse.Namespace) -> dict[str, str | bool]:
     """Load env file and CLI args, then return the resolved configuration dict."""
     if args.env_file:
@@ -123,50 +128,23 @@ def _resolve_config(args: argparse.Namespace) -> dict[str, str | bool]:
         if value and key not in os.environ:
             os.environ[key] = value
 
-    aggregate = args.aggregate or os.environ.get("AGGR_NAME") or ENV["AGGR_NAME"] or ""
+    aggregate = _pick(args.aggregate, "AGGR_NAME")
     if not aggregate:
         logger.error("--aggregate is required (or set AGGR_NAME in env / --env-file)")
         sys.exit(1)
 
     return {
-        "svm": args.svm or os.environ.get("SVM_NAME") or ENV["SVM_NAME"] or "vs0",
-        "volume": (
-            args.volume or os.environ.get("VOLUME_NAME") or ENV["VOLUME_NAME"] or "cifs_test_env"
-        ),
-        "size": args.size or os.environ.get("VOLUME_SIZE") or ENV["VOLUME_SIZE"] or "100MB",
+        "svm": _pick(args.svm, "SVM_NAME", "vs0"),
+        "volume": _pick(args.volume, "VOLUME_NAME", "cifs_test_env"),
+        "size": _pick(args.size, "VOLUME_SIZE", "100MB"),
         "aggregate": aggregate,
-        "share_name": (
-            args.share_name
-            or os.environ.get("SHARE_NAME")
-            or ENV["SHARE_NAME"]
-            or "cifs_share_demo"
-        ),
-        "share_comment": (
-            args.share_comment
-            or os.environ.get("SHARE_COMMENT")
-            or ENV["SHARE_COMMENT"]
-            or "Provisioned by orchestrio"
-        ),
-        "acl_user": (args.acl_user or os.environ.get("ACL_USER") or ENV["ACL_USER"] or "Everyone"),
-        "acl_permission": (
-            args.acl_permission
-            or os.environ.get("ACL_PERMISSION")
-            or ENV["ACL_PERMISSION"]
-            or "full_control"
-        ),
+        "share_name": _pick(args.share_name, "SHARE_NAME", "cifs_share_demo"),
+        "share_comment": _pick(args.share_comment, "SHARE_COMMENT", "Provisioned by orchestrio"),
+        "acl_user": _pick(args.acl_user, "ACL_USER", "Everyone"),
+        "acl_permission": _pick(args.acl_permission, "ACL_PERMISSION", "full_control"),
         "create_cifs_server": args.create_cifs_server,
-        "cifs_server_name": (
-            args.cifs_server_name
-            or os.environ.get("CIFS_SERVER_NAME")
-            or ENV["CIFS_SERVER_NAME"]
-            or "ONTAP-CIFS"
-        ),
-        "workgroup": (
-            args.workgroup
-            or os.environ.get("CIFS_WORKGROUP")
-            or ENV["CIFS_WORKGROUP"]
-            or "WORKGROUP"
-        ),
+        "cifs_server_name": _pick(args.cifs_server_name, "CIFS_SERVER_NAME", "ONTAP-CIFS"),
+        "workgroup": _pick(args.workgroup, "CIFS_WORKGROUP", "WORKGROUP"),
     }
 
 

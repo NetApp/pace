@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """Create an ONTAP NFS volume with a dedicated export policy.
 
 Steps:
@@ -97,6 +97,11 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
+def _pick(cli_val: str | None, env_key: str, default: str = "") -> str:
+    """Return the first non-empty value from: CLI arg, env var, ENV dict, or default."""
+    return cli_val or os.environ.get(env_key) or ENV.get(env_key, "") or default
+
+
 def _resolve_config(args: argparse.Namespace) -> dict[str, str]:
     """Load env file and CLI args, then return the resolved configuration dict."""
     if args.env_file:
@@ -106,24 +111,17 @@ def _resolve_config(args: argparse.Namespace) -> dict[str, str]:
         if value and key not in os.environ:
             os.environ[key] = value
 
-    aggregate = args.aggregate or os.environ.get("AGGR_NAME") or ENV["AGGR_NAME"] or ""
+    aggregate = _pick(args.aggregate, "AGGR_NAME")
     if not aggregate:
         logger.error("--aggregate is required (or set AGGR_NAME in env / --env-file)")
         sys.exit(1)
 
     return {
-        "svm": args.svm or os.environ.get("SVM_NAME") or ENV["SVM_NAME"] or "vs0",
-        "volume": (
-            args.volume or os.environ.get("VOLUME_NAME") or ENV["VOLUME_NAME"] or "vol_nfs_test_01"
-        ),
-        "size": args.size or os.environ.get("VOLUME_SIZE") or ENV["VOLUME_SIZE"] or "100MB",
+        "svm": _pick(args.svm, "SVM_NAME", "vs0"),
+        "volume": _pick(args.volume, "VOLUME_NAME", "vol_nfs_test_01"),
+        "size": _pick(args.size, "VOLUME_SIZE", "100MB"),
         "aggregate": aggregate,
-        "client_match": (
-            args.client_match
-            or os.environ.get("CLIENT_MATCH")
-            or ENV["CLIENT_MATCH"]
-            or "0.0.0.0/0"
-        ),
+        "client_match": _pick(args.client_match, "CLIENT_MATCH", "0.0.0.0/0"),
     }
 
 
