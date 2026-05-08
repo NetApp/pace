@@ -107,3 +107,20 @@ After the module, provide:
 1. Exact commands: `terraform init`, `terraform plan`, `terraform apply`.
 2. Drift detection behavior.
 3. `terraform destroy` instructions for cleanup.
+
+## Copyright header (required)
+
+Every generated source file MUST start with the standard NetApp header in the
+language-appropriate comment syntax. The `insert-license` pre-commit hook
+will add it automatically, but include it from the start so AI-generated
+output passes review on first read.
+
+```text
+© 2026 NetApp, Inc. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+See the NOTICE file in the repo root for trademark and attribution details.
+```
+
+Place after any shebang (`#!/usr/bin/env python3`), YAML directive (`---`),
+or `<!DOCTYPE html>` line. Do **not** duplicate the full trademark text in
+source files — it lives in [NOTICE](../../NOTICE) and the LICENSE appendix.

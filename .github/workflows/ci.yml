@@ -1,3 +1,7 @@
+# © 2026 NetApp, Inc. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# See the NOTICE file in the repo root for trademark and attribution details.
+
 name: CI
 
 on:
@@ -41,3 +45,30 @@ jobs:
             fi
           done
           [ "$ERRORS" -eq 0 ] || exit 1
+
+      - name: Verify NetApp copyright header on source files
+        run: |
+          MARKER="NetApp, Inc. All Rights Reserved"
+          MISSING=0
+          mapfile -t FILES < <(git ls-files \
+            'python/*.py' \
+            'ansible/*.yml' \
+            'terraform/**/*.tf' \
+            'docs/example-template/**/*.py' \
+            'docs/example-template/**/*.yml' \
+            'docs/example-template/**/*.tf' \
+            '.github/scripts/*.sh' \
+            'docs/*.html' \
+            'poc/*.html' \
+            | grep -Ev '(\.example$|requirements\.|inventory/|group_vars/)')
+          for f in "${FILES[@]}"; do
+            if ! head -10 "$f" | grep -q "$MARKER"; then
+              echo "::error file=$f::Missing NetApp copyright header"
+              MISSING=$((MISSING + 1))
+            fi
+          done
+          if [ "$MISSING" -gt 0 ]; then
+            echo "::error::$MISSING file(s) missing the required header. See CONTRIBUTING.md > Copyright headers."
+            exit 1
+          fi
+          echo "All checked files carry the NetApp copyright header."
