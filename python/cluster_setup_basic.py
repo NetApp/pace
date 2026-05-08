@@ -23,9 +23,8 @@ Usage::
     export PARTNER_MGMT_IP=10.x.x.y
     python cluster_setup_basic.py
 
-    # or use a per-build .env file (analogous to -ir <build-path>)
-    python cluster_setup_basic.py --env-file r9141_build.env
-    python cluster_setup_basic.py --env-file r919_build.env
+    # or supply values via a KEY=VALUE env file
+    python cluster_setup_basic.py --env-file cluster.env
 """
 
 from __future__ import annotations
@@ -81,6 +80,10 @@ _NODE_FIELDS_SETS = [
 
 
 def _env(key: str, required: bool = True) -> str:
+    """Return the value for *key* from the INPUTS dict, falling back to the environment.
+
+    Exits with an error log if *required* is True and the key is unset.
+    """
     # Prefer value from INPUTS dict; fall back to environment variable.
     val = INPUTS.get(key) or os.environ.get(key, "")
     if required and not val:
@@ -163,20 +166,24 @@ def discover_partner(client: OntapClient, local_uuid: str) -> dict:
     return result
 
 
-def create_cluster(client: OntapClient, local: dict, partner: dict) -> dict:
-    """Step 4 — POST /api/cluster to create the cluster."""
-    cluster_name = _env("CLUSTER_NAME")
-    cluster_pass = _env("CLUSTER_PASS")
-    cluster_mgmt_ip = _env("CLUSTER_MGMT_IP")
-    cluster_netmask = _env("CLUSTER_NETMASK")
-    cluster_gateway = _env("CLUSTER_GATEWAY")
-    ontap_host = _env("ONTAP_HOST")
-    partner_mgmt_ip = _env("PARTNER_MGMT_IP")
+def _build_cluster_body(
+    local_node: dict,
+    partner_node: dict,
+    cluster_name: str,
+    cluster_pass: str,
+    cluster_mgmt_ip: str,
+    cluster_netmask: str,
+    cluster_gateway: str,
+    ontap_host: str,
+    partner_mgmt_ip: str,
+) -> dict:
+    """Build and return the POST body for the /cluster endpoint.
 
-    local_node = local["records"][0]
-    partner_node = partner["records"][0]
-
-    body = {
+    The body includes cluster management interface, both node management
+    interfaces, cluster interfaces, and empty placeholder keys required
+    by the ONTAP REST API.
+    """
+    return {
         "name": cluster_name,
         "password": cluster_pass,
         "management_interface": {
@@ -208,6 +215,20 @@ def create_cluster(client: OntapClient, local: dict, partner: dict) -> dict:
         "configuration_backup": {},
     }
 
+
+def create_cluster(client: OntapClient, local: dict, partner: dict) -> dict:
+    """Step 4 — POST /api/cluster to create the cluster."""
+    body = _build_cluster_body(
+        local_node=local["records"][0],
+        partner_node=partner["records"][0],
+        cluster_name=_env("CLUSTER_NAME"),
+        cluster_pass=_env("CLUSTER_PASS"),
+        cluster_mgmt_ip=_env("CLUSTER_MGMT_IP"),
+        cluster_netmask=_env("CLUSTER_NETMASK"),
+        cluster_gateway=_env("CLUSTER_GATEWAY"),
+        ontap_host=_env("ONTAP_HOST"),
+        partner_mgmt_ip=_env("PARTNER_MGMT_IP"),
+    )
     result = client.post("/cluster?keep_precluster_config=true", body)
     job_uuid = result.get("job", {}).get("uuid")
     logger.info("create_cluster  — job %s", job_uuid)
@@ -241,6 +262,7 @@ def track_job(client: OntapClient, job_uuid: str) -> dict:
 
 
 def main() -> None:
+    """Create an ONTAP cluster from two pre-cluster nodes discovered via the REST API."""
     host = _env("ONTAP_HOST")
     user = _env("ONTAP_USER")
     passwd = os.environ.get("ONTAP_PASS", "")  # empty on pre-cluster nodes

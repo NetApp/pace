@@ -82,6 +82,7 @@ def _load_env_file(path: str) -> None:
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse CLI arguments for NFS volume provisioning."""
     p = argparse.ArgumentParser(description="Provision an NFS volume on ONTAP")
     p.add_argument(
         "--env-file",
@@ -232,6 +233,7 @@ def _assign_export_policy(client: OntapClient, volume_uuid: str, policy_name: st
 
 
 def main() -> None:
+    """Provision an NFS volume with a dedicated export policy on an ONTAP SVM."""
     cfg = _resolve_config(parse_args())
     svm = cfg["svm"]
     volume = cfg["volume"]

@@ -78,6 +78,7 @@ def _load_env_file(path: str) -> None:
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse CLI arguments for CIFS share provisioning."""
     p = argparse.ArgumentParser(description="Provision a CIFS share on ONTAP")
     p.add_argument(
         "--env-file",
@@ -329,6 +330,7 @@ def _verify_and_log_acls(client: OntapClient, svm_uuid: str, share_name: str) ->
 
 
 def main() -> None:
+    """Provision a CIFS share on an ONTAP SVM, including volume and ACL setup."""
     cfg = _resolve_config(parse_args())
     svm = cfg["svm"]
     volume = cfg["volume"]

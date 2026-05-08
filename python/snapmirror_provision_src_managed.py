@@ -67,6 +67,10 @@ INPUTS = {
 
 
 def _env(key: str, default: str = "") -> str:
+    """Return the value for *key* from the INPUTS dict, falling back to the environment.
+
+    Exits with an error log if the resolved value is empty and *default* is not set.
+    """
     # Prefer value from INPUTS dict; fall back to environment variable.
     val = INPUTS.get(key) or os.environ.get(key, default)
     if not val:
@@ -79,6 +83,10 @@ def _env(key: str, default: str = "") -> str:
 
 
 def _poll_job(client: OntapClient, job_uuid: str, interval: int = 10) -> dict:
+    """Poll an ONTAP async job until it leaves the 'running' state.
+
+    Returns the final job record. Callers should inspect the returned state/error fields.
+    """
     while True:
         result = client.get(f"/cluster/jobs/{job_uuid}", fields="state,message,error,code")
         state = result.get("state", "unknown")
@@ -91,6 +99,10 @@ def _poll_job(client: OntapClient, job_uuid: str, interval: int = 10) -> dict:
 def _wait_snapmirrored(
     client: OntapClient, rel_uuid: str, interval: int = 15, max_wait: int = 1800
 ) -> dict:
+    """Poll a SnapMirror relationship until state reaches 'snapmirrored'.
+
+    Raises RuntimeError if *max_wait* seconds elapse before convergence.
+    """
     elapsed = 0
     while elapsed < max_wait:
         result = client.get(
@@ -106,7 +118,232 @@ def _wait_snapmirrored(
     raise RuntimeError(f"Timed out waiting for relationship {rel_uuid} to reach snapmirrored")
 
 
+def _preflight_source(
+    src: OntapClient, source_host: str, source_svm: str, source_volume: str
+) -> dict:
+    """Phase A: Verify source cluster is reachable and the source volume is RW.
+
+    Returns the source volume record.
+    Aborts if the volume is missing or is a DP type (DP volumes cannot be
+    used as a SnapMirror source).
+    """
+    logger.info("=== Phase A: Source pre-flight ===")
+    src_cluster = src.get("/cluster", fields="name,version")
+    logger.info(
+        "SOURCE CLUSTER | name=%s | ontap=%s",
+        src_cluster.get("name"),
+        src_cluster.get("version", {}).get("full"),
+    )
+    src_vol_resp = src.get(
+        "/storage/volumes",
+        fields="name,uuid,state,type,space.size",
+        **{"max_records": "1", "name": source_volume, "svm.name": source_svm},
+    )
+    if src_vol_resp.get("num_records", 0) == 0:
+        logger.error("ABORTED — source volume '%s' not found on %s", source_volume, source_host)
+        sys.exit(1)
+    src_vol = src_vol_resp["records"][0]
+    if src_vol.get("type") == "dp":
+        logger.error("ABORTED — source volume is type=dp; specify the RW volume")
+        sys.exit(1)
+    logger.info(
+        "SOURCE VOLUME  | name=%s | uuid=%s | state=%s | type=%s | size=%s",
+        src_vol["name"],
+        src_vol["uuid"],
+        src_vol["state"],
+        src_vol["type"],
+        src_vol.get("space", {}).get("size"),
+    )
+    return src_vol
+
+
+def _preflight_dest(dst: OntapClient) -> tuple[str, str]:
+    """Phase B: Verify destination cluster and pick a cluster peer and aggregate.
+
+    Returns (peer_name, aggr_name).
+    The peer_name is the name the destination cluster uses to reference the
+    source cluster — required when constructing the SnapMirror source path.
+    """
+    logger.info("=== Phase B: Dest pre-flight ===")
+    dst_cluster = dst.get("/cluster", fields="name,version")
+    logger.info(
+        "DEST CLUSTER   | name=%s | ontap=%s",
+        dst_cluster.get("name"),
+        dst_cluster.get("version", {}).get("full"),
+    )
+    peer_resp = dst.get("/cluster/peers", fields="name,status.state", **{"max_records": "1"})
+    peer_name = peer_resp.get("records", [{}])[0].get("name", "")
+    logger.info("CLUSTER PEER   | name=%s", peer_name)
+
+    aggr_resp = dst.get(
+        "/storage/aggregates",
+        fields="name,space.block_storage.available",
+        state="online",
+        **{"max_records": "1", "order_by": "space.block_storage.available desc"},
+    )
+    aggr_name = aggr_resp.get("records", [{}])[0].get("name", "")
+    logger.info("DEST AGGREGATE | name=%s", aggr_name)
+    return peer_name, aggr_name
+
+
+def _ensure_dest_volume(
+    dst: OntapClient,
+    dest_volume: str,
+    dest_svm: str,
+    aggr_name: str,
+    src_vol: dict,
+) -> dict:
+    """Phase C: Create the DP destination volume if it does not already exist.
+
+    Returns the destination volume record.
+    DP (data-protection) type volumes are required as SnapMirror destinations.
+    """
+    logger.info("=== Phase C: Dest volume setup ===")
+    check = dst.get(
+        "/storage/volumes",
+        fields="name,uuid,state,type",
+        **{"max_records": "1", "name": dest_volume, "svm.name": dest_svm},
+    )
+    if check.get("num_records", 0) == 0:
+        logger.info("Creating dest DP volume '%s' on '%s'...", dest_volume, aggr_name)
+        try:
+            dst.post(
+                "/storage/volumes?return_timeout=120",
+                body={
+                    "name": dest_volume,
+                    "type": "dp",
+                    "svm": {"name": dest_svm},
+                    "aggregates": [{"name": aggr_name}],
+                    "size": str(src_vol.get("space", {}).get("size", "")),
+                },
+            )
+        except Exception as exc:
+            logger.warning("create_dest_volume — %s (may already exist)", exc)
+    else:
+        logger.info("Dest volume '%s' already exists — skipping create", dest_volume)
+
+    vol_resp = dst.get(
+        "/storage/volumes",
+        fields="name,uuid,state,type",
+        **{"max_records": "1", "name": dest_volume, "svm.name": dest_svm},
+    )
+    dst_vol = vol_resp.get("records", [{}])[0]
+    logger.info(
+        "DEST VOLUME    | name=%s | uuid=%s | state=%s | type=%s",
+        dst_vol.get("name"),
+        dst_vol.get("uuid"),
+        dst_vol.get("state"),
+        dst_vol.get("type"),
+    )
+    return dst_vol
+
+
+def _create_sm_relationship(
+    dst: OntapClient,
+    source_svm: str,
+    source_volume: str,
+    dest_svm: str,
+    dest_volume: str,
+    peer_name: str,
+    sm_policy: str,
+) -> str:
+    """Phase D: Create, initialize, and return the SnapMirror relationship UUID.
+
+    Creates the relationship from the destination cluster (ONTAP requirement).
+    If the relationship already exists, the POST fails gracefully.
+    Triggers a baseline transfer and returns the relationship UUID.
+    """
+    logger.info("=== Phase D: Relationship setup ===")
+    existing = dst.get(
+        "/snapmirror/relationships",
+        fields="uuid,state,healthy",
+        **{"destination.path": f"{dest_svm}:{dest_volume}", "max_records": "1"},
+    )
+    logger.info("RELATIONSHIP CHECK | existing=%d", existing.get("num_records", 0))
+
+    try:
+        create_resp = dst.post(
+            "/snapmirror/relationships?return_timeout=120",
+            body={
+                "source": {
+                    "path": f"{source_svm}:{source_volume}",
+                    "cluster": {"name": peer_name},
+                },
+                "destination": {"path": f"{dest_svm}:{dest_volume}"},
+                "policy": {"name": sm_policy},
+            },
+        )
+        job_uuid = create_resp.get("job", {}).get("uuid")
+        if job_uuid:
+            _poll_job(dst, job_uuid)
+    except Exception as exc:
+        logger.warning("create_and_initialize_relationship — %s (may already exist)", exc)
+
+    rel_resp = dst.get(
+        "/snapmirror/relationships",
+        fields="uuid,source.path,destination.path,state,lag_time,healthy,policy.name",
+        **{"destination.path": f"{dest_svm}:{dest_volume}", "max_records": "1"},
+    )
+    rel = rel_resp.get("records", [{}])[0]
+    rel_uuid = rel.get("uuid", "")
+    logger.info(
+        "RELATIONSHIP FOUND | uuid=%s | state=%s | healthy=%s",
+        rel_uuid,
+        rel.get("state"),
+        rel.get("healthy"),
+    )
+    try:
+        dst.post(
+            f"/snapmirror/relationships/{rel_uuid}/transfers?return_timeout=120",
+            body={},
+        )
+    except Exception as exc:
+        logger.warning("initialize_relationship — %s (may already be initialized)", exc)
+    return rel_uuid
+
+
+def _convergence_and_report(
+    dst: OntapClient,
+    rel_uuid: str,
+    source_svm: str,
+    source_volume: str,
+    dest_svm: str,
+    dest_volume: str,
+) -> None:
+    """Phases E+F: Poll until snapmirrored, then log the final health report."""
+    logger.info("=== Phase E: Convergence polling ===")
+    _wait_snapmirrored(dst, rel_uuid)
+
+    logger.info("=== Phase F: Final validation ===")
+    final = dst.get(
+        f"/snapmirror/relationships/{rel_uuid}",
+        fields="uuid,source.path,destination.path,state,lag_time,healthy,policy.name",
+    )
+    logger.info(
+        "=== SNAPMIRROR PROVISION COMPLETE ===\n"
+        "  source      : %s:%s\n"
+        "  destination : %s:%s\n"
+        "  state       : %s\n"
+        "  healthy     : %s\n"
+        "  policy      : %s\n"
+        "  lag_time    : %s",
+        source_svm,
+        source_volume,
+        dest_svm,
+        dest_volume,
+        final.get("state"),
+        final.get("healthy"),
+        final.get("policy", {}).get("name"),
+        final.get("lag_time"),
+    )
+
+
 def main() -> None:
+    """Provision a SnapMirror relationship driven from the source cluster.
+
+    Connects to both clusters, verifies the source volume, ensures the destination
+    volume and relationship exist, then polls for convergence.
+    """
     source_host = _env("SOURCE_HOST")
     source_user = _env("SOURCE_USER")
     source_pass = _env("SOURCE_PASS")
@@ -125,197 +362,13 @@ def main() -> None:
     dst = OntapClient(dest_host, dest_user, dest_pass, verify_ssl=False)
 
     with src, dst:
-        # ── Phase A: Source pre-flight ───────────────────────────────────────────
-        # Verify source cluster is reachable and the specified volume is a
-        # writable (RW) type. DP volumes cannot be used as a SnapMirror source.
-        logger.info("=== Phase A: Source pre-flight ===")
-        src_cluster = src.get("/cluster", fields="name,version")
-        logger.info(
-            "SOURCE CLUSTER | name=%s | ontap=%s",
-            src_cluster.get("name"),
-            src_cluster.get("version", {}).get("full"),
+        src_vol = _preflight_source(src, source_host, source_svm, source_volume)
+        peer_name, aggr_name = _preflight_dest(dst)
+        _ensure_dest_volume(dst, dest_volume, dest_svm, aggr_name, src_vol)
+        rel_uuid = _create_sm_relationship(
+            dst, source_svm, source_volume, dest_svm, dest_volume, peer_name, sm_policy
         )
-
-        src_vol_resp = src.get(
-            "/storage/volumes",
-            fields="name,uuid,state,type,space.size",
-            **{"max_records": "1", "name": source_volume, "svm.name": source_svm},
-        )
-        if src_vol_resp.get("num_records", 0) == 0:
-            logger.error(
-                "ABORTED — source volume '%s' not found on %s",
-                source_volume,
-                source_host,
-            )
-            sys.exit(1)
-        src_vol = src_vol_resp["records"][0]
-        if src_vol.get("type") == "dp":
-            logger.error("ABORTED — source volume is type=dp; specify the RW volume")
-            sys.exit(1)
-        logger.info(
-            "SOURCE VOLUME  | name=%s | uuid=%s | state=%s | type=%s | size=%s",
-            src_vol["name"],
-            src_vol["uuid"],
-            src_vol["state"],
-            src_vol["type"],
-            src_vol.get("space", {}).get("size"),
-        )
-
-        # ── Phase B: Dest pre-flight ─────────────────────────────────────
-        # Verify destination cluster connectivity. Retrieve the cluster peer name
-        # (used to reference the source from the destination side) and pick an
-        # available aggregate to host the new destination DP volume.
-        logger.info("=== Phase B: Dest pre-flight ===")
-        dst_cluster = dst.get("/cluster", fields="name,version")
-        logger.info(
-            "DEST CLUSTER   | name=%s | ontap=%s",
-            dst_cluster.get("name"),
-            dst_cluster.get("version", {}).get("full"),
-        )
-
-        peer_resp = dst.get(
-            "/cluster/peers",
-            fields="name,status.state",
-            **{"max_records": "1"},
-        )
-        peer_name = peer_resp.get("records", [{}])[0].get("name", "")
-        logger.info("CLUSTER PEER   | name=%s", peer_name)
-
-        aggr_resp = dst.get(
-            "/storage/aggregates",
-            fields="name,space.block_storage.available",
-            state="online",
-            **{"max_records": "1", "order_by": "space.block_storage.available desc"},
-        )
-        aggr_name = aggr_resp.get("records", [{}])[0].get("name", "")
-        logger.info("DEST AGGREGATE | name=%s", aggr_name)
-
-        # ── Phase C: Auto-create dest DP volume ──────────────────────────
-        # Check if the destination DP volume already exists; create it if not.
-        # DP (data-protection) type volumes are required as SnapMirror destinations.
-        # Volume creation is skipped with a warning if it already exists.
-        logger.info("=== Phase C: Dest volume setup ===")
-        check_dest = dst.get(
-            "/storage/volumes",
-            fields="name,uuid,state,type",
-            **{"max_records": "1", "name": dest_volume, "svm.name": dest_svm},
-        )
-        if check_dest.get("num_records", 0) == 0:
-            logger.info("Creating dest DP volume '%s' on '%s'…", dest_volume, aggr_name)
-            try:
-                dst.post(
-                    "/storage/volumes?return_timeout=120",
-                    body={
-                        "name": dest_volume,
-                        "type": "dp",
-                        "svm": {"name": dest_svm},
-                        "aggregates": [{"name": aggr_name}],
-                        "size": str(src_vol.get("space", {}).get("size", "")),
-                    },
-                )
-            except Exception as exc:
-                logger.warning("create_dest_volume — %s (may already exist)", exc)
-        else:
-            logger.info("Dest volume '%s' already exists — skipping create", dest_volume)
-
-        dst_vol_resp = dst.get(
-            "/storage/volumes",
-            fields="name,uuid,state,type",
-            **{"max_records": "1", "name": dest_volume, "svm.name": dest_svm},
-        )
-        dst_vol = dst_vol_resp.get("records", [{}])[0]
-        logger.info(
-            "DEST VOLUME    | name=%s | uuid=%s | state=%s | type=%s",
-            dst_vol.get("name"),
-            dst_vol.get("uuid"),
-            dst_vol.get("state"),
-            dst_vol.get("type"),
-        )
-
-        # ── Phase D: Create + initialize relationship ─────────────────────
-        # Create the SnapMirror relationship and trigger a baseline transfer.
-        # All relationship API calls are made from the destination cluster
-        # (ONTAP requirement). POST is skipped gracefully if it already exists.
-        logger.info("=== Phase D: Relationship setup ===")
-        existing = dst.get(
-            "/snapmirror/relationships",
-            fields="uuid,state,healthy",
-            **{"destination.path": f"{dest_svm}:{dest_volume}", "max_records": "1"},
-        )
-        logger.info("RELATIONSHIP CHECK | existing=%d", existing.get("num_records", 0))
-
-        try:
-            create_resp = dst.post(
-                "/snapmirror/relationships?return_timeout=120",
-                body={
-                    "source": {
-                        "path": f"{source_svm}:{source_volume}",
-                        "cluster": {"name": peer_name},
-                    },
-                    "destination": {"path": f"{dest_svm}:{dest_volume}"},
-                    "policy": {"name": sm_policy},
-                },
-            )
-            job_uuid = create_resp.get("job", {}).get("uuid")
-            if job_uuid:
-                _poll_job(dst, job_uuid)
-        except Exception as exc:
-            logger.warning("create_and_initialize_relationship — %s (may already exist)", exc)
-
-        # ── Phase E: Convergence polling ─────────────────────────────────
-        # Fetch the relationship UUID, trigger a baseline transfer explicitly,
-        # then poll until state=snapmirrored confirming initial replication is done.
-        # Times out after 30 minutes.
-        logger.info("=== Phase E: Convergence polling ===")
-        rel_resp = dst.get(
-            "/snapmirror/relationships",
-            fields="uuid,source.path,destination.path,state,lag_time,healthy,policy.name",
-            **{"destination.path": f"{dest_svm}:{dest_volume}", "max_records": "1"},
-        )
-        rel = rel_resp.get("records", [{}])[0]
-        rel_uuid = rel.get("uuid", "")
-        logger.info(
-            "RELATIONSHIP FOUND | uuid=%s | state=%s | healthy=%s",
-            rel_uuid,
-            rel.get("state"),
-            rel.get("healthy"),
-        )
-
-        try:
-            dst.post(
-                f"/snapmirror/relationships/{rel_uuid}/transfers?return_timeout=120",
-                body={},
-            )
-        except Exception as exc:
-            logger.warning("initialize_relationship — %s (may already be initialized)", exc)
-
-        _wait_snapmirrored(dst, rel_uuid)
-
-        # ── Phase F: Final validation ─────────────────────────────────────
-        # Fetch the final relationship state and print a human-readable summary
-        # with source, destination, health status, policy, and lag time.
-        logger.info("=== Phase F: Final validation ===")
-        final = dst.get(
-            f"/snapmirror/relationships/{rel_uuid}",
-            fields="uuid,source.path,destination.path,state,lag_time,healthy,policy.name",
-        )
-        logger.info(
-            "=== SNAPMIRROR PROVISION COMPLETE ===\n"
-            "  source      : %s:%s\n"
-            "  destination : %s:%s\n"
-            "  state       : %s\n"
-            "  healthy     : %s\n"
-            "  policy      : %s\n"
-            "  lag_time    : %s",
-            source_svm,
-            source_volume,
-            dest_svm,
-            dest_volume,
-            final.get("state"),
-            final.get("healthy"),
-            final.get("policy", {}).get("name"),
-            final.get("lag_time"),
-        )
+        _convergence_and_report(dst, rel_uuid, source_svm, source_volume, dest_svm, dest_volume)
 
 
 if __name__ == "__main__":

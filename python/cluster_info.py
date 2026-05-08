@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> None:
+    """Retrieve the cluster ONTAP version and list all nodes with serial numbers."""
     with OntapClient.from_env() as client:
         # Step 1: cluster version
         cluster = client.get("/cluster", fields="version")
