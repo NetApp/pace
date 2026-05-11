@@ -18,7 +18,7 @@
 ---
 
 Pace is an open-source library of ready-to-run **NetApp ONTAP** automation
-examples, implemented three ways — side by side — so you can pick the
+examples, implemented three ways - side by side - so you can pick the
 style your team already uses.
 
 | Style                     | Tool      | In a sentence                       |
@@ -27,7 +27,7 @@ style your team already uses.
 | **Declarative playbooks** | Ansible   | You describe the outcome.           |
 | **Stateful blueprints**   | Terraform | The tool tracks every change.       |
 
-Same task, same outcome — different trade-offs in readability, idempotency,
+Same task, same outcome - different trade-offs in readability, idempotency,
 and lifecycle management.
 
 > Visit **[netapp.github.io/pace](https://netapp.github.io/pace/)** for the
@@ -38,10 +38,10 @@ and lifecycle management.
 ## Quick start
 
 Pick a style and run the matching block. All examples use placeholder host
-names and credentials — swap them for your own before running.
+names and credentials - swap them for your own before running.
 
 <details open>
-<summary><strong>Imperative scripts — Python</strong></summary>
+<summary><strong>Imperative scripts - Python</strong></summary>
 
 ```bash
 cd python
@@ -53,7 +53,7 @@ python cluster_info.py
 </details>
 
 <details>
-<summary><strong>Declarative playbooks — Ansible</strong></summary>
+<summary><strong>Declarative playbooks - Ansible</strong></summary>
 
 ```bash
 cd ansible
@@ -65,7 +65,7 @@ ansible-playbook -i inventory/hosts.yml cluster_info.yml
 </details>
 
 <details>
-<summary><strong>Stateful blueprints — Terraform</strong></summary>
+<summary><strong>Stateful blueprints - Terraform</strong></summary>
 
 ```bash
 cd terraform/cluster-info
@@ -87,7 +87,7 @@ and example output.
 - Network access to the cluster management LIF
 
 Credentials are never hardcoded. Each style uses its native secret
-mechanism — environment variables, Ansible Vault, or Terraform `sensitive`
+mechanism - environment variables, Ansible Vault, or Terraform `sensitive`
 variables.
 
 <details>

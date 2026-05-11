@@ -10,7 +10,7 @@ To compare this approach with Ansible or Terraform, see
 [Choosing an approach](../docs/choosing-an-approach.md).
 
 > **Note:** These scripts are runnable illustrations, not a tested library.
-> There are no unit tests by design — CI validates only lint and formatting
+> There are no unit tests by design - CI validates only lint and formatting
 > via Ruff. When you adapt a script for production, add tests appropriate
 > to your environment.
 
@@ -106,13 +106,13 @@ All flags can also be set via environment variables (`SVM_NAME`, `VOLUME_NAME`,
 
 These scripts demonstrate several patterns you can reuse:
 
-- **`OntapClient.from_env()`** — builds a configured client from environment
+- **`OntapClient.from_env()`** - builds a configured client from environment
   variables so credentials never appear in code
-- **`client.poll_job(uuid)`** — polls an async ONTAP job until completion with
+- **`client.poll_job(uuid)`** - polls an async ONTAP job until completion with
   configurable interval and timeout
-- **Context manager** — `with OntapClient.from_env() as client:` ensures the
+- **Context manager** - `with OntapClient.from_env() as client:` ensures the
   HTTP session is properly closed
-- **Structured logging** — all output goes through `logging`, not `print()`,
+- **Structured logging** - all output goes through `logging`, not `print()`,
   so you can control verbosity and format
 
 ## Adapting for Your Environment
@@ -120,13 +120,13 @@ These scripts demonstrate several patterns you can reuse:
 These scripts illustrate workflows using simple API call sequences. When
 adapting them, consider adding the following based on your requirements:
 
-- **Idempotency** — check whether a resource exists before creating it
+- **Idempotency** - check whether a resource exists before creating it
   (e.g. `GET /storage/volumes?name=vol01&svm.name=vs0` before calling
   `POST /storage/volumes`). Ansible modules handle this natively; Python
   and Terraform scripts require explicit checks or state tracking.
-- **Retry and backoff** — handle transient network or API errors gracefully
-- **Partial failure recovery** — clean up or resume when a multi-step workflow
+- **Retry and backoff** - handle transient network or API errors gracefully
+- **Partial failure recovery** - clean up or resume when a multi-step workflow
   fails midway
-- **Dry-run mode** — log intended actions without executing them
-- **Input validation** — enforce constraints on volume sizes, naming
+- **Dry-run mode** - log intended actions without executing them
+- **Input validation** - enforce constraints on volume sizes, naming
   conventions, or CIDR ranges before calling the API

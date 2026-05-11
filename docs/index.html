@@ -9,14 +9,14 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pace — Storage automation, in three different styles.</title>
-<meta name="description" content="Pace is an open-source library of ready-to-run NetApp ONTAP storage automation examples written across three styles — imperative scripts, declarative playbooks, and stateful blueprints — to make the trade-offs visible and the right approach easier to pick." />
+<title>Pace - Storage automation, in three different styles.</title>
+<meta name="description" content="Pace is an open-source library of ready-to-run NetApp ONTAP storage automation examples written across three styles - imperative scripts, declarative playbooks, and stateful blueprints - to make the trade-offs visible and the right approach easier to pick." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
 /* =========================================================================
-   PACE PORTFOLIO — single-file, modular sections
+   PACE PORTFOLIO - single-file, modular sections
    1. Reset & Tokens (with light/dark themes)
    2. Layout primitives & typography
    3. Ambient background (orbs, grid, stars)
@@ -765,10 +765,10 @@ html[data-theme="light"] .theme-toggle .sun  { display: block; }
         <p class="hero-lead" data-reveal data-reveal-delay="2">
           <b>Pace</b> is an open-source library of ready-to-run automation
           examples for <b>NetApp</b>, starting with <b>ONTAP</b>. Workflows
-          are written across three styles — as imperative <b>scripts</b> that
+          are written across three styles - as imperative <b>scripts</b> that
           execute step by step, declarative <b>playbooks</b> that describe
           the desired outcome, or stateful <b>blueprints</b> that track and
-          enforce infrastructure over time — making it easier to pick the
+          enforce infrastructure over time - making it easier to pick the
           right approach for each job.
         </p>
         <div class="hero-cta" data-reveal data-reveal-delay="3">
@@ -828,14 +828,14 @@ html[data-theme="light"] .theme-toggle .sun  { display: block; }
         </h3>
         <p style="color:var(--text-muted)">
           Tasks are built in three styles, side by side. Underneath, they all talk
-          to the same storage system — so the real differences are obvious: how
+          to the same storage system - so the real differences are obvious: how
           much code you write, how safe it is to re-run, how easy it is to undo,
           and how much the tool handles for you versus how much you handle yourself.
         </p>
         <p style="color:var(--text-muted); margin-top:14px;">
           Some styles give you full control over every step. Others let you
           describe what you want and figure out the rest. The same task, the same
-          outcome — just different trade-offs in readability, flexibility, and
+          outcome - just different trade-offs in readability, flexibility, and
           maintenance. Seeing them next to each other makes those trade-offs
           concrete instead of theoretical.
         </p>
@@ -924,9 +924,9 @@ html[data-theme="light"] .theme-toggle .sun  { display: block; }
       <div class="eyebrow" data-reveal>PICK YOUR STYLE</div>
       <h2 data-reveal data-reveal-delay="1">One task, three styles.</h2>
       <p class="lead" data-reveal data-reveal-delay="2">
-        Here's one task — printing cluster info — written in all three styles.
+        Here's one task - printing cluster info - written in all three styles.
         The tool used in each example is one representative of its style.
-        Across the wider library, coverage varies — not every example exists
+        Across the wider library, coverage varies - not every example exists
         in every style.
       </p>
     </div>
@@ -950,16 +950,16 @@ html[data-theme="light"] .theme-toggle .sun  { display: block; }
       <!-- SCRIPTS (today: Python) -->
       <div class="tool-pane active" data-tool="python" role="tabpanel">
         <div class="tool-meta">
-          <h3>Imperative scripts — you write each step yourself.</h3>
+          <h3>Imperative scripts - you write each step yourself.</h3>
           <p class="summary">You spell out every step in order: call this, then call that, retry if it fails. A natural fit when a job needs custom logic, data transforms, or has to talk to other systems. Today shown in <code>Python</code>; the same idea fits other general-purpose languages.</p>
           <div class="specs">
             <div class="spec"><div class="k">Style</div><div class="vv">Imperative scripts</div></div>
-            <div class="spec"><div class="k">Tracks state</div><div class="vv">No — you handle it</div></div>
+            <div class="spec"><div class="k">Tracks state</div><div class="vv">No - you handle it</div></div>
             <div class="spec"><div class="k">Safe to re-run</div><div class="vv">You write that in</div></div>
             <div class="spec"><div class="k">Lines of code</div><div class="vv">145 + 188 helpers<small>NAS provisioning example</small></div></div>
           </div>
           <div class="when">
-            <div class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-9"/></svg> See every API call — easy to debug</div>
+            <div class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-9"/></svg> See every API call - easy to debug</div>
             <div class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-9"/></svg> Fits one-off jobs and gluing systems together</div>
             <div class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-9"/></svg> When you need branching, retries, or custom integrations</div>
           </div>
@@ -985,17 +985,17 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
       <!-- RECIPES (today: Ansible) -->
       <div class="tool-pane" data-tool="ansible" role="tabpanel">
         <div class="tool-meta">
-          <h3>Declarative playbooks — say what you want, not how.</h3>
-          <p class="summary">You write a playbook — "the volume should exist with these settings" — and the tool figures out what to change. Safe to run over and over, and easy to apply to many clusters at once. Today shown in <code>Ansible</code>; the same idea fits other configuration-management tools.</p>
+          <h3>Declarative playbooks - say what you want, not how.</h3>
+          <p class="summary">You write a playbook - "the volume should exist with these settings" - and the tool figures out what to change. Safe to run over and over, and easy to apply to many clusters at once. Today shown in <code>Ansible</code>; the same idea fits other configuration-management tools.</p>
           <div class="specs">
             <div class="spec"><div class="k">Style</div><div class="vv">Declarative playbooks</div></div>
-            <div class="spec"><div class="k">Tracks state</div><div class="vv">No — checks each run</div></div>
+            <div class="spec"><div class="k">Tracks state</div><div class="vv">No - checks each run</div></div>
             <div class="spec"><div class="k">Safe to re-run</div><div class="vv">Built in</div></div>
             <div class="spec"><div class="k">Lines of code</div><div class="vv">96<small>NAS provisioning example</small></div></div>
           </div>
           <div class="when">
             <div class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-9"/></svg> Run the same playbook across many clusters at once</div>
-            <div class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-9"/></svg> Safe to re-run any time — won't double up</div>
+            <div class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-9"/></svg> Safe to re-run any time - won't double up</div>
             <div class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-9"/></svg> Fits when you need to keep many clusters in a known good state</div>
           </div>
         </div>
@@ -1027,11 +1027,11 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
       <!-- BLUEPRINTS (today: Terraform) -->
       <div class="tool-pane" data-tool="terraform" role="tabpanel">
         <div class="tool-meta">
-          <h3>Stateful blueprints — track everything, see every change.</h3>
+          <h3>Stateful blueprints - track everything, see every change.</h3>
           <p class="summary">You declare the resources you want, and the tool keeps a record of what it built. Before any change, you get a preview of exactly what will happen. Cleanup is one command. Today shown in <code>Terraform</code>; the same idea fits other declarative IaC tools.</p>
           <div class="specs">
             <div class="spec"><div class="k">Style</div><div class="vv">Stateful blueprints</div></div>
-            <div class="spec"><div class="k">Tracks state</div><div class="vv">Yes — full record</div></div>
+            <div class="spec"><div class="k">Tracks state</div><div class="vv">Yes - full record</div></div>
             <div class="spec"><div class="k">Safe to re-run</div><div class="vv">Preview, then apply</div></div>
             <div class="spec"><div class="k">Lines of code</div><div class="vv">155<small>NAS provisioning example</small></div></div>
           </div>
@@ -1077,7 +1077,7 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
       <div class="eyebrow" data-reveal>PROMPT TEMPLATES</div>
       <h2 data-reveal data-reveal-delay="1">Reusable prompts: plan, generate, review.</h2>
       <p class="lead" data-reveal data-reveal-delay="2">
-        The repo includes reusable prompts that cover the full loop — planning
+        The repo includes reusable prompts that cover the full loop - planning
         a new use case, generating a first draft, and reviewing the result.
         Paste them into your AI assistant of choice; the output is a starting
         point that still needs human review and testing.
@@ -1095,7 +1095,7 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
           </span>
           <h3>Plan</h3>
         </div>
-        <p>Break a use case into the resources, dependencies, and edge cases worth handling — before any code is written.</p>
+        <p>Break a use case into the resources, dependencies, and edge cases worth handling - before any code is written.</p>
       </div>
       <div class="prompt-card">
         <div class="prompt-card-head">
@@ -1120,14 +1120,14 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
           </span>
           <h3>Review</h3>
         </div>
-        <p>Surface idempotency, error handling, naming, and convention drift — a second pair of eyes before opening a PR.</p>
+        <p>Surface idempotency, error handling, naming, and convention drift - a second pair of eyes before opening a PR.</p>
       </div>
     </div>
 
     <div class="prompt-note" data-reveal>
       <strong>AI output is a draft, not a merge.</strong> Run the project's
       checks, validate against a real cluster, and have a maintainer review
-      before opening a PR — the same as any human-written change.
+      before opening a PR - the same as any human-written change.
     </div>
   </div>
 </section>
@@ -1142,7 +1142,7 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
       <h2 data-reveal data-reveal-delay="1">From your first edit to a merged PR in 5 steps.</h2>
       <p class="lead" data-reveal data-reveal-delay="2">
         Use clear commit messages, get one approving review, make sure the checks
-        pass. That's the whole protocol — no matter which style you contribute to.
+        pass. That's the whole protocol - no matter which style you contribute to.
       </p>
     </div>
 
@@ -1156,17 +1156,17 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
         <div class="flow-step">
           <div class="num">2</div>
           <h4>Set up locally</h4>
-          <p>Install the tools for the style you'll touch — the contribution guide walks through it.</p>
+          <p>Install the tools for the style you'll touch - the contribution guide walks through it.</p>
         </div>
         <div class="flow-step">
           <div class="num">3</div>
           <h4>Add a use case</h4>
-          <p>One style is enough — script, playbook, or blueprint. Add more if you'd like.</p>
+          <p>One style is enough - script, playbook, or blueprint. Add more if you'd like.</p>
         </div>
         <div class="flow-step">
           <div class="num">4</div>
           <h4>Run the checks</h4>
-          <p>Run the same checks locally that CI runs on every PR — lint, tests, formatting.</p>
+          <p>Run the same checks locally that CI runs on every PR - lint, tests, formatting.</p>
         </div>
         <div class="flow-step">
           <div class="num">5</div>
@@ -1177,7 +1177,7 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
 
       <div class="cta-band">
         <div class="copy">
-          <h4>Got a use case — or a new tool to add?</h4>
+          <h4>Got a use case - or a new tool to add?</h4>
           <p>Adding examples in another tool, or a use case we haven't covered yet? Welcome here.</p>
         </div>
         <div class="actions">
@@ -1211,7 +1211,7 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
           </span>
           <span class="nav-brand-name">Pace</span>
         </a>
-        <p>NetApp ONTAP storage automation, in three different styles — imperative scripts, declarative playbooks, stateful blueprints. Apache 2.0.</p>
+        <p>NetApp ONTAP storage automation, in three different styles - imperative scripts, declarative playbooks, stateful blueprints. Apache 2.0.</p>
       </div>
       <div class="footer-col">
         <h5>Project</h5>
@@ -1333,7 +1333,7 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
   const termTabs = document.querySelectorAll('.terminal-bar .tab');
   const scripts = {
     python: [
-      { t: '<span class="cmt"># imperative scripts — explicit step-by-step</span>' },
+      { t: '<span class="cmt"># imperative scripts - explicit step-by-step</span>' },
       { t: '<span class="prompt">$ </span><span class="kw">export</span> ONTAP_HOST=<span class="str">10.0.0.1</span> ONTAP_USER=admin' },
       { t: '<span class="prompt">$ </span>./run cluster-info', delay: 600 },
       { t: '<span class="out">Cluster: lab-cluster (ONTAP 9.15.1)</span>' },
@@ -1342,7 +1342,7 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
       { t: '<span class="prompt">$ </span><span class="cursor-blink"></span>' },
     ],
     ansible: [
-      { t: '<span class="cmt"># declarative playbooks — describe the outcome, safe to re-run</span>' },
+      { t: '<span class="cmt"># declarative playbooks - describe the outcome, safe to re-run</span>' },
       { t: '<span class="prompt">$ </span>ansible-playbook cluster-info', delay: 600 },
       { t: '<span class="out">PLAY [ontap] *********</span>' },
       { t: '<span class="out">TASK [Get cluster info] ok: [primary]</span>' },
@@ -1351,7 +1351,7 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
       { t: '<span class="prompt">$ </span><span class="cursor-blink"></span>' },
     ],
     terraform: [
-      { t: '<span class="cmt"># stateful blueprints — preview, then apply, track every change</span>' },
+      { t: '<span class="cmt"># stateful blueprints - preview, then apply, track every change</span>' },
       { t: '<span class="prompt">$ </span>terraform init', delay: 400 },
       { t: '<span class="out">Initializing provider plugins... ontap v1.1</span>' },
       { t: '<span class="prompt">$ </span>terraform apply -auto-approve', delay: 600 },

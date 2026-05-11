@@ -14,12 +14,12 @@ I provide and prepare it for a pull request.
 
 ## Reference Files
 
-- [CONTRIBUTING.md](../../CONTRIBUTING.md) — full contribution guide
-- [docs/ontap-api-patterns.md](../../docs/ontap-api-patterns.md) — API conventions
-- [python/ontap_client.py](../../python/ontap_client.py) — shared client
-- [python/nfs_provision.py](../../python/nfs_provision.py) — Python reference
-- [ansible/nfs_provision.yml](../../ansible/nfs_provision.yml) — Ansible reference
-- [terraform/nfs-provision/](../../terraform/nfs-provision/) — Terraform reference
+- [CONTRIBUTING.md](../../CONTRIBUTING.md) - full contribution guide
+- [docs/ontap-api-patterns.md](../../docs/ontap-api-patterns.md) - API conventions
+- [python/ontap_client.py](../../python/ontap_client.py) - shared client
+- [python/nfs_provision.py](../../python/nfs_provision.py) - Python reference
+- [ansible/nfs_provision.yml](../../ansible/nfs_provision.yml) - Ansible reference
+- [terraform/nfs-provision/](../../terraform/nfs-provision/) - Terraform reference
 
 ## 1. Naming & File Structure
 
@@ -74,9 +74,9 @@ I provide and prepare it for a pull request.
 ## 4. Documentation Updates
 
 Generate README update snippets for each tool's README:
-- `python/README.md` — new section with description + run instructions
-- `ansible/README.md` — new section with description + run instructions
-- `terraform/README.md` — new section with description + run instructions
+- `python/README.md` - new section with description + run instructions
+- `ansible/README.md` - new section with description + run instructions
+- `terraform/README.md` - new section with description + run instructions
 
 ## 5. Commit Message
 

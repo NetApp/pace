@@ -2,9 +2,9 @@
 
 This repository ships **reusable AI prompts** in two forms:
 
-1. **Copilot-native prompt files** in `.github/prompts/` — usable directly
+1. **Copilot-native prompt files** in `.github/prompts/` - usable directly
    from GitHub Copilot Chat, VS Code Copilot, and Cursor.
-2. **Copy-paste prompts** (below) — for any AI assistant (ChatGPT, Gemini,
+2. **Copy-paste prompts** (below) - for any AI assistant (ChatGPT, Gemini,
    Claude, etc.).
 
 ---
@@ -64,15 +64,15 @@ ONLY the ONTAP REST API.
 
 Task: [DESCRIBE THE STORAGE TASK]
 
-STEP 1 — CLARIFY: Ask me for any missing information (SVM, volume, aggregate,
+STEP 1 - CLARIFY: Ask me for any missing information (SVM, volume, aggregate,
 protocol, cluster hostname, special options).
 
-STEP 2 — API SEQUENCE: List ONTAP REST API calls in order. For each: method,
+STEP 2 - API SEQUENCE: List ONTAP REST API calls in order. For each: method,
 endpoint, key body/query params, sync/async, one-sentence justification.
 Rules: REST only (no ZAPI, no CLI, no SSH), target ONTAP 9.8+. Wait for my
 approval.
 
-STEP 3 — GENERATE PYTHON: File `python/<use_case>.py` with:
+STEP 3 - GENERATE PYTHON: File `python/<use_case>.py` with:
   • #!/usr/bin/env python3, from __future__ import annotations
   • Module docstring with steps, prerequisites, usage
   • from ontap_client import OntapClient (shared client, do NOT create a new one)
@@ -82,7 +82,7 @@ STEP 3 — GENERATE PYTHON: File `python/<use_case>.py` with:
   • logging module only (no print), type hints, no hardcoded credentials
   • if __name__ == "__main__": try/except guard with sys.exit(1)
 
-STEP 4 — VALIDATE: Run commands, error scenarios, teardown instructions.
+STEP 4 - VALIDATE: Run commands, error scenarios, teardown instructions.
 ````
 
 ---
@@ -95,14 +95,14 @@ the netapp.ontap collection (REST API only).
 
 Task: [DESCRIBE THE STORAGE TASK]
 
-STEP 1 — CLARIFY: Ask for missing info (SVM, volume, aggregate, protocol,
+STEP 1 - CLARIFY: Ask for missing info (SVM, volume, aggregate, protocol,
 cluster hostname, special options).
 
-STEP 2 — API SEQUENCE: List REST calls and map each to a netapp.ontap module.
+STEP 2 - API SEQUENCE: List REST calls and map each to a netapp.ontap module.
 Rules: use_rest: always, ONTAP 9.8+, FQCNs (netapp.ontap.na_ontap_*).
 Wait for approval.
 
-STEP 3 — GENERATE PLAYBOOK: File `ansible/<use_case>.yml` with:
+STEP 3 - GENERATE PLAYBOOK: File `ansible/<use_case>.yml` with:
   • --- header comment with filename, description, usage
   • hosts: ontap, gather_facts: false, connection: local
   • vars: section for operational defaults (overridable with -e)
@@ -111,7 +111,7 @@ STEP 3 — GENERATE PLAYBOOK: File `ansible/<use_case>.yml` with:
   • state: present for creates, wait_for_completion: true where supported
   • Final ansible.builtin.debug summary. No hardcoded credentials.
 
-STEP 4 — VALIDATE: Run command, idempotency behavior, teardown playbook.
+STEP 4 - VALIDATE: Run command, idempotency behavior, teardown playbook.
 ````
 
 ---
@@ -124,21 +124,21 @@ the NetApp/netapp-ontap provider (REST API only).
 
 Task: [DESCRIBE THE STORAGE TASK]
 
-STEP 1 — CLARIFY: Ask for missing info (SVM, volume, aggregate, protocol,
+STEP 1 - CLARIFY: Ask for missing info (SVM, volume, aggregate, protocol,
 cluster hostname, special options).
 
-STEP 2 — RESOURCE MAPPING: Map REST endpoints to Terraform resources/data
+STEP 2 - RESOURCE MAPPING: Map REST endpoints to Terraform resources/data
 sources. Rules: provider ~> 2.5, required_version >= 1.4, depends_on for
 ordering. Wait for approval.
 
-STEP 3 — GENERATE MODULE: Directory `terraform/<use-case>/` with:
-  • main.tf — provider block with connection_profiles, resources with
+STEP 3 - GENERATE MODULE: Directory `terraform/<use-case>/` with:
+  • main.tf - provider block with connection_profiles, resources with
     cx_profile_name = "cluster1"
-  • variables.tf — descriptions, types, sensitive = true for passwords
-  • outputs.tf — meaningful outputs with descriptions
-  • terraform.tfvars.example — placeholder values, no real credentials
+  • variables.tf - descriptions, types, sensitive = true for passwords
+  • outputs.tf - meaningful outputs with descriptions
+  • terraform.tfvars.example - placeholder values, no real credentials
 
-STEP 4 — VALIDATE: init/plan/apply commands, drift behavior, destroy teardown.
+STEP 4 - VALIDATE: init/plan/apply commands, drift behavior, destroy teardown.
 ````
 
 ---
@@ -151,14 +151,14 @@ You are a NetApp ONTAP automation engineer. Generate a COMPLETE example set
 
 Task: [DESCRIBE THE STORAGE TASK]
 
-PHASE 1 — CLARIFY: Ask for missing info (SVM, volume, aggregate, protocol,
+PHASE 1 - CLARIFY: Ask for missing info (SVM, volume, aggregate, protocol,
 hostname, auth approach, special options).
 
-PHASE 2 — API SEQUENCE: Numbered list of REST API calls in order. For each:
+PHASE 2 - API SEQUENCE: Numbered list of REST API calls in order. For each:
 method, endpoint, body/query, sync/async, justification. REST only, ONTAP
 9.8+, no ZAPI/CLI/SSH. Wait for approval.
 
-PHASE 3 — GENERATE CODE:
+PHASE 3 - GENERATE CODE:
   Python (python/<use_case>.py):
     • from ontap_client import OntapClient, OntapClient.from_env(), argparse,
       logging, type hints, poll_job for async, try/except guard.
@@ -170,7 +170,7 @@ PHASE 3 — GENERATE CODE:
     • main.tf + variables.tf + outputs.tf + terraform.tfvars.example,
       provider ~> 2.5, connection_profiles, sensitive passwords.
 
-PHASE 4 — VALIDATE: Run commands, error handling, teardown for each tool.
+PHASE 4 - VALIDATE: Run commands, error handling, teardown for each tool.
 ````
 
 ---

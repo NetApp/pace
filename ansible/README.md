@@ -129,15 +129,15 @@ ansible-playbook -i inventory/hosts.yml cifs_provision.yml \
 
 ## Design Decisions
 
-- **FQCNs everywhere** — all modules use fully qualified collection names
+- **FQCNs everywhere** - all modules use fully qualified collection names
   (e.g., `netapp.ontap.na_ontap_volume`, not `na_ontap_volume`) per Ansible
   best practices
-- **`use_rest: always`** — forces the REST API transport; avoids falling back
+- **`use_rest: always`** - forces the REST API transport; avoids falling back
   to ZAPI on older collections
-- **`wait_for_completion: true`** — the `na_ontap_volume` module handles job
+- **`wait_for_completion: true`** - the `na_ontap_volume` module handles job
   polling internally, unlike the Python scripts where polling is manual
-- **`connection: local`** — ONTAP modules connect over HTTPS from the control
+- **`connection: local`** - ONTAP modules connect over HTTPS from the control
   node; no SSH to the cluster
-- **`no_log: false`** — explicitly set so reviewers can verify no task
+- **`no_log: false`** - explicitly set so reviewers can verify no task
   accidentally hides output; flip to `true` on tasks that echo credentials
   in production

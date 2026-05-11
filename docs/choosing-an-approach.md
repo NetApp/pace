@@ -1,7 +1,7 @@
 # Choosing an Automation Approach
 
 This guide helps you pick the right tool for automating ONTAP workflows.
-All three approaches in this repo do the same things — the difference is
+All three approaches in this repo do the same things - the difference is
 **how much you write**, **what you control**, and **what the tool manages
 for you**.
 
@@ -17,10 +17,10 @@ flowchart TD
     Q2 -->|Yes| Ansible[Ansible]
     Q2 -->|No| Q3{Custom logic, branching,\nor Python integrations?}
     Q3 -->|Yes| Python[Python scripts]
-    Q3 -->|No| Any[Any approach works —\npick what your team knows]
+    Q3 -->|No| Any[Any approach works -\npick what your team knows]
 ```
 
-Each tool has clear strengths. There is no single "right" answer — choose based
+Each tool has clear strengths. There is no single "right" answer - choose based
 on your team's existing skills and the operational requirements of your workflow.
 
 ---
@@ -72,24 +72,24 @@ Notes:
 
 ### Python scripts
 
-- **Custom business logic** — if/else, loops, data transformation
-- **Integration with other systems** — combine ONTAP calls with Slack, Jira, databases
+- **Custom business logic** - if/else, loops, data transformation
+- **Integration with other systems** - combine ONTAP calls with Slack, Jira, databases
 - **One-off scripts** for teams that already think in Python
 - **Full control** over error handling, retries, and output formatting
 
 ### Ansible playbooks
 
-- **Fleet operations** — run the same playbook against 50 clusters via inventory
-- **Idempotent provisioning** — `state: present` / `state: absent` does the right thing
+- **Fleet operations** - run the same playbook against 50 clusters via inventory
+- **Idempotent provisioning** - `state: present` / `state: absent` does the right thing
 - **Teams already using Ansible** for OS/app config management
-- **Ansible Tower / AWX** — centralized scheduling, RBAC, audit trail
+- **Ansible Tower / AWX** - centralized scheduling, RBAC, audit trail
 
 ### Terraform
 
-- **Infrastructure lifecycle** — create, update, destroy with full state tracking
-- **Drift detection** — `terraform plan` shows what changed since last apply
-- **Multi-provider** — manage ONTAP alongside AWS/Azure/GCP in one plan
-- **Compliance / auditability** — state file is the source of truth
+- **Infrastructure lifecycle** - create, update, destroy with full state tracking
+- **Drift detection** - `terraform plan` shows what changed since last apply
+- **Multi-provider** - manage ONTAP alongside AWS/Azure/GCP in one plan
+- **Compliance / auditability** - state file is the source of truth
 
 ---
 

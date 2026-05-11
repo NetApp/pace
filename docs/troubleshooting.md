@@ -31,13 +31,13 @@ nslookup <ONTAP_HOST>
 
 ## Authentication Failures
 
-### HTTP 401 — Unauthorized
+### HTTP 401 - Unauthorized
 
 - Double-check `ONTAP_USER` and `ONTAP_PASS` (or the Ansible/Terraform equivalents).
 - Ensure the user account is not locked (`security login show -vserver <svm>`).
 - Verify the user has REST API access (`security login role show`).
 
-### HTTP 403 — Forbidden
+### HTTP 403 - Forbidden
 
 The credentials are valid but the user lacks the required RBAC permissions
 for the endpoint being called. Check the ONTAP documentation for the
@@ -163,7 +163,7 @@ backend or separate workspaces to avoid state collisions.
 
 ### Volume already exists
 
-The Python `nfs_provision.py` script is not idempotent — running it twice
+The Python `nfs_provision.py` script is not idempotent - running it twice
 with the same volume name will fail. Either:
 
 - Choose a different volume name, or
