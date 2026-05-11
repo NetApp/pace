@@ -52,7 +52,7 @@ ENV = {
     "SVM_NAME": "vs1",
     "VOLUME_NAME": "vol_002",
     "VOLUME_SIZE": "100MB",
-    "AGGR_NAME": "sti232_vsim_sr091o_aggr1",  # required — set via --aggregate or AGGR_NAME env var
+    "AGGR_NAME": "",  # required — set via --aggregate or AGGR_NAME env var
     "CLIENT_MATCH": "0.0.0.0/0",  # required — set via --client-match or CLIENT_MATCH env var
     "SHARE_NAME": "cifs_share_demo",
     "SHARE_COMMENT": "Provisioned by orchestrio",
