@@ -24,6 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- TruffleHog flag mismatch: pre-commit used `--fail` but CI did not — both now use `--only-verified --fail`
+- TruffleHog flag mismatch: pre-commit used `--fail` but CI did not - both now use `--only-verified --fail`
 
 [Unreleased]: https://github.com/NetApp/pace/commits/main

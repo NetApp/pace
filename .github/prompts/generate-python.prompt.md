@@ -15,19 +15,19 @@ The script automates a NetApp ONTAP storage task using exclusively REST APIs.
 
 Use these repository files as the authoritative source for conventions:
 
-- [python/ontap_client.py](../../python/ontap_client.py) — shared REST client (MUST import and use this)
-- [python/nfs_provision.py](../../python/nfs_provision.py) — reference implementation pattern
-- [docs/ontap-api-patterns.md](../../docs/ontap-api-patterns.md) — API endpoints, auth, async jobs
-- [docs/example-template/python/example.py](../../docs/example-template/python/example.py) — skeleton to start from
-- [CONTRIBUTING.md](../../CONTRIBUTING.md) — naming, CI, quality bar
+- [python/ontap_client.py](../../python/ontap_client.py) - shared REST client (MUST import and use this)
+- [python/nfs_provision.py](../../python/nfs_provision.py) - reference implementation pattern
+- [docs/ontap-api-patterns.md](../../docs/ontap-api-patterns.md) - API endpoints, auth, async jobs
+- [docs/example-template/python/example.py](../../docs/example-template/python/example.py) - skeleton to start from
+- [CONTRIBUTING.md](../../CONTRIBUTING.md) - naming, CI, quality bar
 
-## Step 1 — Clarify Inputs
+## Step 1 - Clarify Inputs
 
 Before writing code, identify what information is missing and ask me.
 Common inputs: SVM name, volume name/size, aggregate, protocol details,
 cluster hostname, special options (snapshot policy, QoS, junction path).
 
-## Step 2 — API Sequence
+## Step 2 - API Sequence
 
 List the ONTAP REST API calls in execution order:
 
@@ -35,14 +35,14 @@ List the ONTAP REST API calls in execution order:
 |---|--------|----------|-----------------------|------------|-----|
 
 Rules:
-- ONTAP REST only — no ZAPI, no CLI passthrough, no SSH.
+- ONTAP REST only - no ZAPI, no CLI passthrough, no SSH.
 - Target ONTAP 9.8+ endpoints.
 - Full endpoint paths (e.g. `/api/storage/volumes`).
 - For async calls, include the poll step: `GET /api/cluster/jobs/{uuid}`.
 
 Wait for my confirmation before generating code.
 
-## Step 3 — Generate Python Script
+## Step 3 - Generate Python Script
 
 File: `python/<use_case>.py` (snake_case filename)
 
@@ -72,7 +72,7 @@ File: `python/<use_case>.py` (snake_case filename)
   ```
 - Async job polling: `client.poll_job(resp["job"]["uuid"])`
 - Logging: `logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)-8s  %(message)s")`
-  - `logger = logging.getLogger(__name__)` — never use `print()`.
+  - `logger = logging.getLogger(__name__)` - never use `print()`.
 - Entry point:
   ```python
   if __name__ == "__main__":
@@ -86,7 +86,7 @@ File: `python/<use_case>.py` (snake_case filename)
   ```
 - Type hints on all functions. No hardcoded credentials.
 
-## Step 4 — Validate
+## Step 4 - Validate
 
 After the code, provide:
 1. Exact shell commands to run the script.
@@ -108,4 +108,4 @@ See the NOTICE file in the repo root for trademark and attribution details.
 
 Place after any shebang (`#!/usr/bin/env python3`), YAML directive (`---`),
 or `<!DOCTYPE html>` line. Do **not** duplicate the full trademark text in
-source files — it lives in [NOTICE](../../NOTICE) and the LICENSE appendix.
+source files - it lives in [NOTICE](../../NOTICE) and the LICENSE appendix.

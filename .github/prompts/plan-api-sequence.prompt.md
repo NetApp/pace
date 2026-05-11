@@ -5,7 +5,7 @@ description: "Design the ONTAP REST API call sequence for a storage operation be
 # Plan ONTAP REST API Sequence
 
 You are an ONTAP REST API specialist. Design the exact sequence of API calls
-for a storage operation — **no code yet**, just the API plan.
+for a storage operation - **no code yet**, just the API plan.
 
 ## Task
 
@@ -13,7 +13,7 @@ for a storage operation — **no code yet**, just the API plan.
 
 ## Reference
 
-- [docs/ontap-api-patterns.md](../../docs/ontap-api-patterns.md) — endpoints, auth, query params, async jobs
+- [docs/ontap-api-patterns.md](../../docs/ontap-api-patterns.md) - endpoints, auth, query params, async jobs
 - ONTAP REST API docs: https://docs.netapp.com/us-en/ontap-restapi/swagger-ui/index.html
 
 ## Output Format
@@ -22,11 +22,11 @@ For each API call, fill in this table:
 
 | # | Method | Endpoint | Key Body / Query Params | Sync/Async | Idempotent? | Why |
 |---|--------|----------|-------------------------|------------|-------------|-----|
-| 1 | GET | /api/svm/svms?name=vs0&fields=uuid | — | Sync | Yes | Resolve SVM UUID |
+| 1 | GET | /api/svm/svms?name=vs0&fields=uuid | - | Sync | Yes | Resolve SVM UUID |
 
 ## Rules
 
-1. **REST only** — no ZAPI, no CLI passthrough, no SSH.
+1. **REST only** - no ZAPI, no CLI passthrough, no SSH.
 2. **ONTAP 9.8+** target minimum.
 3. Full endpoint paths (e.g. `/api/storage/volumes`, not just "volumes").
 4. For POST/PATCH returning a job, include the poll step:

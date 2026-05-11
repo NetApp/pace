@@ -20,13 +20,13 @@ We recommend always running the latest version.
 
 We use GitHub for tracking bugs and feature requests.
 
-- **Bug reports** — [open an issue](https://github.com/NetApp/pace/issues/new?template=bug_report.md)
-- **Feature requests** — [open an issue](https://github.com/NetApp/pace/issues/new?template=feature_request.md)
-- **Questions and discussion** — [GitHub Discussions](https://github.com/NetApp/pace/discussions)
+- **Bug reports** - [open an issue](https://github.com/NetApp/pace/issues/new?template=bug_report.md)
+- **Feature requests** - [open an issue](https://github.com/NetApp/pace/issues/new?template=feature_request.md)
+- **Questions and discussion** - [GitHub Discussions](https://github.com/NetApp/pace/discussions)
 
 ## Documentation
 
-* [README](README.md) — project overview and quick start
-* [Contributing](CONTRIBUTING.md) — how to add examples and what CI expects
-* [ONTAP API Patterns](docs/ontap-api-patterns.md) — REST endpoint conventions
-* [Troubleshooting](docs/troubleshooting.md) — common errors and how to fix them
+* [README](README.md) - project overview and quick start
+* [Contributing](CONTRIBUTING.md) - how to add examples and what CI expects
+* [ONTAP API Patterns](docs/ontap-api-patterns.md) - REST endpoint conventions
+* [Troubleshooting](docs/troubleshooting.md) - common errors and how to fix them

@@ -18,7 +18,7 @@ To compare this approach with Python or Ansible, see
 - Network access to an ONTAP cluster management LIF (HTTPS)
 - Cluster admin credentials (or appropriate RBAC user)
 
-No manual provider download is needed — `terraform init` fetches the
+No manual provider download is needed - `terraform init` fetches the
 `NetApp/netapp-ontap` provider automatically.
 
 ## Setup
@@ -52,7 +52,7 @@ terraform apply
 
 ### Cluster Info
 
-Read-only — retrieves the cluster version and lists all nodes. Uses only
+Read-only - retrieves the cluster version and lists all nodes. Uses only
 Terraform data sources, so `terraform apply` makes no changes to the cluster.
 
 ```bash
@@ -134,15 +134,15 @@ terraform/
 
 ## Design Decisions
 
-- **Self-contained root modules** — each directory is independent with its
+- **Self-contained root modules** - each directory is independent with its
   own provider block and state. This keeps examples copy-paste-friendly;
   you can grab one directory without pulling the whole repo.
-- **`sensitive = true`** on password variables — Terraform redacts these from
+- **`sensitive = true`** on password variables - Terraform redacts these from
   plan/apply output and state display.
-- **`depends_on` for ordering** — the NFS module creates the export policy
+- **`depends_on` for ordering** - the NFS module creates the export policy
   and rule before the volume, using explicit `depends_on` to guarantee the
   policy is ready when the volume references it.
-- **No remote backend** — examples use the default local backend. Production
+- **No remote backend** - examples use the default local backend. Production
   users should configure S3/GCS/Consul for shared state.
-- **`terraform.tfvars` over environment variables** — Terraform's native
+- **`terraform.tfvars` over environment variables** - Terraform's native
   variable mechanism; cleaner than `TF_VAR_*` env vars for examples.

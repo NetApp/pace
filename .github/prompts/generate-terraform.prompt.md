@@ -16,21 +16,21 @@ provider, which calls exclusively REST APIs.
 
 Use these repository files as the authoritative source for conventions:
 
-- [terraform/nfs-provision/main.tf](../../terraform/nfs-provision/main.tf) — reference implementation
-- [terraform/nfs-provision/variables.tf](../../terraform/nfs-provision/variables.tf) — variable patterns
-- [terraform/nfs-provision/outputs.tf](../../terraform/nfs-provision/outputs.tf) — output patterns
-- [terraform/nfs-provision/terraform.tfvars.example](../../terraform/nfs-provision/terraform.tfvars.example) — tfvars template
-- [docs/example-template/terraform/](../../docs/example-template/terraform/) — skeleton files
-- [docs/ontap-api-patterns.md](../../docs/ontap-api-patterns.md) — API endpoints and conventions
-- [CONTRIBUTING.md](../../CONTRIBUTING.md) — naming, CI, quality bar
+- [terraform/nfs-provision/main.tf](../../terraform/nfs-provision/main.tf) - reference implementation
+- [terraform/nfs-provision/variables.tf](../../terraform/nfs-provision/variables.tf) - variable patterns
+- [terraform/nfs-provision/outputs.tf](../../terraform/nfs-provision/outputs.tf) - output patterns
+- [terraform/nfs-provision/terraform.tfvars.example](../../terraform/nfs-provision/terraform.tfvars.example) - tfvars template
+- [docs/example-template/terraform/](../../docs/example-template/terraform/) - skeleton files
+- [docs/ontap-api-patterns.md](../../docs/ontap-api-patterns.md) - API endpoints and conventions
+- [CONTRIBUTING.md](../../CONTRIBUTING.md) - naming, CI, quality bar
 
-## Step 1 — Clarify Inputs
+## Step 1 - Clarify Inputs
 
 Before writing HCL, identify what information is missing and ask me.
 Common inputs: SVM name, volume name/size, aggregate, protocol details,
 cluster hostname, special options (snapshot policy, QoS, junction path).
 
-## Step 2 — API Sequence & Resource Mapping
+## Step 2 - API Sequence & Resource Mapping
 
 List the REST API calls the provider makes and map each to a Terraform
 resource or data source:
@@ -47,7 +47,7 @@ Rules:
 
 Wait for my confirmation before generating HCL.
 
-## Step 3 — Generate Module
+## Step 3 - Generate Module
 
 Directory: `terraform/<use-case>/` (kebab-case directory name)
 
@@ -56,7 +56,7 @@ Create four files:
 ### main.tf
 
 ```hcl
-# <use-case> — Brief description.
+# <use-case> - Brief description.
 
 terraform {
   required_version = ">= 1.4"
@@ -101,7 +101,7 @@ provider "netapp-ontap" {
 
 - Placeholder values with comments. Never include real credentials.
 
-## Step 4 — Validate
+## Step 4 - Validate
 
 After the module, provide:
 1. Exact commands: `terraform init`, `terraform plan`, `terraform apply`.
@@ -123,4 +123,4 @@ See the NOTICE file in the repo root for trademark and attribution details.
 
 Place after any shebang (`#!/usr/bin/env python3`), YAML directive (`---`),
 or `<!DOCTYPE html>` line. Do **not** duplicate the full trademark text in
-source files — it lives in [NOTICE](../../NOTICE) and the LICENSE appendix.
+source files - it lives in [NOTICE](../../NOTICE) and the LICENSE appendix.

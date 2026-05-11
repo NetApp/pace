@@ -36,7 +36,7 @@ convention:
 - Python >= 3.11; use modern syntax (PEP 604 unions, f-strings, `match` where appropriate).
 - Linter: `ruff` (line length 99, target py311). Run `ruff check python/`.
 - All new Python code should have type hints.
-- Never hardcode credentials — use env vars, Ansible Vault, or Terraform `sensitive`.
+- Never hardcode credentials - use env vars, Ansible Vault, or Terraform `sensitive`.
 - Ansible playbooks use `netapp.ontap` FQCNs with `use_rest: always`.
 - Terraform modules use the `NetApp/netapp-ontap` provider `~> 2.5`.
 - Every generated source file (`.py`, `.yml`, `.tf`, `.sh`, `.html`) MUST start
@@ -59,17 +59,17 @@ Exempt files: Markdown, `requirements.*`, `ansible/inventory/*`,
 
 ## ONTAP API rules
 
-- Use ONLY ONTAP REST APIs — no ZAPI, no CLI passthrough, no SSH.
+- Use ONLY ONTAP REST APIs - no ZAPI, no CLI passthrough, no SSH.
 - Target ONTAP 9.8+ REST endpoints.
 - See `docs/ontap-api-patterns.md` for endpoints, auth, async job handling.
 
 ## Python conventions
 
-- Import and use `python/ontap_client.py` — never build a new HTTP client.
+- Import and use `python/ontap_client.py` - never build a new HTTP client.
 - Authenticate via `OntapClient.from_env()` (reads `ONTAP_HOST`, `ONTAP_PASS`).
 - Operational params via `argparse` with env-var fallbacks.
 - Async jobs: `client.poll_job(resp["job"]["uuid"])`.
-- Logging via `logging` module — never `print()`.
+- Logging via `logging` module - never `print()`.
 
 ## Ansible conventions
 
