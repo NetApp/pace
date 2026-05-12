@@ -19,12 +19,6 @@ Steps:
 Usage::
 
     python cifs_provision.py
-
-    # Or override values via CLI args:
-    python cifs_provision.py --svm vs0 --volume cifs_test_env --aggregate aggr1
-
-    # Or supply all values via an env file (same as YAML --env-file):
-    python cifs_provision.py --env-file cifs-provision.env
 """
 
 from __future__ import annotations
@@ -43,8 +37,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ── Inputs (edit these directly, same as the YAML env: block) ────────────────
-# These are the defaults. CLI args and env vars override them.
 ENV = {
     "ONTAP_HOST": "",  # cluster management IP — set here or via ONTAP_HOST env var
     "ONTAP_USER": "admin",
@@ -61,7 +53,6 @@ ENV = {
     "CIFS_SERVER_NAME": "ONTAP-CIFS",
     "CIFS_WORKGROUP": "WORKGROUP",
 }
-# ─────────────────────────────────────────────────────────────────────────────
 
 
 def _load_env_file(path: str) -> None:

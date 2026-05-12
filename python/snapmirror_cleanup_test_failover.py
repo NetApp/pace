@@ -64,7 +64,6 @@ INPUTS = {
 
 
 def _env(key: str, default: str = "") -> str:
-    # Prefer value from INPUTS dict; fall back to environment variable.
     val = INPUTS.get(key) or os.environ.get(key, default)
     if not val:
         logger.error(
@@ -118,6 +117,126 @@ def _pick_cluster_by_relationship(
     sys.exit(1)
 
 
+def _find_tagged_clone(client: OntapClient, rel_uuid: str) -> dict | None:
+    """Return a dict with uuid/name/svm for the clone tagged '<rel_uuid>:test', or None."""
+    resp = client.get(
+        "/storage/volumes",
+        fields="name,uuid,svm.name,state,nas.path",
+        **{"_tags": f"{rel_uuid}:test", "max_records": "1"},
+    )
+    if resp.get("num_records", 0) == 0:
+        return None
+    rec = resp["records"][0]
+    return {
+        "uuid": rec.get("uuid", ""),
+        "name": rec.get("name", ""),
+        "svm": rec.get("svm", {}).get("name", ""),
+    }
+
+
+def _remove_smas_and_bring_online(
+    client: OntapClient, clone_uuid: str, clone_svm: str, clone_name: str
+) -> None:
+    """Delete any SMAS relationship on the clone, then ensure the volume is online."""
+    logger.info("=== Phase B: Remove SMAS relationship on clone (if any) ===")
+    smas_resp = client.get(
+        "/snapmirror/relationships",
+        fields="uuid,state",
+        **{
+            "destination.path": f"{clone_svm}:{clone_name}",
+            "max_records": "10",
+        },
+    )
+    for smas_rel in smas_resp.get("records", []):
+        smas_uuid = smas_rel.get("uuid", "")
+        logger.info("  Deleting SMAS relationship %s on clone", smas_uuid)
+        try:
+            resp = client.delete(
+                f"/snapmirror/relationships/{smas_uuid}?return_timeout=120&force=true"
+            )
+            job_uuid = resp.get("job", {}).get("uuid")
+            if job_uuid:
+                _poll_job(client, job_uuid)
+        except Exception as exc:
+            logger.warning("delete_smas_rel %s — %s (continuing)", smas_uuid, exc)
+    if smas_resp.get("num_records", 0) == 0:
+        logger.info("  No SMAS relationships found on clone — continuing")
+    try:
+        resp = client.patch(
+            f"/storage/volumes/{clone_uuid}?return_timeout=120",
+            body={"state": "online"},
+        )
+        job_uuid = resp.get("job", {}).get("uuid")
+        if job_uuid:
+            _poll_job(client, job_uuid)
+    except Exception as exc:
+        logger.warning("bring_online — %s (continuing)", exc)
+
+
+def _unmount_clone(client: OntapClient, clone_uuid: str) -> None:
+    """Remove the NAS junction path; retries up to 6 times before aborting."""
+    logger.info("=== Phase C: Unmount clone ===")
+    for attempt in range(1, 7):
+        try:
+            resp = client.patch(
+                f"/storage/volumes/{clone_uuid}?return_timeout=120",
+                body={"nas": {"path": ""}},
+            )
+            job_uuid = resp.get("job", {}).get("uuid")
+            if job_uuid:
+                _poll_job(client, job_uuid)
+            return
+        except Exception as exc:
+            logger.warning("unmount_clone attempt %d/6 — %s", attempt, exc)
+            if attempt < 6:
+                time.sleep(10)
+    logger.error("Failed to unmount clone after 6 attempts — aborting")
+    sys.exit(1)
+
+
+def _offline_clone(client: OntapClient, clone_uuid: str) -> None:
+    """Set the volume state to offline (required before delete)."""
+    logger.info("=== Phase D: Offline clone ===")
+    try:
+        resp = client.patch(
+            f"/storage/volumes/{clone_uuid}?return_timeout=120",
+            body={"state": "offline"},
+        )
+        job_uuid = resp.get("job", {}).get("uuid")
+        if job_uuid:
+            _poll_job(client, job_uuid)
+    except Exception as exc:
+        logger.warning("offline_clone — %s", exc)
+
+
+def _delete_and_confirm_clone(
+    client: OntapClient, clone_uuid: str, clone_name: str, dest_host: str
+) -> None:
+    """Delete the clone volume and confirm it is gone."""
+    logger.info("=== Phase E: Delete clone ===")
+    try:
+        resp = client.delete(f"/storage/volumes/{clone_uuid}?return_timeout=120")
+        job_uuid = resp.get("job", {}).get("uuid")
+        if job_uuid:
+            _poll_job(client, job_uuid)
+    except Exception as exc:
+        logger.warning("delete_clone — %s", exc)
+    confirm = client.get(
+        "/storage/volumes",
+        fields="name,uuid",
+        **{"uuid": clone_uuid, "max_records": "1"},
+    )
+    if confirm.get("num_records", 0) == 0:
+        logger.info(
+            "=== CLEANUP COMPLETE — clone '%s' deleted from cluster %s ===",
+            clone_name,
+            dest_host,
+        )
+    else:
+        logger.error("Clone '%s' still exists after delete attempt", clone_name)
+        sys.exit(1)
+
+
 def main() -> None:
     cluster_a = _env("CLUSTER_A")
     cluster_b = _env("CLUSTER_B")
@@ -126,10 +245,6 @@ def main() -> None:
     source_volume = _env("SOURCE_VOLUME")
     source_svm = _env("SOURCE_SVM")
 
-    # ── Phase 0: Find SM relationship on correct cluster ─────────────────────
-    # Search both clusters for the SnapMirror relationship matching the given
-    # source SVM and volume. Returns the cluster that owns the destination side
-    # so all subsequent API calls go to the correct cluster.
     logger.info("=== Phase 0: Find SnapMirror relationship ===")
     dest_host, rel = _pick_cluster_by_relationship(
         cluster_a,
@@ -158,17 +273,9 @@ def main() -> None:
         )
 
     with OntapClient(dest_host, dest_user, dest_pass, verify_ssl=False) as client:
-        # ── Phase A: Find tagged clone ────────────────────────────────────
-        # Search for volumes tagged '<rel_uuid>:test' — only volumes created by
-        # snapmirror_test_failover.py carry this tag, preventing accidental
-        # deletion of manually created volumes with similar names.
         logger.info("=== Phase A: Find tagged clone ===")
-        tagged_resp = client.get(
-            "/storage/volumes",
-            fields="name,uuid,svm.name,state,nas.path",
-            **{"_tags": f"{rel_uuid}:test", "max_records": "1"},
-        )
-        if tagged_resp.get("num_records", 0) == 0:
+        clone = _find_tagged_clone(client, rel_uuid)
+        if clone is None:
             logger.info(
                 "NO TAGGED CLONE FOUND for %s:%s on %s — nothing to clean up",
                 source_svm,
@@ -177,125 +284,17 @@ def main() -> None:
             )
             return
 
-        clone = tagged_resp["records"][0]
-        clone_uuid = clone.get("uuid", "")
-        clone_name = clone.get("name", "")
-        clone_svm = clone.get("svm", {}).get("name", "")
         logger.info(
             "CLONE FOUND | name=%s | uuid=%s | svm=%s | cluster=%s",
-            clone_name,
-            clone_uuid,
-            clone_svm,
+            clone["name"],
+            clone["uuid"],
+            clone["svm"],
             dest_host,
         )
-
-        # ── Phase B: Delete SMAS relationship protecting the clone ────────────
-        # The clone may be the destination of a SnapMirror Active Sync (SMAS)
-        # relationship. This holds an internal ONTAP job lock that prevents
-        # unmount and delete (errors 917536, 23003209). Delete the SMAS
-        # relationship first to release the lock entirely.
-        logger.info("=== Phase B: Remove SMAS relationship on clone (if any) ===")
-        smas_resp = client.get(
-            "/snapmirror/relationships",
-            fields="uuid,state",
-            **{
-                "destination.path": f"{clone_svm}:{clone_name}",
-                "max_records": "10",
-            },
-        )
-        for smas_rel in smas_resp.get("records", []):
-            smas_uuid = smas_rel.get("uuid", "")
-            logger.info("  Deleting SMAS relationship %s on clone", smas_uuid)
-            try:
-                resp = client.delete(
-                    f"/snapmirror/relationships/{smas_uuid}?return_timeout=120&force=true"
-                )
-                job_uuid = resp.get("job", {}).get("uuid")
-                if job_uuid:
-                    _poll_job(client, job_uuid)
-            except Exception as exc:
-                logger.warning("delete_smas_rel %s — %s (continuing)", smas_uuid, exc)
-        if smas_resp.get("num_records", 0) == 0:
-            logger.info("  No SMAS relationships found on clone — continuing")
-
-        # Also bring online in case a previous failed run left it offline
-        try:
-            resp = client.patch(
-                f"/storage/volumes/{clone_uuid}?return_timeout=120",
-                body={"state": "online"},
-            )
-            job_uuid = resp.get("job", {}).get("uuid")
-            if job_uuid:
-                _poll_job(client, job_uuid)
-        except Exception as exc:
-            logger.warning("bring_online — %s (continuing)", exc)
-
-        # ── Phase C: Unmount clone ──────────────────────────────────────────
-        # Remove the NAS junction path to unmount. Retry up to 6 times with a
-        # 10-second delay to let ONTAP fully release background locks.
-        logger.info("=== Phase C: Unmount clone ===")
-        unmounted = False
-        for attempt in range(1, 7):
-            try:
-                resp = client.patch(
-                    f"/storage/volumes/{clone_uuid}?return_timeout=120",
-                    body={"nas": {"path": ""}},
-                )
-                job_uuid = resp.get("job", {}).get("uuid")
-                if job_uuid:
-                    _poll_job(client, job_uuid)
-                unmounted = True
-                break
-            except Exception as exc:
-                logger.warning("unmount_clone attempt %d/6 — %s", attempt, exc)
-                if attempt < 6:
-                    time.sleep(10)
-        if not unmounted:
-            logger.error("Failed to unmount clone after 6 attempts — aborting")
-            sys.exit(1)
-
-        # ── Phase D: Offline clone ───────────────────────────────────────────
-        # Set the volume state to offline. A volume must be offline before it
-        # can be deleted in ONTAP.
-        logger.info("=== Phase D: Offline clone ===")
-        try:
-            resp = client.patch(
-                f"/storage/volumes/{clone_uuid}?return_timeout=120",
-                body={"state": "offline"},
-            )
-            job_uuid = resp.get("job", {}).get("uuid")
-            if job_uuid:
-                _poll_job(client, job_uuid)
-        except Exception as exc:
-            logger.warning("offline_clone — %s", exc)
-
-        # ── Phase E: Delete clone ─────────────────────────────────────────
-        # DELETE the volume then verify removal by querying by UUID.
-        # Idempotent: if the volume is already gone, log success and exit cleanly.
-        logger.info("=== Phase E: Delete clone ===")
-        try:
-            resp = client.delete(f"/storage/volumes/{clone_uuid}?return_timeout=120")
-            job_uuid = resp.get("job", {}).get("uuid")
-            if job_uuid:
-                _poll_job(client, job_uuid)
-        except Exception as exc:
-            logger.warning("delete_clone — %s", exc)
-
-        # Confirm deletion (idempotent: not-found = success)
-        confirm = client.get(
-            "/storage/volumes",
-            fields="name,uuid",
-            **{"uuid": clone_uuid, "max_records": "1"},
-        )
-        if confirm.get("num_records", 0) == 0:
-            logger.info(
-                "=== CLEANUP COMPLETE — clone '%s' deleted from cluster %s ===",
-                clone_name,
-                dest_host,
-            )
-        else:
-            logger.error("Clone '%s' still exists after delete attempt", clone_name)
-            sys.exit(1)
+        _remove_smas_and_bring_online(client, clone["uuid"], clone["svm"], clone["name"])
+        _unmount_clone(client, clone["uuid"])
+        _offline_clone(client, clone["uuid"])
+        _delete_and_confirm_clone(client, clone["uuid"], clone["name"], dest_host)
 
 
 if __name__ == "__main__":

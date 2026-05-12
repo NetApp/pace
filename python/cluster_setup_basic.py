@@ -2,10 +2,7 @@
 # © 2026 NetApp, Inc. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 # See the NOTICE file in the repo root for trademark and attribution details.
-
 """Create a storage cluster from two pre-cluster nodes.
-
-
 Steps:
     1. discover_nodes   — GET /api/cluster/nodes  (membership=available, retry 3x/30s)
     2. discover_local   — isolate the local node   (has management_interfaces != null)
@@ -52,11 +49,11 @@ logger = logging.getLogger(__name__)
 INPUTS = {
     "ONTAP_HOST": "",  # Node 1 management IP — set via ONTAP_HOST env var
     "ONTAP_USER": "admin",
-    "ONTAP_PASS": "",  # set via ONTAP_PASS env var — leave empty for pre-cluster nodes
-    "CLUSTER_NAME": "",  # choose your cluster name — set via CLUSTER_NAME env var
+    "ONTAP_PASS": "",  # leave empty for pre-cluster nodes
+    "CLUSTER_NAME": "",  # set via CLUSTER_NAME env var
     "CLUSTER_PASS": "",  # set via CLUSTER_PASS env var — choose your cluster admin password
     "CLUSTER_MGMT_IP": "",  # cluster management IP — set via CLUSTER_MGMT_IP env var
-    "CLUSTER_NETMASK": "",  # e.g. 255.255.255.0 — set via CLUSTER_NETMASK env var
+    "CLUSTER_NETMASK": "",  # set via CLUSTER_NETMASK env var
     "CLUSTER_GATEWAY": "",  # default gateway — set via CLUSTER_GATEWAY env var
     "PARTNER_MGMT_IP": "",  # Node 2 management IP — set via PARTNER_MGMT_IP env var
 }
@@ -82,7 +79,6 @@ _NODE_FIELDS_SETS = [
 
 
 def _env(key: str, required: bool = True) -> str:
-    # Prefer value from INPUTS dict; fall back to environment variable.
     val = INPUTS.get(key) or os.environ.get(key, "")
     if required and not val:
         logger.error(
@@ -236,11 +232,6 @@ def track_job(client: OntapClient, job_uuid: str) -> dict:
         time.sleep(10)
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-
-
 def main() -> None:
     host = _env("ONTAP_HOST")
     user = _env("ONTAP_USER")
@@ -268,7 +259,7 @@ def main() -> None:
 
 def _load_env_file(path: str) -> None:
     """Load KEY=VALUE pairs from a .env file into the INPUTS dict."""
-    for line in Path(path).read_text().splitlines():
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
@@ -290,7 +281,6 @@ if __name__ == "__main__":
     if args.env_file:
         _load_env_file(args.env_file)
 
-    # env vars always win over INPUTS block defaults
     for key in list(INPUTS):
         val = os.environ.get(key)
         if val:
