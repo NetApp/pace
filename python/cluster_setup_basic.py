@@ -5,7 +5,6 @@
 
 """Create a storage cluster from two pre-cluster nodes.
 
-Equivalent to:  orchestrio run yaml-workflows/workflows/cluster_setup_basic.yaml
 
 Steps:
     1. discover_nodes   — GET /api/cluster/nodes  (membership=available, retry 3x/30s)
@@ -16,6 +15,7 @@ Steps:
 
 Usage::
 
+    # env vars directly
     export ONTAP_HOST=10.x.x.x   # pre-cluster node IP
     export ONTAP_USER=admin       # usually admin, empty pass on pre-cluster nodes
     export ONTAP_PASS=
@@ -26,14 +26,17 @@ Usage::
     export CLUSTER_GATEWAY=10.x.x.1
     export PARTNER_MGMT_IP=10.x.x.y
     python cluster_setup_basic.py
+
 """
 
 from __future__ import annotations
 
+import argparse
 import logging
 import os
 import sys
 import time
+from pathlib import Path
 
 from ontap_client import OntapClient
 
@@ -263,7 +266,36 @@ def main() -> None:
     )
 
 
+def _load_env_file(path: str) -> None:
+    """Load KEY=VALUE pairs from a .env file into the INPUTS dict."""
+    for line in Path(path).read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        INPUTS[key.strip()] = value.strip().strip('"').strip("'")
+
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Create an ONTAP cluster from two pre-cluster nodes."
+    )
+    parser.add_argument(
+        "--env-file",
+        metavar="FILE",
+        help="Path to a .env file with KEY=VALUE pairs (one per build, like -ir in ha_create.exp).",
+    )
+    args = parser.parse_args()
+
+    if args.env_file:
+        _load_env_file(args.env_file)
+
+    # env vars always win over INPUTS block defaults
+    for key in list(INPUTS):
+        val = os.environ.get(key)
+        if val:
+            INPUTS[key] = val
+
     try:
         main()
     except KeyboardInterrupt:
