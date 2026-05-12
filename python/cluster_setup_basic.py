@@ -27,9 +27,6 @@ Usage::
     export PARTNER_MGMT_IP=10.x.x.y
     python cluster_setup_basic.py
 
-    # or use a per-build .env file (analogous to -ir <build-path>)
-    python cluster_setup_basic.py --env-file r9141_build.env
-    python cluster_setup_basic.py --env-file r919_build.env
 """
 
 from __future__ import annotations
