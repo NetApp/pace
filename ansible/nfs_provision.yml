@@ -12,7 +12,7 @@
 #   ansible-playbook -i inventory/hosts.yml nfs_provision.yml \
 #       -e volume_name=vol_nfs_demo -e volume_size=200 -e aggregate_name=aggr1
 #
-- name: Provision NFS volume on ONTAP
+- name: Provision NFS volume
   hosts: ontap
   gather_facts: false
   connection: local

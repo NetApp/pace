@@ -127,7 +127,7 @@ jobs:
                 'This PR touches `python/`, `ansible/`, or `terraform/`, so ' +
                 'a populated **Test Report** section is required in the PR ' +
                 `body. See [TESTING.md](${TESTING_URL}) for what to capture ` +
-                '(environment, ONTAP version, first-run output, idempotency ' +
+                '(environment, platform version, first-run output, idempotency ' +
                 'check, teardown).\n\n' +
                 'This is a soft gate - your CI checks are unaffected - but ' +
                 'reviewers will not approve until the report is filled in.'

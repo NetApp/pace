@@ -1,12 +1,14 @@
 # Ansible Playbook Examples
 
-Ansible playbooks that automate ONTAP workflows using the
+Ansible playbooks that automate NetApp storage workflows. Each playbook is
+self-contained and designed to be copied and adapted for your environment;
+today's examples use the
 [`netapp.ontap`](https://galaxy.ansible.com/ui/repo/published/netapp/ontap/)
-Galaxy collection. Each playbook is self-contained and designed to be copied
-and adapted for your environment.
+Galaxy collection.
 
-For ONTAP REST API conventions (endpoints, auth, headers, async jobs), see the
-[ONTAP API patterns guide](../docs/ontap-api-patterns.md).
+For REST API conventions used by these examples (endpoints, auth, headers,
+async jobs), see the
+[Platform API patterns guide](../docs/ontap-api-patterns.md).
 To compare this approach with Python or Terraform, see
 [Choosing an approach](../docs/choosing-an-approach.md).
 

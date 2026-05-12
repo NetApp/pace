@@ -1,6 +1,7 @@
-# AI Prompt Catalog for ONTAP Workflow Generation
+# AI Prompt Catalog for Storage Workflow Generation
 
-This repository ships **reusable AI prompts** in two forms:
+This repository ships **reusable AI prompts** for generating NetApp storage
+automation in two forms:
 
 1. **Copilot-native prompt files** in `.github/prompts/` - usable directly
    from GitHub Copilot Chat, VS Code Copilot, and Cursor.

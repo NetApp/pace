@@ -2,8 +2,8 @@
 
 ## Project overview
 
-This repository contains ONTAP automation examples in Python, Ansible, and
-Terraform. Each approach implements the same use cases so users can compare
+This repository contains NetApp storage automation examples in Python, Ansible,
+and Terraform. Each approach implements the same use cases so users can compare
 side-by-side and pick the tool their team already knows.
 
 ## Repository layout

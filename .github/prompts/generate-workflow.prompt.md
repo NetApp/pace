@@ -1,8 +1,8 @@
 ---
-description: "Generate a complete ONTAP workflow - Python + Ansible + Terraform - for a storage task"
+description: "Generate a complete NetApp storage workflow - Python + Ansible + Terraform - for a storage task"
 ---
 
-# Generate Complete ONTAP Workflow (All Three Tools)
+# Generate Complete Storage Workflow (All Three Tools)
 
 You are generating a full automation example set for the **pace**
 repository. Every use case in this repo ships Python, Ansible, and Terraform

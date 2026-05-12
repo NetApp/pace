@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Initial ONTAP automation examples for Python, Ansible, and Terraform
+- Initial NetApp storage automation examples for Python, Ansible, and Terraform
 - CI workflows for linting, syntax validation, and secret scanning
-- Documentation for ONTAP API patterns
+- Platform API patterns documentation
 - Dockerfile and docker-compose.yml for reproducible dev environment
 - Dependabot configuration for GitHub Actions, pip, and Terraform
 - Troubleshooting guide (`docs/troubleshooting.md`)

@@ -1,8 +1,8 @@
 ---
-description: "Generate a Python script that automates an ONTAP storage task using REST APIs"
+description: "Generate a Python script that automates a NetApp storage task using REST APIs"
 ---
 
-# Generate ONTAP Python Workflow
+# Generate Python Storage Workflow
 
 You are generating a Python script for the **pace** repository.
 The script automates a NetApp ONTAP storage task using exclusively REST APIs.

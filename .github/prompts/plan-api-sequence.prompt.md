@@ -1,8 +1,8 @@
 ---
-description: "Design the ONTAP REST API call sequence for a storage operation before writing code"
+description: "Design the REST API call sequence for a NetApp storage operation before writing code"
 ---
 
-# Plan ONTAP REST API Sequence
+# Plan Storage REST API Sequence
 
 You are an ONTAP REST API specialist. Design the exact sequence of API calls
 for a storage operation - **no code yet**, just the API plan.

@@ -1,8 +1,8 @@
 # Example Templates
 
-Skeleton files for adding a new automation example. Copy the relevant directory
-into the top-level `python/`, `ansible/`, or `terraform/` folder, rename files
-to match your use case, and fill in the logic.
+Skeleton files for adding a new NetApp storage automation example. Copy the
+relevant directory into the top-level `python/`, `ansible/`, or `terraform/`
+folder, rename files to match your use case, and fill in the logic.
 
 ## Python
 

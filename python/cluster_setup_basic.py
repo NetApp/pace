@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # See the NOTICE file in the repo root for trademark and attribution details.
 
-"""Create an ONTAP cluster from two pre-cluster nodes.
+"""Create a storage cluster from two pre-cluster nodes.
 
 Equivalent to:  orchestrio run yaml-workflows/workflows/cluster_setup_basic.yaml
 

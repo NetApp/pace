@@ -29,7 +29,7 @@
 <!-- Delete this entire section ONLY for docs-only or CI-only PRs (no files under python/, ansible/, terraform/). -->
 
 **Environment:** <!-- e.g. ONTAP Simulator / ONTAP Select / Real cluster / Cloud Volumes ONTAP -->
-**ONTAP version:** <!-- e.g. 9.14.1P3 -->
+**Platform version:** <!-- e.g. ONTAP 9.14.1P3 -->
 **Style touched:** <!-- python | ansible | terraform | multiple -->
 
 ### First run
@@ -69,9 +69,9 @@ $ <teardown command>
 
 ### Cannot run on a cluster?
 
-<!-- If you couldn't run end-to-end, explain why here and apply the
-     'needs-test-run' label so a maintainer can run it. Otherwise delete
-     this subsection. -->
+<!-- If you couldn't run end-to-end against a NetApp storage system,
+     explain why here and apply the 'needs-test-run' label so a maintainer
+     can run it. Otherwise delete this subsection. -->
 
 ## Related issues
 

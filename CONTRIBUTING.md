@@ -1,7 +1,8 @@
 # Contributing
 
-Thanks for your interest in improving the ONTAP automation examples. This document
-covers how to add new examples, what CI expects, and how the repo is organized.
+Thanks for your interest in improving the NetApp storage automation examples in
+this repository. This document covers how to add new examples, what CI expects,
+and how the repo is organized.
 
 ---
 
@@ -89,7 +90,7 @@ and `dependabot.yml` - all covered by the root [NOTICE](NOTICE).
 
 > **Testing:** Every PR that touches `python/`, `ansible/`, or `terraform/`
 > must include a populated **Test Report** in the PR body - see
-> [TESTING.md](TESTING.md) for what to capture (environment, ONTAP
+> [TESTING.md](TESTING.md) for what to capture (environment, platform
 > version, first-run output, idempotency / re-run check, teardown). A
 > soft-gate workflow applies a `needs-test-report` label until the
 > section is filled in.
@@ -97,9 +98,9 @@ and `dependabot.yml` - all covered by the root [NOTICE](NOTICE).
 > CI continues to validate lint, format, syntax, and secrets only - the
 > end-to-end run evidence is contributor-supplied.
 
-### ONTAP API reference
+### Platform API reference
 
-All examples target ONTAP 9.8+ REST APIs. See
+Today's examples target ONTAP 9.8+ REST APIs. See
 [docs/ontap-api-patterns.md](docs/ontap-api-patterns.md) for endpoint conventions,
 auth patterns, async job handling, and standard environment variables.
 

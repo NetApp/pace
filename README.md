@@ -17,7 +17,7 @@
 
 ---
 
-Pace is an open-source library of ready-to-run **NetApp ONTAP** automation
+Pace is an open-source library of ready-to-run **NetApp storage automation**
 examples, implemented three ways - side by side - so you can pick the
 style your team already uses.
 
@@ -29,6 +29,9 @@ style your team already uses.
 
 Same task, same outcome - different trade-offs in readability, idempotency,
 and lifecycle management.
+
+The examples in this repository target NetApp ONTAP - see
+[Prerequisites](#prerequisites) for the exact requirements.
 
 > Visit **[netapp.github.io/pace](https://netapp.github.io/pace/)** for the
 > full guided tour, live code examples, and side-by-side comparisons.
@@ -111,7 +114,7 @@ Once CA-signed certificates are in place, we recommend turning it on.
 | --------------------------------------------------------------------- | ---------------------------------------------- |
 | [Project website](https://netapp.github.io/pace/)                     | Guided tour, prompts, full contribution guide  |
 | [Choosing an approach](docs/choosing-an-approach.md)                  | Decision guide and feature matrix              |
-| [ONTAP API patterns](docs/ontap-api-patterns.md)                      | REST conventions, auth, async jobs             |
+| [Platform API patterns](docs/ontap-api-patterns.md)                   | REST conventions, auth, async jobs             |
 | [Troubleshooting](docs/troubleshooting.md)                            | Common errors and fixes                        |
 | [Testing](TESTING.md)                                                 | What to run and capture in the PR Test Report  |
 | [Contributing](CONTRIBUTING.md)                                       | Fork, branch, run checks, open a PR            |

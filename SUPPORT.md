@@ -1,7 +1,7 @@
 # Pace Support and Getting Help
 
 Pace is an open-source project developed and published by NetApp providing
-automation examples for ONTAP, implemented in Python, Ansible, and Terraform.
+NetApp storage automation examples, implemented in Python, Ansible, and Terraform.
 Pace is not an officially supported NetApp product. NetApp
 maintains and updates Pace with bug fixes, security updates, and feature
 development. For assistance, refer to [Getting Help](#getting-help).
@@ -28,5 +28,5 @@ We use GitHub for tracking bugs and feature requests.
 
 * [README](README.md) - project overview and quick start
 * [Contributing](CONTRIBUTING.md) - how to add examples and what CI expects
-* [ONTAP API Patterns](docs/ontap-api-patterns.md) - REST endpoint conventions
+* [Platform API Patterns](docs/ontap-api-patterns.md) - REST endpoint conventions
 * [Troubleshooting](docs/troubleshooting.md) - common errors and how to fix them

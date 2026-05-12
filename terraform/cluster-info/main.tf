@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # See the NOTICE file in the repo root for trademark and attribution details.
 
-# cluster-info — Retrieve ONTAP cluster version and list all nodes.
+# cluster-info — Retrieve storage cluster version and list all nodes.
 
 terraform {
   required_version = ">= 1.4"

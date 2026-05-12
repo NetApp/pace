@@ -1,12 +1,13 @@
 # Terraform Examples
 
-Terraform configurations that manage ONTAP resources using the
+Terraform configurations that manage NetApp storage resources. Each module
+is self-contained and designed to be copied and adapted for your environment;
+today's examples use the
 [NetApp ONTAP provider](https://registry.terraform.io/providers/NetApp/netapp-ontap/latest).
-Each module is self-contained and designed to be copied and adapted for your
-environment.
 
-For ONTAP REST API conventions (endpoints, auth, headers, async jobs), see the
-[ONTAP API patterns guide](../docs/ontap-api-patterns.md).
+For REST API conventions used by these examples (endpoints, auth, headers,
+async jobs), see the
+[Platform API patterns guide](../docs/ontap-api-patterns.md).
 To compare this approach with Python or Ansible, see
 [Choosing an approach](../docs/choosing-an-approach.md).
 

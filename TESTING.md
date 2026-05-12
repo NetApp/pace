@@ -3,7 +3,8 @@
 Pace ships *runnable examples*, not a library. Every PR that adds or
 modifies an example under `python/`, `ansible/`, or `terraform/` must
 include a populated **Test Report** in the PR body so reviewers can see
-the example actually worked end-to-end against an ONTAP cluster.
+the example actually worked end-to-end against the target NetApp storage
+system.
 
 This document defines what to capture. The PR template
 ([.github/PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md))

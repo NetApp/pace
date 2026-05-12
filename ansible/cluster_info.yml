@@ -3,12 +3,12 @@
 # See the NOTICE file in the repo root for trademark and attribution details.
 
 ---
-# cluster_info.yml — Retrieve ONTAP cluster version and list all nodes.
+# cluster_info.yml — Retrieve storage cluster version and list all nodes.
 #
 # Usage:
 #   ansible-playbook -i inventory/hosts.yml cluster_info.yml
 #
-- name: Gather ONTAP cluster information
+- name: Gather storage cluster information
   hosts: ontap
   gather_facts: false
   connection: local

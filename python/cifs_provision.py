@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # See the NOTICE file in the repo root for trademark and attribution details.
 
-"""Provision a CIFS (SMB) share on ONTAP.
+"""Provision a CIFS (SMB) share on a NetApp storage cluster.
 
 Steps:
     0. Pre-flight — verify CIFS server is enabled on the SVM
@@ -82,7 +82,7 @@ def _load_env_file(path: str) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Provision a CIFS share on ONTAP")
+    p = argparse.ArgumentParser(description="Provision a CIFS share")
     p.add_argument(
         "--env-file",
         "-E",

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # See the NOTICE file in the repo root for trademark and attribution details.
 
-"""Retrieve ONTAP cluster version and list all nodes with serial numbers.
+"""Retrieve storage cluster version and list all nodes with serial numbers.
 
 Steps:
     1. GET /cluster ΓÇö retrieve cluster name and ONTAP version

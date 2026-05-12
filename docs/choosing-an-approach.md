@@ -1,9 +1,9 @@
 # Choosing an Automation Approach
 
-This guide helps you pick the right tool for automating ONTAP workflows.
-All three approaches in this repo do the same things - the difference is
-**how much you write**, **what you control**, and **what the tool manages
-for you**.
+This guide helps you pick the right tool for automating NetApp storage
+workflows. All three approaches in this repo do the same things - the
+difference is **how much you write**, **what you control**, and **what the
+tool manages for you**.
 
 ---
 
@@ -73,7 +73,7 @@ Notes:
 ### Python scripts
 
 - **Custom business logic** - if/else, loops, data transformation
-- **Integration with other systems** - combine ONTAP calls with Slack, Jira, databases
+- **Integration with other systems** - combine storage calls with Slack, Jira, databases
 - **One-off scripts** for teams that already think in Python
 - **Full control** over error handling, retries, and output formatting
 
@@ -88,7 +88,7 @@ Notes:
 
 - **Infrastructure lifecycle** - create, update, destroy with full state tracking
 - **Drift detection** - `terraform plan` shows what changed since last apply
-- **Multi-provider** - manage ONTAP alongside AWS/Azure/GCP in one plan
+- **Multi-provider** - manage NetApp storage alongside AWS/Azure/GCP in one plan
 - **Compliance / auditability** - state file is the source of truth
 
 ---
@@ -117,5 +117,5 @@ across all approaches.
 | Run the same automation across many clusters | Ansible |
 | Ensure repeated runs don't create duplicates | Ansible or Terraform |
 | Add custom Python logic to a workflow | Python scripts |
-| Integrate ONTAP automation with other tools | Python scripts |
-| Combine ONTAP + cloud infra in one config | Terraform |
+| Integrate storage automation with other tools | Python scripts |
+| Combine NetApp storage + cloud infra in one config | Terraform |

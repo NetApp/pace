@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # See the NOTICE file in the repo root for trademark and attribution details.
 
-"""Create an ONTAP NFS volume with a dedicated export policy.
+"""Create an NFS volume with a dedicated export policy.
 
 Steps:
     1. Create a FlexVol volume
@@ -87,7 +87,7 @@ def _load_env_file(path: str) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Provision an NFS volume on ONTAP")
+    p = argparse.ArgumentParser(description="Provision an NFS volume")
     p.add_argument(
         "--env-file",
         "-E",

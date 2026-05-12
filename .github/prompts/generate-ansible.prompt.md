@@ -1,8 +1,8 @@
 ---
-description: "Generate an Ansible playbook that automates an ONTAP storage task using REST APIs"
+description: "Generate an Ansible playbook that automates a NetApp storage task using REST APIs"
 ---
 
-# Generate ONTAP Ansible Playbook
+# Generate Ansible Storage Playbook
 
 You are generating an Ansible playbook for the **pace** repository.
 The playbook automates a NetApp ONTAP storage task using the `netapp.ontap`

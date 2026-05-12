@@ -1,11 +1,12 @@
 # Python Script Examples
 
-Plain Python scripts that automate ONTAP workflows using the REST API with the
+Plain Python scripts that automate NetApp storage workflows over REST using the
 `requests` library. Each script is self-contained and designed to be copied
 and adapted for your environment.
 
-For ONTAP REST API conventions (endpoints, auth, headers, async jobs), see the
-[ONTAP API patterns guide](../docs/ontap-api-patterns.md).
+For REST API conventions used by these examples (endpoints, auth, headers,
+async jobs), see the
+[Platform API patterns guide](../docs/ontap-api-patterns.md).
 To compare this approach with Ansible or Terraform, see
 [Choosing an approach](../docs/choosing-an-approach.md).
 

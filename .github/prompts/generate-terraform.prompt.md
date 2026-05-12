@@ -1,8 +1,8 @@
 ---
-description: "Generate a Terraform module that automates an ONTAP storage task using REST APIs"
+description: "Generate a Terraform module that automates a NetApp storage task using REST APIs"
 ---
 
-# Generate ONTAP Terraform Module
+# Generate Terraform Storage Module
 
 You are generating a Terraform module for the **pace** repository.
 The module provisions NetApp ONTAP storage resources via the `NetApp/netapp-ontap`

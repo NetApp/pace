@@ -12,7 +12,7 @@
 #   ansible-playbook -i inventory/hosts.yml cifs_provision.yml \
 #       -e volume_name=cifs_demo -e share_name=demo_share -e aggregate_name=aggr1
 #
-- name: Provision CIFS share on ONTAP
+- name: Provision CIFS share
   hosts: ontap
   gather_facts: false
   connection: local
