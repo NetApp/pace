@@ -1,11 +1,8 @@
-#!/usr/bin/env python3
 # © 2026 NetApp, Inc. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 # See the NOTICE file in the repo root for trademark and attribution details.
 
-"""Create a storage cluster from two pre-cluster nodes.
-
-Equivalent to:  orchestrio run yaml-workflows/workflows/cluster_setup_basic.yaml
+"""Create a storage cluster from two pre-cluster nodes (ONTAP 9 unified).
 
 Steps:
     1. discover_nodes   — GET /api/cluster/nodes  (membership=available, retry 3x/30s)
@@ -59,23 +56,11 @@ INPUTS = {
 }
 # ---------------------------------------------------------------------------
 
-_NODE_FIELDS_SETS = [
-    # newest (9.19+)
-    (
-        "name,model,state,ha,version,serial_number,membership,"
-        "cluster_interfaces,management_interfaces,metrocluster,disaggregated,san_optimized"
-    ),
-    # 9.18 without disaggregated
-    (
-        "name,model,state,ha,version,serial_number,membership,"
-        "cluster_interfaces,management_interfaces,metrocluster,san_optimized"
-    ),
-    # 9.14 and older — minimal safe set
-    (
-        "name,model,state,ha,version,serial_number,membership,"
-        "cluster_interfaces,management_interfaces,metrocluster"
-    ),
-]
+# ONTAP 9 unified — node discovery fields
+_NODE_FIELDS = (
+    "name,model,state,ha,version,serial_number,membership,"
+    "cluster_interfaces,management_interfaces,metrocluster"
+)
 
 
 def _env(key: str, required: bool = True) -> str:
@@ -96,20 +81,8 @@ def _env(key: str, required: bool = True) -> str:
 
 
 def _get_nodes(client: OntapClient, **kwargs) -> dict:
-    """GET /cluster/nodes, trying progressively reduced field sets for older ONTAP versions."""
-    last_exc: Exception | None = None
-    for fields in _NODE_FIELDS_SETS:
-        try:
-            return client.get("/cluster/nodes", fields=fields, **kwargs)
-        except Exception as exc:
-            if "262197" in str(exc):
-                logger.warning(
-                    "discover: field unsupported on this version, retrying with reduced fields"
-                )
-                last_exc = exc
-                continue
-            raise
-    raise last_exc  # type: ignore[misc]
+    """GET /cluster/nodes with the standard ONTAP 9 unified field set."""
+    return client.get("/cluster/nodes", fields=_NODE_FIELDS, **kwargs)
 
 
 def discover_nodes(client: OntapClient, attempts: int = 3, delay: int = 30) -> dict:

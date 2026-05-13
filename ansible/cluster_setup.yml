@@ -20,7 +20,7 @@
 #       -e cluster_name=my_cluster -e cluster_pass=MySecret123 \
 #       -e partner_mgmt_ip=10.10.10.2
 #
-- name: "Basic Storage Cluster Setup"
+- name: "Basic Storage Cluster Setup (ONTAP 9 unified)"
   hosts: ontap
   gather_facts: false
   connection: local
@@ -45,7 +45,7 @@
     # -- REST API defaults ----------------------------------------------
     api_url_base: "https://{{ ontap_hostname }}/api"
     api_auth: "{{ ontap_username }}:{{ ontap_password }}"
-    node_query_fields: "name,model,state,ha,version,serial_number,membership,cluster_interfaces,management_interfaces,metrocluster,disaggregated,san_optimized"
+    node_query_fields: "name,model,state,ha,version,serial_number,membership,cluster_interfaces,management_interfaces,metrocluster"
 
   tasks:
     # -- Pre-flight checks ----------------------------------------------
