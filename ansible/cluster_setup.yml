@@ -3,9 +3,9 @@
 # See the NOTICE file in the repo root for trademark and attribution details.
 
 ---
-# cluster_setup_basic.yml — Basic storage cluster setup via REST API.
+# cluster_setup.yml — Basic storage cluster setup via REST API.
 #
-# Mirrors the cluster_setup_basic workflow:
+# Steps:
 #   1. Discover available nodes (retry 3x/30s)
 #   2. Discover local node (has management_interfaces, retry 3x/30s)
 #   3. Discover partner node (exclude local uuid, retry 3x/30s)
@@ -13,11 +13,11 @@
 #   5. Poll job until complete
 #
 # Usage:
-#   ansible-playbook -i inventory/hosts.yml cluster_setup_basic.yml
+#   ansible-playbook -i inventory/hosts.yml cluster_setup.yml
 #
 # Override variables:
-#   ansible-playbook -i inventory/hosts.yml cluster_setup_basic.yml \
-#       -e cluster_name=my_cluster -e cluster_pass=MySecret123 \
+#   ansible-playbook -i inventory/hosts.yml cluster_setup.yml \
+#       -e cluster_name=my_cluster -e cluster_pass=<your-password> \
 #       -e partner_mgmt_ip=10.10.10.2
 #
 - name: "Basic Storage Cluster Setup (ONTAP 9 unified)"
@@ -116,8 +116,12 @@
 
     # -- Step 3: Discover partner node (exclude local uuid) -------------
     - name: "Discover partner node (retry 3x / 30s)"
+      vars:
+        local_uuid: "{{ discover_local.json.records[0].uuid }}"
+        partner_url: >-
+          {{ api_url_base }}/cluster/nodes?fields={{ node_query_fields }}&membership=available&uuid=!{{ local_uuid }}&return_timeout=120
       ansible.builtin.uri:
-        url: "{{ api_url_base }}/cluster/nodes?fields={{ node_query_fields }}&membership=available&uuid=!{{ discover_local.json.records[0].uuid }}&return_timeout=120"
+        url: "{{ partner_url }}"
         method: GET
         url_username: "{{ ontap_username }}"
         url_password: "{{ ontap_password }}"
@@ -193,8 +197,11 @@
 
     # -- Step 5: Poll job until complete --------------------------------
     - name: "Poll cluster-create job until complete"
+      vars:
+        job_fields: "code,description,end_time,error,_links,message,start_time,state,svm,uuid,arguments"
+        job_url: "{{ api_url_base }}/cluster/jobs/{{ create_cluster.json.job.uuid }}?fields={{ job_fields }}&return_timeout=120"
       ansible.builtin.uri:
-        url: "{{ api_url_base }}/cluster/jobs/{{ create_cluster.json.job.uuid }}?fields=code,description,end_time,error,_links,message,start_time,state,svm,uuid,arguments&return_timeout=120"
+        url: "{{ job_url }}"
         method: GET
         url_username: "{{ ontap_username }}"
         url_password: "{{ cluster_pass }}"
