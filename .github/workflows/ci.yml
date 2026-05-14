@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   lint:
-    name: Lint & format
+    name: validate-and-lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
