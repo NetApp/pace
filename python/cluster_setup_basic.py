@@ -2,11 +2,7 @@
 # © 2026 NetApp, Inc. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 # See the NOTICE file in the repo root for trademark and attribution details.
-
 """Create a storage cluster from two pre-cluster nodes.
-
-Equivalent to:  orchestrio run yaml-workflows/workflows/cluster_setup_basic.yaml
-
 Steps:
     1. discover_nodes   — GET /api/cluster/nodes  (membership=available, retry 3x/30s)
     2. discover_local   — isolate the local node   (has management_interfaces != null)
@@ -16,6 +12,7 @@ Steps:
 
 Usage::
 
+    # env vars directly
     export ONTAP_HOST=10.x.x.x   # pre-cluster node IP
     export ONTAP_USER=admin       # usually admin, empty pass on pre-cluster nodes
     export ONTAP_PASS=
@@ -26,14 +23,17 @@ Usage::
     export CLUSTER_GATEWAY=10.x.x.1
     export PARTNER_MGMT_IP=10.x.x.y
     python cluster_setup_basic.py
+
 """
 
 from __future__ import annotations
 
+import argparse
 import logging
 import os
 import sys
 import time
+from pathlib import Path
 
 from ontap_client import OntapClient
 
@@ -49,11 +49,11 @@ logger = logging.getLogger(__name__)
 INPUTS = {
     "ONTAP_HOST": "",  # Node 1 management IP — set via ONTAP_HOST env var
     "ONTAP_USER": "admin",
-    "ONTAP_PASS": "",  # set via ONTAP_PASS env var — leave empty for pre-cluster nodes
-    "CLUSTER_NAME": "",  # choose your cluster name — set via CLUSTER_NAME env var
+    "ONTAP_PASS": "",  # leave empty for pre-cluster nodes
+    "CLUSTER_NAME": "",  # set via CLUSTER_NAME env var
     "CLUSTER_PASS": "",  # set via CLUSTER_PASS env var — choose your cluster admin password
     "CLUSTER_MGMT_IP": "",  # cluster management IP — set via CLUSTER_MGMT_IP env var
-    "CLUSTER_NETMASK": "",  # e.g. 255.255.255.0 — set via CLUSTER_NETMASK env var
+    "CLUSTER_NETMASK": "",  # set via CLUSTER_NETMASK env var
     "CLUSTER_GATEWAY": "",  # default gateway — set via CLUSTER_GATEWAY env var
     "PARTNER_MGMT_IP": "",  # Node 2 management IP — set via PARTNER_MGMT_IP env var
 }
@@ -79,7 +79,6 @@ _NODE_FIELDS_SETS = [
 
 
 def _env(key: str, required: bool = True) -> str:
-    # Prefer value from INPUTS dict; fall back to environment variable.
     val = INPUTS.get(key) or os.environ.get(key, "")
     if required and not val:
         logger.error(
@@ -233,11 +232,6 @@ def track_job(client: OntapClient, job_uuid: str) -> dict:
         time.sleep(10)
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-
-
 def main() -> None:
     host = _env("ONTAP_HOST")
     user = _env("ONTAP_USER")
@@ -263,7 +257,35 @@ def main() -> None:
     )
 
 
+def _load_env_file(path: str) -> None:
+    """Load KEY=VALUE pairs from a .env file into the INPUTS dict."""
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        INPUTS[key.strip()] = value.strip().strip('"').strip("'")
+
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Create an ONTAP cluster from two pre-cluster nodes."
+    )
+    parser.add_argument(
+        "--env-file",
+        metavar="FILE",
+        help="Path to a .env file with KEY=VALUE pairs (one per build, like -ir in ha_create.exp).",
+    )
+    args = parser.parse_args()
+
+    if args.env_file:
+        _load_env_file(args.env_file)
+
+    for key in list(INPUTS):
+        val = os.environ.get(key)
+        if val:
+            INPUTS[key] = val
+
     try:
         main()
     except KeyboardInterrupt:

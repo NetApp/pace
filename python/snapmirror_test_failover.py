@@ -65,7 +65,6 @@ INPUTS = {
 
 
 def _env(key: str, default: str = "") -> str:
-    # Prefer value from INPUTS dict; fall back to environment variable.
     val = INPUTS.get(key) or os.environ.get(key, default)
     if not val:
         logger.error(
@@ -148,10 +147,6 @@ def main() -> None:
     dest_pass = _env("DEST_PASS")
     source_volume = INPUTS.get("SOURCE_VOLUME") or os.environ.get("SOURCE_VOLUME", "*")
 
-    # ── Phase 0: Pick cluster ─────────────────────────────────────────────
-    # Scan both clusters to find which one holds the target DP volume.
-    # AUTO mode (SOURCE_VOLUME=* or unset): picks the most recently created
-    # DP volume. TARGETED mode: finds <name>_dest on either cluster.
     logger.info("=== Phase 0: Auto-detect target cluster ===")
     dest_host, dp_vol = _pick_cluster(cluster_a, cluster_b, dest_user, dest_pass, source_volume)
     dp_vol_name = dp_vol["name"]
@@ -168,8 +163,7 @@ def main() -> None:
     )
 
     with OntapClient(dest_host, dest_user, dest_pass, verify_ssl=False) as client:
-        # ── Phase A: Pre-flight ────────────────────────────────────────────        # Verify the destination cluster is reachable and retrieve the SnapMirror
-        # relationship details (source, state, health, lag time) for the DP volume.        logger.info("=== Phase A: Pre-flight ===")
+        logger.info("=== Phase A: Pre-flight ===")
         cluster = client.get("/cluster", fields="name,version")
         logger.info(
             "DEST CLUSTER | name=%s | ontap=%s",
@@ -194,9 +188,7 @@ def main() -> None:
             rel.get("lag_time"),
         )
 
-        # ── Phase B: Get latest snapshot ─────────────────────────────────        # Fetch the most recent SnapMirror snapshot on the DP volume.
-        # The FlexClone must be based on a SnapMirror snapshot to guarantee
-        # a consistent point-in-time copy of the replicated data.        logger.info("=== Phase B: Get latest SnapMirror snapshot ===")
+        logger.info("=== Phase B: Get latest SnapMirror snapshot ===")
         snap_resp = client.get(
             f"/storage/volumes/{dp_vol_uuid}/snapshots",
             fields="name,create_time",
@@ -215,9 +207,7 @@ def main() -> None:
             snap_resp["records"][0].get("create_time"),
         )
 
-        # ── Phase C: Create FlexClone ─────────────────────────────────────        # Create a writable FlexClone of the DP volume from the latest SnapMirror
-        # snapshot. The clone gets a NAS junction path so it can be mounted
-        # immediately on a test client without touching the source data.        logger.info("=== Phase C: Create FlexClone ===")
+        logger.info("=== Phase C: Create FlexClone ===")
         clone_name = f"{dp_vol_name}_clone"
         try:
             clone_resp = client.post(
@@ -239,10 +229,6 @@ def main() -> None:
         except Exception as exc:
             logger.warning("create_test_clone — %s (may already exist)", exc)
 
-        # ── Phase D: Verify clone + tag it ────────────────────────────────
-        # Confirm the clone is online and retrieve its UUID and junction path.
-        # Tag it with the SM relationship UUID ('<uuid>:test') so the cleanup
-        # script can identify and delete only test clones, never other volumes.
         logger.info("=== Phase D: Verify clone + tag ===")
         clone_vol_resp = client.get(
             "/storage/volumes",
@@ -284,10 +270,6 @@ def main() -> None:
             dp_svm_name,
         )
 
-        # ── Phase E: Resync SnapMirror ──────────────────────────────────────
-        # Resume SnapMirror replication after the test clone was created.
-        # The test clone remains accessible while resync runs in the background.
-        # Polls until state=snapmirrored to confirm replication is healthy again.
         logger.info("=== Phase E: Resync SnapMirror ===")
         try:
             resync_resp = client.patch(

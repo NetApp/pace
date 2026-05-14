@@ -71,7 +71,6 @@ INPUTS = {
 
 
 def _env(key: str, default: str = "") -> str:
-    # Prefer value from INPUTS dict; fall back to environment variable.
     val = INPUTS.get(key) or os.environ.get(key, default)
     if not val:
         logger.error(
@@ -129,9 +128,6 @@ def main() -> None:
     dst = OntapClient(dest_host, dest_user, dest_pass, verify_ssl=False)
 
     with src, dst:
-        # ── Phase A: Source pre-flight ───────────────────────────────────────────
-        # Verify source cluster is reachable and the specified volume is a
-        # writable (RW) type. DP volumes cannot be used as a SnapMirror source.
         logger.info("=== Phase A: Source pre-flight ===")
         src_cluster = src.get("/cluster", fields="name,version")
         logger.info(
@@ -165,10 +161,6 @@ def main() -> None:
             src_vol.get("space", {}).get("size"),
         )
 
-        # ── Phase B: Dest pre-flight ─────────────────────────────────────
-        # Verify destination cluster connectivity. Retrieve the cluster peer name
-        # (used to reference the source from the destination side) and pick an
-        # available aggregate to host the new destination DP volume.
         logger.info("=== Phase B: Dest pre-flight ===")
         dst_cluster = dst.get("/cluster", fields="name,version")
         logger.info(
@@ -194,10 +186,6 @@ def main() -> None:
         aggr_name = aggr_resp.get("records", [{}])[0].get("name", "")
         logger.info("DEST AGGREGATE | name=%s", aggr_name)
 
-        # ── Phase C: Auto-create dest DP volume ──────────────────────────
-        # Check if the destination DP volume already exists; create it if not.
-        # DP (data-protection) type volumes are required as SnapMirror destinations.
-        # Volume creation is skipped with a warning if it already exists.
         logger.info("=== Phase C: Dest volume setup ===")
         check_dest = dst.get(
             "/storage/volumes",
@@ -236,10 +224,6 @@ def main() -> None:
             dst_vol.get("type"),
         )
 
-        # ── Phase D: Create + initialize relationship ─────────────────────
-        # Create the SnapMirror relationship and trigger a baseline transfer.
-        # All relationship API calls are made from the destination cluster
-        # (ONTAP requirement). POST is skipped gracefully if it already exists.
         logger.info("=== Phase D: Relationship setup ===")
         existing = dst.get(
             "/snapmirror/relationships",
@@ -266,10 +250,6 @@ def main() -> None:
         except Exception as exc:
             logger.warning("create_and_initialize_relationship — %s (may already exist)", exc)
 
-        # ── Phase E: Convergence polling ─────────────────────────────────
-        # Fetch the relationship UUID, trigger a baseline transfer explicitly,
-        # then poll until state=snapmirrored confirming initial replication is done.
-        # Times out after 30 minutes.
         logger.info("=== Phase E: Convergence polling ===")
         rel_resp = dst.get(
             "/snapmirror/relationships",
@@ -295,9 +275,6 @@ def main() -> None:
 
         _wait_snapmirrored(dst, rel_uuid)
 
-        # ── Phase F: Final validation ─────────────────────────────────────
-        # Fetch the final relationship state and print a human-readable summary
-        # with source, destination, health status, policy, and lag time.
         logger.info("=== Phase F: Final validation ===")
         final = dst.get(
             f"/snapmirror/relationships/{rel_uuid}",

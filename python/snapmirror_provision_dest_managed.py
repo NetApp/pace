@@ -5,8 +5,6 @@
 
 """SnapMirror Provision — Destination-Managed view.
 
-Equivalent to:  orchestrio run yaml-workflows/workflows/snapmirror_provision_dest_managed.yaml
-
 All SnapMirror API calls driven from the DESTINATION cluster.
 Source RW volume must already exist; dest DP volume is auto-created.
 
@@ -81,7 +79,6 @@ INPUTS = {
 
 
 def _env(key: str, default: str = "") -> str:
-    # Prefer value from INPUTS dict; fall back to environment variable.
     val = INPUTS.get(key) or os.environ.get(key, default)
     if not val:
         logger.error(
@@ -194,6 +191,82 @@ def _check_ic_lif_preconditions(
         )
 
 
+def _fetch_created_peer_names(src: OntapClient, dst: OntapClient) -> tuple[str, str, str]:
+    """Return (src_peer_name, dst_peer_name, dst_peer_uuid) from current cluster peer records."""
+    _OK = {"available", "partial", "pending"}
+    dst_cp = dst.get("/cluster/peers", fields="name,uuid,status.state", **{"max_records": "10"})
+    dst_peers = [p for p in dst_cp.get("records", []) if p.get("status", {}).get("state") in _OK]
+    dst_peer = dst_peers[0] if dst_peers else {}
+    src_cp = src.get("/cluster/peers", fields="name,uuid,status.state", **{"max_records": "10"})
+    src_peers = [p for p in src_cp.get("records", []) if p.get("status", {}).get("state") in _OK]
+    src_peer = src_peers[0] if src_peers else {}
+    logger.info("CLUSTER PEER   | dst sees src as '%s'", dst_peer.get("name", ""))
+    return src_peer.get("name", ""), dst_peer.get("name", ""), dst_peer.get("uuid", "")
+
+
+def _create_new_cluster_peer(
+    src: OntapClient,
+    dst: OntapClient,
+    src_ips: list[str],
+    dst_ips: list[str],
+    source_svm: str,
+    dest_svm: str,
+) -> tuple[str, str, str]:
+    """POST a new cluster peer on both sides; return (src_name, dst_name, dst_uuid).
+
+    Aborts if either cluster has no intercluster LIFs.
+    """
+    if not src_ips:
+        logger.error(
+            "ABORTED — no intercluster LIFs found on source cluster.\n"
+            "  Create one first via System Manager or CLI:\n"
+            "    network interface create -vserver <cluster> -lif ic_lif1 -role intercluster\n"
+            "      -home-node <node> -home-port e0d -address <IP> -netmask <mask>"
+        )
+        sys.exit(1)
+    if not dst_ips:
+        logger.error(
+            "ABORTED — no intercluster LIFs found on dest cluster.\n"
+            "  Create one first via System Manager or CLI:\n"
+            "    network interface create -vserver <cluster> -lif ic_lif1 -role intercluster\n"
+            "      -home-node <node> -home-port e0d -address <IP> -netmask <mask>"
+        )
+        sys.exit(1)
+
+    try:
+        resp = src.post(
+            "/cluster/peers",
+            body={
+                "peer_addresses": dst_ips,
+                "generate_passphrase": True,
+                "encryption": {"proposed": "tls-psk"},
+                "initial_allowed_svms": [{"name": source_svm}],
+            },
+        )
+        passphrase = resp.get("passphrase", "")
+        logger.info("CLUSTER PEER   | created on source")
+    except Exception as exc:
+        logger.error("CLUSTER PEER   | create on source failed: %s", exc)
+        raise
+
+    try:
+        dst.post(
+            "/cluster/peers",
+            body={
+                "peer_addresses": src_ips,
+                "passphrase": passphrase,
+                "initial_allowed_svms": [{"name": dest_svm}],
+            },
+        )
+        logger.info("CLUSTER PEER   | accepted on dest")
+    except Exception as exc:
+        logger.error("CLUSTER PEER   | accept on dest failed: %s", exc)
+        raise
+
+    time.sleep(5)
+    return _fetch_created_peer_names(src, dst)
+
+
 def _setup_cluster_peer(
     src: OntapClient, dst: OntapClient, source_svm: str, dest_svm: str
 ) -> tuple[str, str, str]:
@@ -228,65 +301,56 @@ def _setup_cluster_peer(
     logger.info("CLUSTER PEER   | no existing peer found — auto-creating")
     src_ips = _get_ic_lif_ips(src)
     dst_ips = _get_ic_lif_ips(dst)
-    if not src_ips:
-        logger.error(
-            "ABORTED — no intercluster LIFs found on source cluster.\n"
-            "  Create one first via System Manager or CLI:\n"
-            "    network interface create -vserver <cluster> -lif ic_lif1 -role intercluster\n"
-            "      -home-node <node> -home-port e0d -address <IP> -netmask <mask>"
-        )
-        sys.exit(1)
-    if not dst_ips:
-        logger.error(
-            "ABORTED — no intercluster LIFs found on dest cluster.\n"
-            "  Create one first via System Manager or CLI:\n"
-            "    network interface create -vserver <cluster> -lif ic_lif1 -role intercluster\n"
-            "      -home-node <node> -home-port e0d -address <IP> -netmask <mask>"
-        )
-        sys.exit(1)
     logger.info("CLUSTER PEER   | src IC LIFs=%s  dst IC LIFs=%s", src_ips, dst_ips)
     _check_ic_lif_preconditions(src, dst, src_ips, dst_ips)
+    return _create_new_cluster_peer(src, dst, src_ips, dst_ips, source_svm, dest_svm)
 
+
+def _grant_svm_peer_permission(src: OntapClient, source_svm: str, src_peer_name: str) -> None:
+    """Grant SnapMirror peer-permission on the source SVM (idempotent)."""
     try:
-        resp = src.post(
-            "/cluster/peers",
+        src.post(
+            "/svm/peer-permissions",
             body={
-                "peer_addresses": dst_ips,
-                "generate_passphrase": True,
-                "encryption": {"proposed": "tls-psk"},
-                "initial_allowed_svms": [{"name": source_svm}],
+                "svm": {"name": source_svm},
+                "cluster_peer": {"name": src_peer_name},
+                "applications": ["snapmirror"],
             },
         )
-        passphrase = resp.get("passphrase", "")
-        logger.info("CLUSTER PEER   | created on source")
+        logger.info("SVM PEER       | peer-permission granted on source")
     except Exception as exc:
-        logger.error("CLUSTER PEER   | create on source failed: %s", exc)
-        raise
+        exc_s = str(exc)
+        if "already exists" in exc_s or "duplicate" in exc_s.lower() or "13001" in exc_s:
+            logger.info("SVM PEER       | peer-permission already exists — skipping")
+        else:
+            logger.error("SVM PEER       | peer-permission failed: %s", exc)
+            raise
 
+
+def _create_svm_peer_relationship(
+    dst: OntapClient, dest_svm: str, source_svm: str, dst_peer_name: str
+) -> None:
+    """Create the SVM peer relationship on the destination (idempotent)."""
     try:
-        dst.post(
-            "/cluster/peers",
+        resp = dst.post(
+            "/svm/peers",
             body={
-                "peer_addresses": src_ips,
-                "passphrase": passphrase,
-                "initial_allowed_svms": [{"name": dest_svm}],
+                "svm": {"name": dest_svm},
+                "peer": {"svm": {"name": source_svm}, "cluster": {"name": dst_peer_name}},
+                "applications": ["snapmirror"],
             },
         )
-        logger.info("CLUSTER PEER   | accepted on dest")
+        peer_job = resp.get("job", {}).get("uuid", "")
+        if peer_job:
+            _poll_job(dst, peer_job)
+        logger.info("SVM PEER       | created '%s' <-> '%s'", dest_svm, source_svm)
     except Exception as exc:
-        logger.error("CLUSTER PEER   | accept on dest failed: %s", exc)
-        raise
-
-    time.sleep(5)
-    dst_cp2 = dst.get("/cluster/peers", fields="name,uuid,status.state", **{"max_records": "10"})
-    dst_peers2 = [p for p in dst_cp2.get("records", []) if p.get("status", {}).get("state") in _OK]
-    dst_peer_name = dst_peers2[0]["name"] if dst_peers2 else ""
-    dst_peer_uuid = dst_peers2[0]["uuid"] if dst_peers2 else ""
-    src_cp2 = src.get("/cluster/peers", fields="name,uuid,status.state", **{"max_records": "10"})
-    src_peers2 = [p for p in src_cp2.get("records", []) if p.get("status", {}).get("state") in _OK]
-    src_peer_name = src_peers2[0]["name"] if src_peers2 else ""
-    logger.info("CLUSTER PEER   | dst sees src as '%s'", dst_peer_name)
-    return src_peer_name, dst_peer_name, dst_peer_uuid
+        exc_s = str(exc)
+        if "already exists" in exc_s or "duplicate" in exc_s.lower() or "13001" in exc_s:
+            logger.info("SVM PEER       | already exists — skipping")
+        else:
+            logger.error("SVM PEER       | create failed: %s", exc)
+            raise
 
 
 def _setup_svm_peer(
@@ -320,44 +384,8 @@ def _setup_svm_peer(
         )
         return alias
 
-    try:
-        src.post(
-            "/svm/peer-permissions",
-            body={
-                "svm": {"name": source_svm},
-                "cluster_peer": {"name": src_peer_name},
-                "applications": ["snapmirror"],
-            },
-        )
-        logger.info("SVM PEER       | peer-permission granted on source")
-    except Exception as exc:
-        exc_s = str(exc)
-        if "already exists" in exc_s or "duplicate" in exc_s.lower() or "13001" in exc_s:
-            logger.info("SVM PEER       | peer-permission already exists — skipping")
-        else:
-            logger.error("SVM PEER       | peer-permission failed: %s", exc)
-            raise
-
-    try:
-        resp = dst.post(
-            "/svm/peers",
-            body={
-                "svm": {"name": dest_svm},
-                "peer": {"svm": {"name": source_svm}, "cluster": {"name": dst_peer_name}},
-                "applications": ["snapmirror"],
-            },
-        )
-        peer_job = resp.get("job", {}).get("uuid", "")
-        if peer_job:
-            _poll_job(dst, peer_job)
-        logger.info("SVM PEER       | created '%s' <-> '%s'", dest_svm, source_svm)
-    except Exception as exc:
-        exc_s = str(exc)
-        if "already exists" in exc_s or "duplicate" in exc_s.lower() or "13001" in exc_s:
-            logger.info("SVM PEER       | already exists — skipping")
-        else:
-            logger.error("SVM PEER       | create failed: %s", exc)
-            raise
+    _grant_svm_peer_permission(src, source_svm, src_peer_name)
+    _create_svm_peer_relationship(dst, dest_svm, source_svm, dst_peer_name)
 
     svm_resp2 = dst.get("/svm/peers", fields="uuid,name,state,peer", **{"svm.name": dest_svm})
     peers2 = [
@@ -369,6 +397,134 @@ def _setup_svm_peer(
         peers2[0].get("peer", {}).get("svm", {}).get("name", source_svm) if peers2 else source_svm
     )
     return alias
+
+
+def _phase_a_source_preflight(
+    src: OntapClient, source_svm: str, source_volume: str, source_host: str
+) -> dict:
+    """Verify source cluster connectivity and validate the source volume.
+
+    Returns the source volume record. Aborts if missing or DP type.
+    """
+    src_cluster = src.get("/cluster", fields="name,version")
+    logger.info(
+        "SOURCE CLUSTER | name=%s | ontap=%s",
+        src_cluster.get("name"),
+        src_cluster.get("version", {}).get("full"),
+    )
+    src_vol_resp = src.get(
+        "/storage/volumes",
+        fields="name,uuid,state,type,space.size",
+        **{"max_records": "1", "name": source_volume, "svm.name": source_svm},
+    )
+    if src_vol_resp.get("num_records", 0) == 0:
+        logger.error(
+            "ABORTED — source volume '%s' not found on %s",
+            source_volume,
+            source_host,
+        )
+        sys.exit(1)
+    src_vol = src_vol_resp["records"][0]
+    if src_vol.get("type") == "dp":
+        logger.error("ABORTED — source volume is type=dp; specify the RW volume")
+        sys.exit(1)
+    logger.info(
+        "SOURCE VOLUME  | svm=%s | name=%s | uuid=%s | state=%s | type=%s | size=%s",
+        source_svm,
+        src_vol["name"],
+        src_vol["uuid"],
+        src_vol["state"],
+        src_vol["type"],
+        src_vol.get("space", {}).get("size"),
+    )
+    return src_vol
+
+
+def _phase_d_setup_relationship(
+    src: OntapClient,
+    dst: OntapClient,
+    dest_svm: str,
+    dest_volume: str,
+    source_svm_alias: str,
+    source_volume: str,
+    peer_name: str,
+    sm_policy: str,
+) -> str:
+    """Create and initialize the SnapMirror relationship; return its UUID."""
+    existing = dst.get(
+        "/snapmirror/relationships",
+        fields="uuid,state,healthy",
+        **{"destination.path": f"{dest_svm}:{dest_volume}", "max_records": "1"},
+    )
+    logger.info("RELATIONSHIP CHECK | existing=%d", existing.get("num_records", 0))
+
+    try:
+        create_resp = dst.post(
+            "/snapmirror/relationships?return_timeout=120",
+            body={
+                "source": {
+                    "path": f"{source_svm_alias}:{source_volume}",
+                    "cluster": {"name": peer_name},
+                },
+                "destination": {"path": f"{dest_svm}:{dest_volume}"},
+                "policy": {"name": sm_policy},
+            },
+        )
+        job_uuid = create_resp.get("job", {}).get("uuid")
+        if job_uuid:
+            _poll_job(dst, job_uuid)
+    except Exception as exc:
+        logger.info("create_and_initialize_relationship — %s (may already exist)", exc)
+
+    rel_resp = dst.get(
+        "/snapmirror/relationships",
+        fields="uuid,source.path,destination.path,state,lag_time,healthy,policy.name",
+        **{"destination.path": f"{dest_svm}:{dest_volume}", "max_records": "1"},
+    )
+    rel_records = rel_resp.get("records", [])
+    if not rel_records:
+        logger.error(
+            "ABORTED — SnapMirror relationship not found for '%s:%s'", dest_svm, dest_volume
+        )
+        sys.exit(1)
+    rel = rel_records[0]
+    rel_uuid = rel.get("uuid", "")
+    logger.info(
+        "RELATIONSHIP   | uuid=%s | state=%s | healthy=%s | policy=%s",
+        rel_uuid,
+        rel.get("state"),
+        rel.get("healthy"),
+        rel.get("policy", {}).get("name"),
+    )
+
+    try:
+        dst.post(
+            f"/snapmirror/relationships/{rel_uuid}/transfers?return_timeout=120",
+            body={},
+        )
+    except Exception as exc:
+        exc_s = str(exc)
+        if "13303812" in exc_s:
+            src_ips = _get_ic_lif_ips(src)
+            dst_ips = _get_ic_lif_ips(dst)
+            logger.error(
+                "ABORTED — SnapMirror initialize failed: intercluster LIF connectivity issue.\n"
+                "  Error   : %s\n"
+                "  src IC  : %s\n"
+                "  dst IC  : %s\n"
+                "  Cause   : TCP ports 11104/11105 are likely blocked between these IPs.\n"
+                "  Fix     : Ask your lab admin to open TCP 11104 and 11105 between\n"
+                "            %s <-> %s",
+                exc_s,
+                src_ips,
+                dst_ips,
+                src_ips[0] if src_ips else "<src-ic-lif>",
+                dst_ips[0] if dst_ips else "<dst-ic-lif>",
+            )
+            sys.exit(1)
+        logger.info("initialize_relationship — %s (may already be initialized)", exc)
+
+    return rel_uuid
 
 
 def main() -> None:
@@ -390,47 +546,9 @@ def main() -> None:
     dst = OntapClient(dest_host, dest_user, dest_pass, verify_ssl=False)
 
     with src, dst:
-        # ── Phase A: Source pre-flight ────────────────────────────────────
-        # Verify source cluster is reachable and the source volume is a
-        # writable (RW) type — DP volumes cannot be used as a SnapMirror source.
         logger.info("=== Phase A: Source pre-flight ===")
-        src_cluster = src.get("/cluster", fields="name,version")
-        logger.info(
-            "SOURCE CLUSTER | name=%s | ontap=%s",
-            src_cluster.get("name"),
-            src_cluster.get("version", {}).get("full"),
-        )
+        src_vol = _phase_a_source_preflight(src, source_svm, source_volume, source_host)
 
-        src_vol_resp = src.get(
-            "/storage/volumes",
-            fields="name,uuid,state,type,space.size",
-            **{"max_records": "1", "name": source_volume, "svm.name": source_svm},
-        )
-        if src_vol_resp.get("num_records", 0) == 0:
-            logger.error(
-                "ABORTED — source volume '%s' not found on %s",
-                source_volume,
-                source_host,
-            )
-            sys.exit(1)
-        src_vol = src_vol_resp["records"][0]
-        if src_vol.get("type") == "dp":
-            logger.error("ABORTED — source volume is type=dp; specify the RW volume")
-            sys.exit(1)
-        logger.info(
-            "SOURCE VOLUME  | svm=%s | name=%s | uuid=%s | state=%s | type=%s | size=%s",
-            source_svm,
-            src_vol["name"],
-            src_vol["uuid"],
-            src_vol["state"],
-            src_vol["type"],
-            src_vol.get("space", {}).get("size"),
-        )
-
-        # ── Phase B: Dest pre-flight ──────────────────────────────────────
-        # Verify destination cluster connectivity, get the cluster peer name
-        # (required to reference the source from the destination side), and
-        # pick an aggregate to host the new destination DP volume.
         logger.info("=== Phase B: Dest pre-flight ===")
         dst_cluster = dst.get("/cluster", fields="name,version")
         logger.info(
@@ -439,7 +557,6 @@ def main() -> None:
             dst_cluster.get("version", {}).get("full"),
         )
 
-        # ── Phase B0: Cluster peer setup ──────────────────────────────────
         logger.info("=== Phase B0: Cluster peer setup ===")
         src_peer_name, peer_name, dst_peer_uuid = _setup_cluster_peer(
             src, dst, source_svm, dest_svm
@@ -453,15 +570,11 @@ def main() -> None:
         aggr_name = aggr_resp.get("records", [{}])[0].get("name", "")
         logger.info("DEST AGGREGATE | name=%s", aggr_name)
 
-        # ── Phase B1: SVM peer setup ──────────────────────────────────────
         logger.info("=== Phase B1: SVM peer setup ===")
         source_svm_alias = _setup_svm_peer(
             src, dst, source_svm, dest_svm, src_peer_name, peer_name, dst_peer_uuid
         )
 
-        # ── Phase C: Dest volume setup ────────────────────────────────────
-        # Auto-create a DP volume on the destination to receive SnapMirror
-        # transfers. The create is skipped silently if the volume already exists.
         logger.info("=== Phase C: Dest volume setup ===")
         try:
             dst.post(
@@ -497,91 +610,14 @@ def main() -> None:
             dst_vol.get("type"),
         )
 
-        # ── Phase D: Relationship setup ───────────────────────────────────
-        # Create and initialize the SnapMirror relationship from destination.
-        # If the relationship already exists the POST fails gracefully.
-        # After create, the relationship UUID is fetched and a baseline
-        # transfer is triggered explicitly to start data replication.
         logger.info("=== Phase D: Relationship setup ===")
-        existing = dst.get(
-            "/snapmirror/relationships",
-            fields="uuid,state,healthy",
-            **{"destination.path": f"{dest_svm}:{dest_volume}", "max_records": "1"},
-        )
-        logger.info("RELATIONSHIP CHECK | existing=%d", existing.get("num_records", 0))
-
-        try:
-            create_resp = dst.post(
-                "/snapmirror/relationships?return_timeout=120",
-                body={
-                    "source": {
-                        "path": f"{source_svm_alias}:{source_volume}",
-                        "cluster": {"name": peer_name},
-                    },
-                    "destination": {"path": f"{dest_svm}:{dest_volume}"},
-                    "policy": {"name": sm_policy},
-                },
-            )
-            job_uuid = create_resp.get("job", {}).get("uuid")
-            if job_uuid:
-                _poll_job(dst, job_uuid)
-        except Exception as exc:
-            logger.info("create_and_initialize_relationship — %s (may already exist)", exc)
-
-        rel_resp = dst.get(
-            "/snapmirror/relationships",
-            fields="uuid,source.path,destination.path,state,lag_time,healthy,policy.name",
-            **{"destination.path": f"{dest_svm}:{dest_volume}", "max_records": "1"},
-        )
-        rel_records = rel_resp.get("records", [])
-        if not rel_records:
-            logger.error(
-                "ABORTED — SnapMirror relationship not found for '%s:%s'", dest_svm, dest_volume
-            )
-            sys.exit(1)
-        rel = rel_records[0]
-        rel_uuid = rel.get("uuid", "")
-        logger.info(
-            "RELATIONSHIP   | uuid=%s | state=%s | healthy=%s | policy=%s",
-            rel_uuid,
-            rel.get("state"),
-            rel.get("healthy"),
-            rel.get("policy", {}).get("name"),
+        rel_uuid = _phase_d_setup_relationship(
+            src, dst, dest_svm, dest_volume, source_svm_alias, source_volume, peer_name, sm_policy
         )
 
-        try:
-            dst.post(
-                f"/snapmirror/relationships/{rel_uuid}/transfers?return_timeout=120",
-                body={},
-            )
-        except Exception as exc:
-            exc_s = str(exc)
-            if "13303812" in exc_s:
-                src_ips = _get_ic_lif_ips(src)
-                dst_ips = _get_ic_lif_ips(dst)
-                logger.error(
-                    "ABORTED — SnapMirror initialize failed: intercluster LIF connectivity issue.\n"
-                    "  Error   : %s\n"
-                    "  src IC  : %s\n"
-                    "  dst IC  : %s\n"
-                    "  Cause   : TCP ports 11104/11105 are likely blocked between these IPs.\n"
-                    "  Fix     : Ask your lab admin to open TCP 11104 and 11105 between\n"
-                    "            %s <-> %s",
-                    exc_s,
-                    src_ips,
-                    dst_ips,
-                    src_ips[0] if src_ips else "<src-ic-lif>",
-                    dst_ips[0] if dst_ips else "<dst-ic-lif>",
-                )
-                sys.exit(1)
-            logger.info("initialize_relationship — %s (may already be initialized)", exc)
-
-        # ── Phase E: Convergence polling ──────────────────────────────────
-        # Poll the relationship until state=snapmirrored (baseline transfer done).
         logger.info("=== Phase E: Convergence polling ===")
         _wait_snapmirrored(dst, rel_uuid)
 
-        # ── Phase F: Final validation ─────────────────────────────────────
         logger.info("=== Phase F: Final validation ===")
         final = dst.get(
             f"/snapmirror/relationships/{rel_uuid}",
@@ -609,6 +645,8 @@ def main() -> None:
 if __name__ == "__main__":
     try:
         main()
+    except KeyboardInterrupt:
+        sys.exit(130)
     except Exception:
         logger.exception("snapmirror_provision_dest_managed failed")
         sys.exit(1)
