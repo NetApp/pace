@@ -110,7 +110,8 @@ class OntapClient:
 
         Optional (with defaults):
             ``ONTAP_USER`` (default ``admin``),
-            ``ONTAP_VERIFY_SSL`` (default ``false``)
+            ``ONTAP_VERIFY_SSL`` (default ``false``),
+            ``ONTAP_TIMEOUT`` (default ``30`` seconds)
         """
         host = os.environ.get("ONTAP_HOST", "")
         if not host:
@@ -121,11 +122,14 @@ class OntapClient:
             logger.error("ONTAP_PASS environment variable is required")
             sys.exit(1)
 
+        timeout = int(os.environ.get("ONTAP_TIMEOUT", str(_DEFAULT_TIMEOUT)))
+
         return cls(
             host=host,
             username=os.environ.get("ONTAP_USER", "admin"),
             password=password,
             verify_ssl=os.environ.get("ONTAP_VERIFY_SSL", "false").lower() == "true",
+            timeout=timeout,
         )
 
     # -- HTTP helpers -------------------------------------------------------

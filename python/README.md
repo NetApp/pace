@@ -62,6 +62,14 @@ set -a && source cluster.env && set +a
 > SSL verification is disabled by default to support environments that use
 > self-signed certificates. We recommend setting `ONTAP_VERIFY_SSL=true`
 > once CA-signed certificates are in place.
+>
+> The request timeout defaults to 30 seconds. Set `ONTAP_TIMEOUT` (in seconds)
+> to adjust this for your environment:
+>
+> ```bash
+> export ONTAP_TIMEOUT=10            # fail fast in CI
+> export ONTAP_TIMEOUT=60            # allow extra time for slow clusters
+> ```
 
 ---
 
