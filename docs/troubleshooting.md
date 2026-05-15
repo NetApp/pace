@@ -1,7 +1,7 @@
 # Troubleshooting
 
 Common issues and their solutions. If your problem is not listed here,
-[open an issue](https://github.com/NetApp/pace/issues/new?template=bug_report.md)
+[open an issue](https://github.com/NetApp/pace/issues/new?template=bug_report.yml)
 or start a [discussion](https://github.com/NetApp/pace/discussions).
 
 ---
