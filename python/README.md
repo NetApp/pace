@@ -37,13 +37,14 @@ pip install -r requirements.txt
 All scripts read connection details from environment variables.
 
 > **Important:** The values below are placeholders for illustration only.
-> Replace `ONTAP_HOST`, `ONTAP_USER`, and `ONTAP_PASS` with your actual
+> Replace `ONTAP_HOST`, `ONTAP_USER`, `ONTAP_TIMEOUT` and `ONTAP_PASS` with your actual
 > cluster details before running any script.
 
 ```bash
 export ONTAP_HOST=10.0.0.1       # cluster management LIF
 export ONTAP_USER=admin           # default: admin
 export ONTAP_PASS=your_password
+export ONTAP_TIMEOUT=your_timeout
 ```
 
 Or use an env file:
@@ -53,6 +54,7 @@ Or use an env file:
 ONTAP_HOST=10.0.0.1
 ONTAP_USER=admin
 ONTAP_PASS=your_password
+ONTAP_TIMEOUT=your_timeout
 ```
 
 ```bash

@@ -79,10 +79,8 @@ class OntapClient:
         password: str,
         *,
         verify_ssl: bool = False,
-        timeout: int = _DEFAULT_TIMEOUT,
     ) -> None:
         self.base_url = f"https://{host}/api"
-        self.timeout = timeout
         self._session = requests.Session()
         self._session.auth = (username, password)
         self._session.verify = verify_ssl
@@ -112,6 +110,7 @@ class OntapClient:
             ``ONTAP_USER`` (default ``admin``),
             ``ONTAP_VERIFY_SSL`` (default ``false``)
         """
+        timeout = int(os.environ.get("ONTAP_TIMEOUT",_DEFAULT_TIMEOUT))
         host = os.environ.get("ONTAP_HOST", "")
         if not host:
             logger.error("ONTAP_HOST environment variable is required")
@@ -126,6 +125,7 @@ class OntapClient:
             username=os.environ.get("ONTAP_USER", "admin"),
             password=password,
             verify_ssl=os.environ.get("ONTAP_VERIFY_SSL", "false").lower() == "true",
+            timeout=timeout
         )
 
     # -- HTTP helpers -------------------------------------------------------
