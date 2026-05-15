@@ -273,7 +273,7 @@ When in doubt, follow the pattern used by existing files in the same directory.
 | Feature | `feature/<short-description>` | `feature/add-snapmirror-example` |
 | Bug fix | `fix/<short-description>` | `fix/nfs-provision-timeout` |
 | Release | `release/<version>` | `release/0.2.0` |
-
+  
 The default branch is `main`. All PRs target `main`.
 
 ### Tags and releases
