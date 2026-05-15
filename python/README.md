@@ -59,9 +59,27 @@ ONTAP_PASS=your_password
 set -a && source cluster.env && set +a
 ```
 
-> SSL verification is disabled by default to support environments that use
-> self-signed certificates. We recommend setting `ONTAP_VERIFY_SSL=true`
-> once CA-signed certificates are in place.
+### SSL verification and CA bundles
+
+SSL verification is disabled by default (`verify_ssl=False`) so the examples
+work with lab clusters that use self-signed certificates. Once your cluster has
+a trusted certificate, enable verification with:
+
+```bash
+export ONTAP_VERIFY_SSL=true
+```
+
+If your cluster uses an internal CA, keep verification enabled and point
+`requests` at the CA bundle:
+
+```bash
+export ONTAP_VERIFY_SSL=true
+export REQUESTS_CA_BUNDLE=/path/to/ca-bundle.crt
+python cluster_info.py
+```
+
+For certificate failures and warning noise, see
+[SSL / TLS errors](../docs/troubleshooting.md#ssl--tls-errors).
 
 ---
 
