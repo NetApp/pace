@@ -1,5 +1,20 @@
 # Contributing
 
+> **First time here?** Read [`docs/first-contribution.md`](docs/first-contribution.md)
+> instead — it walks you from `git clone` to a merged PR in 7 numbered
+> steps (~45 minutes). This file is the full reference; come back when
+> you're adding a new example or need the deep details.
+
+| You are… | Read |
+|---|---|
+| Filing your first PR | [`docs/first-contribution.md`](docs/first-contribution.md) — illustrated 7-step walkthrough |
+| New to NetApp ONTAP | [`docs/ontap-in-5-minutes.md`](docs/ontap-in-5-minutes.md) — just-enough vocabulary |
+| Adding a new example | This document, top to bottom |
+| Just need the CCLA link | [§ Contributor License Agreement](#contributor-license-agreement) |
+| Stuck on a CI failure | The auto-comment on your PR + [`docs/troubleshooting.md`](docs/troubleshooting.md#pre-commit-and-ci) |
+
+---
+
 Thanks for your interest in improving the NetApp storage automation examples in
 this repository. This document covers how to add new examples, what CI expects,
 and how the repo is organized.

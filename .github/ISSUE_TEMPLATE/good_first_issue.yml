@@ -1,0 +1,84 @@
+# © 2026 NetApp, Inc. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# See the NOTICE file in the repo root for trademark and attribution details.
+
+name: Good first issue (maintainer-curated)
+description: A small, well-scoped task for a first-time contributor. Maintainers fill this in.
+title: "[good-first-issue] "
+labels: ["good first issue", "help wanted"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to file a beginner-friendly task. The four
+        required fields below form the **good-first-issue contract** —
+        without all four, the issue is too vague to be welcoming and
+        will not be tagged. See
+        [docs/first-contribution.md](https://github.com/NetApp/pace/blob/main/docs/first-contribution.md)
+        for the contributor flow this issue feeds into.
+
+  - type: input
+    id: estimate
+    attributes:
+      label: Estimated time
+      description: Realistic time for a non-expert to complete the change end-to-end.
+      placeholder: 15-30 minutes
+    validations:
+      required: true
+
+  - type: textarea
+    id: files
+    attributes:
+      label: Exact files to change
+      description: List file paths and (where useful) line ranges. Be specific — no "explore the codebase".
+      placeholder: |
+        - python/cluster_info.py (around lines 40-55)
+        - python/README.md (the "Examples" section)
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Expected outcome
+      description: What should be true after the change is merged? Be concrete.
+      placeholder: |
+        Running `python cluster_info.py` should additionally print the
+        cluster's ONTAP version on a new line prefixed with "Version:".
+    validations:
+      required: true
+
+  - type: textarea
+    id: how_to_test
+    attributes:
+      label: How to test
+      description: Exact commands and the expected output the contributor should see.
+      render: markdown
+      placeholder: |
+        ```bash
+        cd python
+        python cluster_info.py
+        ```
+        Output should now include:
+        ```
+        Version: 9.14.1P3
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    id: ontap_context
+    attributes:
+      label: ONTAP concepts touched
+      description: Link to docs/ontap-in-5-minutes.md anchors so the contributor knows what to read.
+      placeholder: "Cluster, ONTAP version. See docs/ontap-in-5-minutes.md#cluster"
+    validations:
+      required: false
+
+  - type: textarea
+    id: hints
+    attributes:
+      label: Hints / gotchas (optional)
+      description: Anything non-obvious that would save the contributor time?
+    validations:
+      required: false
