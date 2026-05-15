@@ -684,6 +684,160 @@ html[data-theme="light"] .theme-toggle .sun  { display: block; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
   [data-reveal] { opacity: 1; transform: none; }
 }
+
+/* ---------------- First-time contributor section ---------------- */
+.journey-frame {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  padding: 32px;
+  backdrop-filter: blur(14px);
+  margin-bottom: 32px;
+  display: flex;
+  justify-content: center;
+}
+.journey-svg { width: 100%; max-width: 720px; height: auto; display: block; }
+
+.scene-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+@media (max-width: 760px) {
+  .scene-grid { grid-template-columns: 1fr; }
+}
+.scene-card {
+  padding: 24px;
+  border-radius: 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  transition: border-color var(--transition), transform var(--transition);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.scene-card:hover { border-color: var(--pace); transform: translateY(-2px); }
+.scene-card .icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(59,130,246,0.16), rgba(168,85,247,0.16));
+  border: 1px solid rgba(99,102,241,0.30);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--transition);
+}
+.scene-card .icon svg { width: 30px; height: 30px; }
+.scene-card:hover .icon { transform: scale(1.06); }
+.scene-card h3 { margin: 0; }
+.scene-card p { color: var(--text-muted); font-size: 14px; line-height: 1.6; margin: 0; }
+.scene-card code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+}
+.scene-card .card-link {
+  margin-top: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--pace);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: color var(--transition);
+}
+.scene-card .card-link:hover { color: var(--pace-2); }
+
+/* Mystery surprise card */
+.surprise-card {
+  margin-top: 28px;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 18px 22px;
+  border-radius: 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  transition: border-color var(--transition);
+}
+.surprise-card:hover { border-color: var(--pace-2); }
+.surprise-toggle {
+  flex: 0 0 auto;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.surprise-toggle:focus-visible {
+  outline: 2px solid var(--pace);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+.envelope {
+  width: 64px;
+  height: 48px;
+  display: block;
+  animation: ftEnvelopeBreath 4s ease-in-out infinite;
+  transform-origin: center;
+}
+.env-flap {
+  transform-origin: 32px 14px;
+  transition: transform 600ms cubic-bezier(.16,.84,.3,1);
+}
+.surprise-toggle:hover .env-flap { transform: rotate(8deg); }
+.env-letter {
+  transition: opacity 400ms ease 200ms, transform 400ms ease 200ms;
+}
+.surprise-card[data-open="true"] .env-flap { transform: rotate(180deg); }
+.surprise-card[data-open="true"] .env-letter { opacity: 1; transform: translate(0, -4px); }
+.surprise-card[data-open="true"] .envelope { animation: none; }
+.surprise-copy { flex: 1 1 auto; min-width: 0; }
+.surprise-copy h4 {
+  font-family: var(--font-display);
+  margin: 0 0 4px 0;
+  color: var(--hi);
+  font-size: 16px;
+}
+.surprise-teaser {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.surprise-disclaimer {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity 400ms ease, max-height 400ms ease, padding-top 400ms ease;
+}
+.surprise-card[data-open="true"] .surprise-disclaimer {
+  opacity: 1;
+  max-height: 240px;
+  padding-top: 8px;
+}
+@keyframes ftEnvelopeBreath {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.025); }
+}
+@media (max-width: 640px) {
+  .surprise-card { flex-direction: column; align-items: flex-start; }
+  .envelope { width: 56px; height: 42px; }
+}
 </style>
 </head>
 <body>
@@ -721,6 +875,7 @@ html[data-theme="light"] .theme-toggle .sun  { display: block; }
     <a href="#overview">Overview</a>
     <a href="#tools">Styles</a>
     <a href="#prompts">Prompts</a>
+    <a href="#first-time">First time</a>
     <a href="#contribute">Contribute</a>
   </div>
   <div class="nav-actions">
@@ -1133,6 +1288,174 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
 </section>
 
 <!-- ============================================================
+     FIRST-TIME CONTRIBUTOR
+============================================================ -->
+<section class="section" id="first-time" style="padding-top:40px">
+  <div class="container">
+    <div class="section-head">
+      <div class="eyebrow" data-reveal>NEW HERE?</div>
+      <h2 data-reveal data-reveal-delay="1">Your first PR, visualised.</h2>
+      <p class="lead" data-reveal data-reveal-delay="2">
+        A handful of curated <em>good first issues</em> tells you which files
+        to change, the expected outcome, how to test, and which ONTAP
+        concepts you'll touch. No invented scope. No guessing.
+      </p>
+    </div>
+
+    <!-- Visual journey: laptop → curved path with 4 stops → celebration -->
+    <div class="journey-frame" data-reveal>
+      <svg class="journey-svg" viewBox="0 0 720 220" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <linearGradient id="ftJourneyPath" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#3b82f6"/>
+            <stop offset="100%" stop-color="#a855f7"/>
+          </linearGradient>
+          <linearGradient id="ftJourneyDot" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#6366f1"/>
+            <stop offset="100%" stop-color="#a855f7"/>
+          </linearGradient>
+        </defs>
+
+        <!-- Laptop on the left -->
+        <g transform="translate(20 70)" stroke="rgba(255,255,255,0.35)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="6" y="6" width="92" height="62" rx="6"/>
+          <path d="M0 72 h104 a4 4 0 0 1 -4 4 H4 a4 4 0 0 1 -4 -4z" fill="rgba(99,102,241,0.10)"/>
+          <path d="M28 28 l8 8 -8 8" stroke="#3b82f6" stroke-width="2.5"/>
+          <path d="M40 44 h22" stroke="#6366f1" stroke-width="2.5"/>
+        </g>
+
+        <!-- Curved dashed path connecting the four stops -->
+        <path id="ftJourneyTrack" d="M 130 110 Q 240 30 350 110 T 580 110"
+              stroke="url(#ftJourneyPath)" stroke-width="2.5" fill="none"
+              stroke-dasharray="4 6" opacity="0.55"/>
+
+        <!-- Stops -->
+        <g transform="translate(170 92)">
+          <circle r="14" fill="rgba(99,102,241,0.18)" stroke="#6366f1" stroke-width="1.5"/>
+          <text y="5" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#cbd5f5">1</text>
+          <text y="42" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="0.08em" fill="#94a3b8">FORK</text>
+        </g>
+        <g transform="translate(295 78)">
+          <circle r="14" fill="rgba(99,102,241,0.18)" stroke="#6366f1" stroke-width="1.5"/>
+          <text y="5" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#cbd5f5">2</text>
+          <text y="42" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="0.08em" fill="#94a3b8">EDIT</text>
+        </g>
+        <g transform="translate(420 92)">
+          <circle r="14" fill="rgba(99,102,247,0.18)" stroke="#a855f7" stroke-width="1.5"/>
+          <text y="5" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#cbd5f5">3</text>
+          <text y="42" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="0.08em" fill="#94a3b8">PUSH</text>
+        </g>
+        <g transform="translate(560 110)">
+          <circle r="16" fill="rgba(168,85,247,0.22)" stroke="#a855f7" stroke-width="1.8"/>
+          <text y="5" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#e6edf3">4</text>
+          <text y="42" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="0.08em" fill="#cbd5f5">MERGE</text>
+        </g>
+
+        <!-- Travelling dot -->
+        <circle r="6" fill="url(#ftJourneyDot)">
+          <animateMotion dur="6s" repeatCount="indefinite" rotate="auto">
+            <mpath href="#ftJourneyTrack"/>
+          </animateMotion>
+        </circle>
+
+        <!-- Celebration burst at the end -->
+        <g transform="translate(620 60)" stroke="#a855f7" stroke-width="2" fill="none" stroke-linecap="round">
+          <line x1="0" y1="-12" x2="0" y2="-22"/>
+          <line x1="10" y1="-8" x2="18" y2="-14"/>
+          <line x1="14" y1="2" x2="24" y2="2"/>
+          <line x1="-10" y1="-8" x2="-18" y2="-14"/>
+          <line x1="-14" y1="2" x2="-24" y2="2"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- Three scene cards -->
+    <div class="scene-grid">
+      <article class="scene-card" data-reveal data-reveal-delay="1">
+        <div class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="url(#ftSceneGrad1)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <defs><linearGradient id="ftSceneGrad1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#6366f1"/></linearGradient></defs>
+            <circle cx="11" cy="11" r="6"/>
+            <path d="M21 21l-4.35-4.35"/>
+            <path d="M11 8v6M8 11h6"/>
+          </svg>
+        </div>
+        <h3>Find your spot</h3>
+        <p>Browse the <strong>good first issue</strong> label. Each one tells you the exact file to change, the expected outcome, and how to verify it.</p>
+        <a class="card-link" href="https://github.com/NetApp/pace/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22" target="_blank" rel="noopener">See the curated list →</a>
+      </article>
+
+      <article class="scene-card" data-reveal data-reveal-delay="2">
+        <div class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="url(#ftSceneGrad2)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <defs><linearGradient id="ftSceneGrad2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#a855f7"/></linearGradient></defs>
+            <path d="M12 20h9"/>
+            <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+          </svg>
+        </div>
+        <h3>Make it yours</h3>
+        <p>Edit a Python script, an Ansible playbook, or a Terraform module. The local <code>make ci</code> mirrors what CI checks - no surprises on push.</p>
+        <a class="card-link" href="https://github.com/NetApp/pace/blob/main/docs/first-contribution.md" target="_blank" rel="noopener">7-step walkthrough →</a>
+      </article>
+
+      <article class="scene-card" data-reveal data-reveal-delay="3">
+        <div class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="url(#ftSceneGrad3)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <defs><linearGradient id="ftSceneGrad3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#a855f7"/><stop offset="100%" stop-color="#f472b6"/></linearGradient></defs>
+            <path d="M4.5 16.5L3 21l4.5-1.5"/>
+            <path d="M14.5 4.5l5 5L9 20l-5 1 1-5L14.5 4.5z"/>
+            <path d="M13 6l5 5"/>
+          </svg>
+        </div>
+        <h3>Ship it</h3>
+        <p>Open a PR. If a check fails, a bot replies with the <em>exact fix command</em>. CODEOWNERS auto-assigns a reviewer. Squash and merge.</p>
+        <a class="card-link" href="https://github.com/NetApp/pace/pulls" target="_blank" rel="noopener">Browse open PRs →</a>
+      </article>
+    </div>
+
+    <!-- CTA strip -->
+    <div class="cta-band" data-reveal style="margin-top:28px">
+      <div class="copy">
+        <h4>Ready when you are.</h4>
+        <p>The walkthrough is seven numbered steps; budget about 45 minutes for your first one.</p>
+      </div>
+      <div class="actions">
+        <a class="btn btn-primary" href="https://github.com/NetApp/pace/blob/main/docs/first-contribution.md" target="_blank" rel="noopener">Read the 7-step walkthrough</a>
+        <a class="btn btn-ghost" href="https://github.com/NetApp/pace/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22" target="_blank" rel="noopener">Browse good first issues</a>
+      </div>
+    </div>
+
+    <!-- Mystery surprise card -->
+    <div class="surprise-card" data-reveal>
+      <button type="button" class="surprise-toggle" aria-expanded="false" aria-controls="surpriseDisclaimer" aria-label="Reveal details for early contributors">
+        <svg class="envelope" viewBox="0 0 64 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect class="env-body" x="2" y="10" width="60" height="36" rx="4"
+                fill="rgba(99,102,241,0.18)" stroke="#6366f1" stroke-width="1.6"/>
+          <path class="env-back" d="M2 14 L32 34 L62 14" fill="none" stroke="#a855f7" stroke-width="1.6"/>
+          <path class="env-flap" d="M2 14 L32 34 L62 14 L62 8 L2 8 Z"
+                fill="rgba(168,85,247,0.32)" stroke="#a855f7" stroke-width="1.6"/>
+          <g class="env-letter" transform="translate(14 18)" opacity="0">
+            <rect width="36" height="20" rx="2" fill="rgba(255,255,255,0.10)" stroke="#cbd5f5" stroke-width="1"/>
+            <line x1="6" y1="8" x2="30" y2="8" stroke="#cbd5f5" stroke-width="1"/>
+            <line x1="6" y1="13" x2="22" y2="13" stroke="#cbd5f5" stroke-width="1"/>
+          </g>
+        </svg>
+      </button>
+      <div class="surprise-copy">
+        <h4>Something for early contributors.</h4>
+        <p class="surprise-teaser">Open this when no one is watching.</p>
+        <p id="surpriseDisclaimer" class="surprise-disclaimer">
+          Selected at maintainer discretion based on contribution quality,
+          originality, and timing. Not guaranteed. Subject to internal criteria
+          that may change without notice. Nothing here creates an entitlement
+          or obligation on either side.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
      CONTRIBUTE
 ============================================================ -->
 <section class="section" id="contribute" style="padding-top:40px">
@@ -1405,6 +1728,38 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
   // Initial terminal content
   playScript('python');
 
+})();
+</script>
+
+<script>
+/* First-time contributor — surprise card interactions */
+(() => {
+  const card = document.querySelector('.surprise-card');
+  if (!card) return;
+  const btn = card.querySelector('.surprise-toggle');
+  if (!btn) return;
+
+  const toggle = () => {
+    const isOpen = card.getAttribute('data-open') === 'true';
+    card.setAttribute('data-open', String(!isOpen));
+    btn.setAttribute('aria-expanded', String(!isOpen));
+  };
+
+  btn.addEventListener('click', toggle);
+  btn.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      toggle();
+    }
+  });
+
+  // Reduced-motion: stop SVG SMIL animations that CSS cannot reach.
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.querySelectorAll('#first-time animateMotion, #first-time animate').forEach(node => {
+      node.setAttribute('dur', '0.001s');
+      node.setAttribute('repeatCount', '1');
+    });
+  }
 })();
 </script>
 </body>
