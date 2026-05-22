@@ -71,3 +71,10 @@ hooks: ## Install pre-commit hooks into your local repo
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}'
+
+# ── Docs ───────────────────────────────────────────────────────
+.PHONY: troubleshoot
+troubleshoot: ## Show numbered index of troubleshooting sections
+	@echo "The Troubleshooting Guide"
+	@echo ""
+	@awk '/^## / { if (heading) printf "%2d. %s\n    Tip: %s\n\n", ++count, heading, tip; heading=substr($$0,4); tip="" } /^### / && heading && !tip { tip=substr($$0,5) } END { if (heading) printf "%2d. %s\n    Tip: %s\n\n", ++count, heading, tip }' docs/troubleshooting.md
