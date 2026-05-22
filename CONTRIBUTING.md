@@ -183,6 +183,7 @@ make ci                  # Run lint (mirrors ci.yml)
 make lint                # Ruff lint + format check
 make ansible-lint        # Ansible syntax-check + ansible-lint
 make terraform-validate  # Terraform fmt, validate, tflint
+make troubleshoot        # Print numbered troubleshooting index
 ```
 
 Run `make ci` before pushing to catch issues before they hit CI.
