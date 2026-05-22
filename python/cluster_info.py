@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 def main() -> None:
     with OntapClient.from_env() as client:
         # Step 1 — cluster version
-        cluster = client.get("/cluster", fields="version")
+        cluster = client.get("/cluster", fields="name,version")
         logger.info(
             "Cluster: %s — ONTAP %s",
             cluster.get("name", "unknown"),
