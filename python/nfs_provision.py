@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # © 2026 NetApp, Inc. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 # See the NOTICE file in the repo root for trademark and attribution details.
@@ -43,9 +42,8 @@ import argparse
 import logging
 import os
 import sys
-from pathlib import Path
 
-from ontap_client import OntapClient
+from ontap_client import OntapClient, load_env_file
 
 logging.basicConfig(
     level=logging.INFO,
@@ -54,32 +52,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 ENV = {
-    "ONTAP_HOST": "",  # cluster management IP — set here or via ONTAP_HOST env var
+    "ONTAP_HOST": "",  # cluster management IP — set via ONTAP_HOST env var
     "ONTAP_USER": "admin",
     "ONTAP_PASS": "",  # never hardcode — set via ONTAP_PASS env var
-    "SVM_NAME": "vs1",
-    "VOLUME_NAME": "vol_001",
+    "SVM_NAME": "",
+    "VOLUME_NAME": "",
     "VOLUME_SIZE": "100MB",
-    "AGGR_NAME": "sti232_vsim_sr091o_aggr1",  # required — set via --aggregate or AGGR_NAME env var
+    "AGGR_NAME": "",  # required — set via --aggregate or AGGR_NAME env var
     "CLIENT_MATCH": "0.0.0.0/0",
 }
-
-
-def _load_env_file(path: str) -> None:
-    """Load KEY=VALUE pairs from an env file into os.environ (dotenv style)."""
-    p = Path(path)
-    if not p.is_file():
-        logger.error("Env file not found: %s", path)
-        sys.exit(1)
-    for lineno, raw in enumerate(p.read_text().splitlines(), start=1):
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        if "=" not in line:
-            logger.error("Env file %s line %d: expected KEY=VALUE, got: %s", path, lineno, line)
-            sys.exit(1)
-        key, _, value = line.partition("=")
-        os.environ.setdefault(key.strip(), value.strip())
 
 
 def parse_args() -> argparse.Namespace:
@@ -104,7 +85,14 @@ def _pick(arg: str | None, env_key: str, default: str = "") -> str:
 
 
 def _resolve_config(args: argparse.Namespace) -> tuple[str, str, str, str, str]:
-    """Push ENV defaults into os.environ then resolve final values from all sources."""
+    """Load env file (if provided) and resolve final values from all sources.
+
+    Also pushes ENV block defaults into os.environ so ``OntapClient.from_env()``
+    can pick up ``ONTAP_HOST`` / ``ONTAP_PASS`` from the ENV block when no real
+    env vars are set.
+    """
+    if args.env_file:
+        load_env_file(args.env_file)
     for key, value in ENV.items():
         if value and key not in os.environ:
             os.environ[key] = value
@@ -220,9 +208,8 @@ def _assign_policy(client: OntapClient, volume_uuid: str, policy_name: str) -> N
 
 
 def main() -> None:
+    """Parse args, resolve config, then provision volume, export policy, and client rule."""
     args = parse_args()
-    if args.env_file:
-        _load_env_file(args.env_file)
     svm, volume, size, aggregate, client_match = _resolve_config(args)
     if not aggregate:
         logger.error("--aggregate is required (or set AGGR_NAME in env / --env-file)")

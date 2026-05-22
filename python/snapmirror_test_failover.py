@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # © 2026 NetApp, Inc. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 # See the NOTICE file in the repo root for trademark and attribution details.
@@ -41,7 +40,6 @@ from __future__ import annotations
 import logging
 import os
 import sys
-import time
 
 from ontap_client import OntapClient
 
@@ -55,16 +53,20 @@ logger = logging.getLogger(__name__)
 # USER INPUTS — fill in your values here before running
 # ---------------------------------------------------------------------------
 INPUTS = {
-    "CLUSTER_A": "",  # first cluster management IP — never hardcode
-    "CLUSTER_B": "",  # second cluster management IP — never hardcode
+    "CLUSTER_A": "",  # first cluster management IP — set via CLUSTER_A env var
+    "CLUSTER_B": "",  # second cluster management IP — set via CLUSTER_B env var
     "DEST_USER": "admin",
-    "DEST_PASS": "",  # set via DEST_PASS env var
+    "DEST_PASS": "",  # set via DEST_PASS env var — never hardcode
     "SOURCE_VOLUME": "",  # source volume name, or * to auto-detect
 }
 # ---------------------------------------------------------------------------
 
 
 def _env(key: str, default: str = "") -> str:
+    """Return the value for *key* from INPUTS or os.environ.
+
+    Logs an error and exits if the resolved value is empty and no *default* is given.
+    """
     val = INPUTS.get(key) or os.environ.get(key, default)
     if not val:
         logger.error(
@@ -73,34 +75,6 @@ def _env(key: str, default: str = "") -> str:
         )
         sys.exit(1)
     return val
-
-
-def _poll_job(client: OntapClient, job_uuid: str, interval: int = 10) -> dict:
-    while True:
-        result = client.get(f"/cluster/jobs/{job_uuid}", fields="state,message,error,code")
-        state = result.get("state", "unknown")
-        logger.info("  job %s — state=%s", job_uuid, state)
-        if state != "running":
-            return result
-        time.sleep(interval)
-
-
-def _wait_snapmirrored(
-    client: OntapClient, rel_uuid: str, interval: int = 15, max_wait: int = 1800
-) -> dict:
-    elapsed = 0
-    while elapsed < max_wait:
-        result = client.get(
-            f"/snapmirror/relationships/{rel_uuid}",
-            fields="state,lag_time,healthy",
-        )
-        state = result.get("state", "unknown")
-        logger.info("  relationship %s — state=%s", rel_uuid, state)
-        if state == "snapmirrored":
-            return result
-        time.sleep(interval)
-        elapsed += interval
-    raise RuntimeError(f"Timed out waiting for relationship {rel_uuid} to reach snapmirrored")
 
 
 def _pick_cluster(
@@ -114,18 +88,17 @@ def _pick_cluster(
 
     for host in (cluster_a, cluster_b):
         try:
-            client = OntapClient(host, user, passwd, verify_ssl=False, timeout=20)
-            resp = client.get(
-                "/storage/volumes",
-                fields="name,create_time,uuid,svm.name,state,space.size",
-                **{
-                    "type": "dp",
-                    "name": dest_filter,
-                    "order_by": "create_time desc",
-                    "max_records": "1",
-                },
-            )
-            client.close()
+            with OntapClient(host, user, passwd, verify_ssl=False, timeout=20) as client:
+                resp = client.get(
+                    "/storage/volumes",
+                    fields="name,create_time,uuid,svm.name,state,space.size",
+                    **{
+                        "type": "dp",
+                        "name": dest_filter,
+                        "order_by": "create_time desc",
+                        "max_records": "1",
+                    },
+                )
             if resp.get("num_records", 0) >= 1:
                 best_cluster = host
                 best_vol = resp["records"][0]
@@ -141,6 +114,7 @@ def _pick_cluster(
 
 
 def main() -> None:
+    """Auto-detect target cluster, create a FlexClone for test failover, then resync SnapMirror."""
     cluster_a = _env("CLUSTER_A")
     cluster_b = _env("CLUSTER_B")
     dest_user = _env("DEST_USER")
@@ -225,7 +199,7 @@ def main() -> None:
             )
             job_uuid = clone_resp.get("job", {}).get("uuid")
             if job_uuid:
-                _poll_job(client, job_uuid)
+                client.poll_job(job_uuid)
         except Exception as exc:
             logger.warning("create_test_clone — %s (may already exist)", exc)
 
@@ -278,11 +252,11 @@ def main() -> None:
             )
             job_uuid = resync_resp.get("job", {}).get("uuid")
             if job_uuid:
-                _poll_job(client, job_uuid, interval=10)
+                client.poll_job(job_uuid)
         except Exception as exc:
             logger.warning("resync_sm_relationship — %s", exc)
 
-        _wait_snapmirrored(client, rel_uuid)
+        client.wait_snapmirrored(rel_uuid)
         logger.info("=== TEST FAILOVER COMPLETE — SnapMirror resynced ===")
 
 

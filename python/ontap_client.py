@@ -26,6 +26,8 @@ import urllib3
 
 logger = logging.getLogger("ontap_client")
 
+__all__ = ["OntapClient", "OntapApiError", "load_env_file"]
+
 # All examples in this repo disable SSL verification to support environments
 # that use self-signed certificates.  We recommend setting
 # ONTAP_VERIFY_SSL=true once CA-signed certificates are in place.  The
@@ -33,7 +35,7 @@ logger = logging.getLogger("ontap_client")
 # is disabled.
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-_DEFAULT_TIMEOUT = 30
+_DEFAULT_TIMEOUT = 90
 _DEFAULT_HEADERS = {
     "Accept": "application/hal+json",
     "Content-Type": "application/json",
@@ -99,6 +101,15 @@ class OntapClient:
     def close(self) -> None:
         self._session.close()
 
+    def update_auth(self, username: str, password: str) -> None:
+        """Replace the HTTP Basic-Auth credentials on the underlying session.
+
+        Use this when the cluster switches authentication context mid-workflow
+        (e.g. after ``POST /cluster`` when the node moves from pre-cluster mode
+        to full cluster mode and requires the new cluster admin password).
+        """
+        self._session.auth = (username, password)
+
     # -- Factory ------------------------------------------------------------
 
     @classmethod
@@ -140,7 +151,15 @@ class OntapClient:
         url = self._url(path)
         logger.debug("%s %s", method, url)
 
-        resp = self._session.request(method, url, **kwargs)
+        try:
+            resp = self._session.request(method, url, **kwargs)
+        except requests.exceptions.Timeout as exc:
+            raise RuntimeError(
+                f"{method} {url} timed out after {kwargs['timeout']} s — "
+                "the cluster may be busy or unreachable. "
+                "Increase the timeout via OntapClient(..., timeout=<seconds>) if needed."
+            ) from exc
+
         if not resp.ok:
             raise OntapApiError(resp)
 
@@ -151,7 +170,6 @@ class OntapClient:
     def get(self, path: str, *, fields: str = "", **params: str) -> dict[str, Any]:
         if fields:
             params["fields"] = fields
-        params.setdefault("return_timeout", "120")
         return self._request("GET", path, params=params)
 
     def post(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
@@ -206,3 +224,76 @@ class OntapClient:
                 raise TimeoutError(f"Job {job_uuid} did not complete within {timeout}s")
 
             time.sleep(interval)
+
+    def wait_snapmirrored(
+        self,
+        rel_uuid: str,
+        *,
+        interval: int = 15,
+        max_wait: int = 1800,
+    ) -> dict[str, Any]:
+        """Poll a SnapMirror relationship until its state becomes ``snapmirrored``.
+
+        Args:
+            rel_uuid: UUID of the SnapMirror relationship to watch.
+            interval:  Seconds between polls (default 15).
+            max_wait:  Maximum total seconds to wait before raising (default 1800).
+
+        Returns:
+            The final relationship record when state == ``snapmirrored``.
+
+        Raises:
+            :class:`RuntimeError` if ``max_wait`` is exceeded.
+        """
+        elapsed = 0
+        while elapsed < max_wait:
+            result = self.get(
+                f"/snapmirror/relationships/{rel_uuid}",
+                fields="state,lag_time,healthy",
+            )
+            state = result.get("state", "unknown")
+            logger.info("Relationship %s — state: %s", rel_uuid, state)
+            if state == "snapmirrored":
+                return result
+            time.sleep(interval)
+            elapsed += interval
+        raise RuntimeError(f"Timed out waiting for relationship {rel_uuid} to reach snapmirrored")
+
+
+# ---------------------------------------------------------------------------
+# Shared utilities
+# ---------------------------------------------------------------------------
+
+
+def load_env_file(path: str) -> None:
+    """Load ``KEY=VALUE`` pairs from a file into :data:`os.environ` (dotenv style).
+
+    Rules:
+    - Blank lines and lines starting with ``#`` are ignored.
+    - Values are set via :func:`os.environ.setdefault` so existing env vars
+      take precedence.
+    - Surrounding single or double quotes on values are stripped.
+
+    Args:
+        path: Path to the env file.  The script exits with an error message if
+              the file does not exist or contains a malformed line.
+    """
+    from pathlib import Path  # local import to avoid top-level dependency
+
+    p = Path(path)
+    if not p.is_file():
+        logger.error("Env file not found: %s", path)
+        import sys
+
+        sys.exit(1)
+    for lineno, raw in enumerate(p.read_text(encoding="utf-8").splitlines(), start=1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            logger.error("Env file %s line %d: expected KEY=VALUE, got: %s", path, lineno, line)
+            import sys
+
+            sys.exit(1)
+        key, _, value = line.partition("=")
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))

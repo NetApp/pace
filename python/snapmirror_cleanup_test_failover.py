@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # © 2026 NetApp, Inc. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 # See the NOTICE file in the repo root for trademark and attribution details.
@@ -53,17 +52,21 @@ logger = logging.getLogger(__name__)
 # USER INPUTS — fill in your values here before running
 # ---------------------------------------------------------------------------
 INPUTS = {
-    "CLUSTER_A": "",  # first cluster management IP — never hardcode
-    "CLUSTER_B": "",  # second cluster management IP — never hardcode
+    "CLUSTER_A": "",  # first cluster management IP — set via CLUSTER_A env var
+    "CLUSTER_B": "",  # second cluster management IP — set via CLUSTER_B env var
     "DEST_USER": "admin",
-    "DEST_PASS": "",  # set via DEST_PASS env var
+    "DEST_PASS": "",  # set via DEST_PASS env var — never hardcode
     "SOURCE_VOLUME": "",  # source volume name (e.g. vol_rw_01)
-    "SOURCE_SVM": "vs0",  # source SVM name
+    "SOURCE_SVM": "",  # source SVM name
 }
 # ---------------------------------------------------------------------------
 
 
 def _env(key: str, default: str = "") -> str:
+    """Return the value for *key* from INPUTS or os.environ.
+
+    Logs an error and exits if the resolved value is empty and no *default* is given.
+    """
     val = INPUTS.get(key) or os.environ.get(key, default)
     if not val:
         logger.error(
@@ -72,16 +75,6 @@ def _env(key: str, default: str = "") -> str:
         )
         sys.exit(1)
     return val
-
-
-def _poll_job(client: OntapClient, job_uuid: str, interval: int = 10) -> dict:
-    while True:
-        result = client.get(f"/cluster/jobs/{job_uuid}", fields="state,message,error,code")
-        state = result.get("state", "unknown")
-        logger.info("  job %s — state=%s", job_uuid, state)
-        if state != "running":
-            return result
-        time.sleep(interval)
 
 
 def _pick_cluster_by_relationship(
@@ -96,13 +89,12 @@ def _pick_cluster_by_relationship(
     source_path = f"{source_svm}:{source_volume}"
     for host in (cluster_a, cluster_b):
         try:
-            client = OntapClient(host, user, passwd, verify_ssl=False, timeout=20)
-            resp = client.get(
-                "/snapmirror/relationships",
-                fields="uuid,source.path,destination.path,state,healthy",
-                **{"source.path": source_path, "max_records": "1"},
-            )
-            client.close()
+            with OntapClient(host, user, passwd, verify_ssl=False, timeout=20) as client:
+                resp = client.get(
+                    "/snapmirror/relationships",
+                    fields="uuid,source.path,destination.path,state,healthy",
+                    **{"source.path": source_path, "max_records": "1"},
+                )
             if resp.get("num_records", 0) >= 1:
                 return host, resp["records"][0]
         except Exception as exc:
@@ -156,7 +148,7 @@ def _remove_smas_and_bring_online(
             )
             job_uuid = resp.get("job", {}).get("uuid")
             if job_uuid:
-                _poll_job(client, job_uuid)
+                client.poll_job(job_uuid)
         except Exception as exc:
             logger.warning("delete_smas_rel %s — %s (continuing)", smas_uuid, exc)
     if smas_resp.get("num_records", 0) == 0:
@@ -168,7 +160,7 @@ def _remove_smas_and_bring_online(
         )
         job_uuid = resp.get("job", {}).get("uuid")
         if job_uuid:
-            _poll_job(client, job_uuid)
+            client.poll_job(job_uuid)
     except Exception as exc:
         logger.warning("bring_online — %s (continuing)", exc)
 
@@ -184,7 +176,7 @@ def _unmount_clone(client: OntapClient, clone_uuid: str) -> None:
             )
             job_uuid = resp.get("job", {}).get("uuid")
             if job_uuid:
-                _poll_job(client, job_uuid)
+                client.poll_job(job_uuid)
             return
         except Exception as exc:
             logger.warning("unmount_clone attempt %d/6 — %s", attempt, exc)
@@ -204,7 +196,7 @@ def _offline_clone(client: OntapClient, clone_uuid: str) -> None:
         )
         job_uuid = resp.get("job", {}).get("uuid")
         if job_uuid:
-            _poll_job(client, job_uuid)
+            client.poll_job(job_uuid)
     except Exception as exc:
         logger.warning("offline_clone — %s", exc)
 
@@ -218,7 +210,7 @@ def _delete_and_confirm_clone(
         resp = client.delete(f"/storage/volumes/{clone_uuid}?return_timeout=120")
         job_uuid = resp.get("job", {}).get("uuid")
         if job_uuid:
-            _poll_job(client, job_uuid)
+            client.poll_job(job_uuid)
     except Exception as exc:
         logger.warning("delete_clone — %s", exc)
     confirm = client.get(
@@ -238,6 +230,7 @@ def _delete_and_confirm_clone(
 
 
 def main() -> None:
+    """Find the tagged FlexClone from a test failover and delete it through all cleanup phases."""
     cluster_a = _env("CLUSTER_A")
     cluster_b = _env("CLUSTER_B")
     dest_user = _env("DEST_USER")

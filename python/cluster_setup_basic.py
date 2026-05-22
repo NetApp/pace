@@ -1,8 +1,7 @@
-#!/usr/bin/env python3
 # © 2026 NetApp, Inc. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 # See the NOTICE file in the repo root for trademark and attribution details.
-"""Create a storage cluster from two pre-cluster nodes.
+"""Create a storage cluster from two pre-cluster nodes (ONTAP 9 unified).
 Steps:
     1. discover_nodes   — GET /api/cluster/nodes  (membership=available, retry 3x/30s)
     2. discover_local   — isolate the local node   (has management_interfaces != null)
@@ -33,9 +32,8 @@ import logging
 import os
 import sys
 import time
-from pathlib import Path
 
-from ontap_client import OntapClient
+from ontap_client import OntapClient, load_env_file
 
 logging.basicConfig(
     level=logging.INFO,
@@ -59,26 +57,18 @@ INPUTS = {
 }
 # ---------------------------------------------------------------------------
 
-_NODE_FIELDS_SETS = [
-    # newest (9.19+)
-    (
-        "name,model,state,ha,version,serial_number,membership,"
-        "cluster_interfaces,management_interfaces,metrocluster,disaggregated,san_optimized"
-    ),
-    # 9.18 without disaggregated
-    (
-        "name,model,state,ha,version,serial_number,membership,"
-        "cluster_interfaces,management_interfaces,metrocluster,san_optimized"
-    ),
-    # 9.14 and older — minimal safe set
-    (
-        "name,model,state,ha,version,serial_number,membership,"
-        "cluster_interfaces,management_interfaces,metrocluster"
-    ),
-]
+# ONTAP 9 unified — node discovery fields
+_NODE_FIELDS = (
+    "name,model,state,ha,version,serial_number,membership,"
+    "cluster_interfaces,management_interfaces,metrocluster"
+)
 
 
 def _env(key: str, required: bool = True) -> str:
+    """Return the value for *key* from INPUTS or os.environ.
+
+    Logs an error and exits if *required* is True and the value is empty.
+    """
     val = INPUTS.get(key) or os.environ.get(key, "")
     if required and not val:
         logger.error(
@@ -95,23 +85,11 @@ def _env(key: str, required: bool = True) -> str:
 
 
 def _get_nodes(client: OntapClient, **kwargs) -> dict:
-    """GET /cluster/nodes, trying progressively reduced field sets for older ONTAP versions."""
-    last_exc: Exception | None = None
-    for fields in _NODE_FIELDS_SETS:
-        try:
-            return client.get("/cluster/nodes", fields=fields, **kwargs)
-        except Exception as exc:
-            if "262197" in str(exc):
-                logger.warning(
-                    "discover: field unsupported on this version, retrying with reduced fields"
-                )
-                last_exc = exc
-                continue
-            raise
-    raise last_exc  # type: ignore[misc]
+    """GET /cluster/nodes with the standard ONTAP 9 unified field set."""
+    return client.get("/cluster/nodes", fields=_NODE_FIELDS, **kwargs)
 
 
-def discover_nodes(client: OntapClient, attempts: int = 3, delay: int = 30) -> dict:
+def discover_nodes(client: OntapClient, attempts: int = 3, delay: int = 30) -> dict:  # type: ignore[return]
     """Step 1 — discover available nodes, retry up to 3 times."""
     for attempt in range(1, attempts + 1):
         try:
@@ -212,27 +190,19 @@ def create_cluster(client: OntapClient, local: dict, partner: dict) -> dict:
 
 
 def track_job(client: OntapClient, job_uuid: str) -> dict:
-    """Step 5 — poll job until state != running (switch to cluster password first)."""
-    # After cluster creation the node switches to cluster mode — use CLUSTER_PASS
-    client._session.auth = (_env("ONTAP_USER"), _env("CLUSTER_PASS"))
+    """Step 5 — switch to cluster credentials then poll the job until completion.
 
-    while True:
-        result = client.get(
-            f"/cluster/jobs/{job_uuid}",
-            fields=("code,description,end_time,error,message,start_time,state,uuid"),
-        )
-        state = result.get("state", "unknown")
-        logger.info("track_job       — state=%s", state)
-        if state != "running":
-            if state != "success":
-                raise RuntimeError(
-                    f"Cluster job ended with state='{state}': {result.get('error')}"
-                )
-            return result
-        time.sleep(10)
+    After ``POST /cluster`` the node transitions to full cluster mode and
+    requires the new cluster-admin password.  Authentication is updated via
+    :meth:`~ontap_client.OntapClient.update_auth` before polling begins.
+    """
+    # After cluster creation the node switches to cluster mode — use CLUSTER_PASS
+    client.update_auth(_env("ONTAP_USER"), _env("CLUSTER_PASS"))
+    return client.poll_job(job_uuid, interval=10, timeout=1800)
 
 
 def main() -> None:
+    """Orchestrate all five cluster-setup steps and log the resulting cluster URL."""
     host = _env("ONTAP_HOST")
     user = _env("ONTAP_USER")
     passwd = os.environ.get("ONTAP_PASS", "")  # empty on pre-cluster nodes
@@ -258,13 +228,11 @@ def main() -> None:
 
 
 def _load_env_file(path: str) -> None:
-    """Load KEY=VALUE pairs from a .env file into the INPUTS dict."""
-    for line in Path(path).read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        INPUTS[key.strip()] = value.strip().strip('"').strip("'")
+    """Load KEY=VALUE pairs from a .env file into both os.environ and the INPUTS dict."""
+    load_env_file(path)
+    for key in list(INPUTS):
+        if val := os.environ.get(key):
+            INPUTS[key] = val
 
 
 if __name__ == "__main__":

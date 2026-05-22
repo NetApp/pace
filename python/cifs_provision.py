@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # © 2026 NetApp, Inc. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 # See the NOTICE file in the repo root for trademark and attribution details.
@@ -27,9 +26,8 @@ import argparse
 import logging
 import os
 import sys
-from pathlib import Path
 
-from ontap_client import OntapApiError, OntapClient
+from ontap_client import OntapApiError, OntapClient, load_env_file
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,38 +36,21 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 ENV = {
-    "ONTAP_HOST": "",  # cluster management IP — set here or via ONTAP_HOST env var
+    "ONTAP_HOST": "",  # cluster management IP — set via ONTAP_HOST env var
     "ONTAP_USER": "admin",
     "ONTAP_PASS": "",  # never hardcode — set via ONTAP_PASS env var
-    "SVM_NAME": "vs1",
-    "VOLUME_NAME": "vol_002",
+    "SVM_NAME": "",
+    "VOLUME_NAME": "",
     "VOLUME_SIZE": "100MB",
     "AGGR_NAME": "",  # required — set via --aggregate or AGGR_NAME env var
     "CLIENT_MATCH": "0.0.0.0/0",  # required — set via --client-match or CLIENT_MATCH env var
-    "SHARE_NAME": "cifs_share_demo",
+    "SHARE_NAME": "cifs_share",
     "SHARE_COMMENT": "Provisioned by orchestrio",
     "ACL_USER": "Everyone",
     "ACL_PERMISSION": "full_control",
     "CIFS_SERVER_NAME": "ONTAP-CIFS",
     "CIFS_WORKGROUP": "WORKGROUP",
 }
-
-
-def _load_env_file(path: str) -> None:
-    """Load KEY=VALUE pairs from an env file into os.environ (dotenv style)."""
-    p = Path(path)
-    if not p.is_file():
-        logger.error("Env file not found: %s", path)
-        sys.exit(1)
-    for lineno, raw in enumerate(p.read_text().splitlines(), start=1):
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        if "=" not in line:
-            logger.error("Env file %s line %d: expected KEY=VALUE, got: %s", path, lineno, line)
-            sys.exit(1)
-        key, _, value = line.partition("=")
-        os.environ.setdefault(key.strip(), value.strip())
 
 
 def parse_args() -> argparse.Namespace:
@@ -114,10 +95,15 @@ def _pick(cli_val: str | None, env_key: str, default: str = "") -> str:
     return cli_val or os.environ.get(env_key) or ENV.get(env_key, "") or default
 
 
-def _resolve_config(args: argparse.Namespace) -> dict[str, str | bool]:
-    """Load env file and CLI args, then return the resolved configuration dict."""
+def _resolve_config(args: argparse.Namespace) -> tuple[dict[str, str], bool]:
+    """Load env file and CLI args, then return (str_config, create_cifs_server).
+
+    Returns a tuple of:
+    - A ``dict[str, str]`` with all string config values.
+    - A ``bool`` indicating whether to auto-create the CIFS server.
+    """
     if args.env_file:
-        _load_env_file(args.env_file)
+        load_env_file(args.env_file)
 
     for key, value in ENV.items():
         if value and key not in os.environ:
@@ -128,7 +114,7 @@ def _resolve_config(args: argparse.Namespace) -> dict[str, str | bool]:
         logger.error("--aggregate is required (or set AGGR_NAME in env / --env-file)")
         sys.exit(1)
 
-    return {
+    cfg: dict[str, str] = {
         "svm": _pick(args.svm, "SVM_NAME", "vs0"),
         "volume": _pick(args.volume, "VOLUME_NAME", "cifs_test_env"),
         "size": _pick(args.size, "VOLUME_SIZE", "100MB"),
@@ -137,10 +123,10 @@ def _resolve_config(args: argparse.Namespace) -> dict[str, str | bool]:
         "share_comment": _pick(args.share_comment, "SHARE_COMMENT", "Provisioned by orchestrio"),
         "acl_user": _pick(args.acl_user, "ACL_USER", "Everyone"),
         "acl_permission": _pick(args.acl_permission, "ACL_PERMISSION", "full_control"),
-        "create_cifs_server": args.create_cifs_server,
         "cifs_server_name": _pick(args.cifs_server_name, "CIFS_SERVER_NAME", "ONTAP-CIFS"),
         "workgroup": _pick(args.workgroup, "CIFS_WORKGROUP", "WORKGROUP"),
     }
+    return cfg, bool(args.create_cifs_server)
 
 
 def _ensure_cifs_server(
@@ -302,7 +288,8 @@ def _verify_and_log_acls(client: OntapClient, svm_uuid: str, share_name: str) ->
 
 
 def main() -> None:
-    cfg = _resolve_config(parse_args())
+    """Resolve configuration, then orchestrate CIFS server, volume, share, and ACL setup."""
+    cfg, create_cifs_server = _resolve_config(parse_args())
     svm = cfg["svm"]
     volume = cfg["volume"]
     size = cfg["size"]
@@ -314,7 +301,7 @@ def main() -> None:
 
     with OntapClient.from_env() as client:
         _ensure_cifs_server(
-            client, svm, cfg["create_cifs_server"], cfg["cifs_server_name"], cfg["workgroup"]
+            client, svm, create_cifs_server, cfg["cifs_server_name"], cfg["workgroup"]
         )
 
         job_result = _ensure_volume_ntfs(client, svm, volume, size, aggregate)
