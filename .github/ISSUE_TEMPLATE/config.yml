@@ -1,0 +1,15 @@
+# © 2026 NetApp, Inc. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# See the NOTICE file in the repo root for trademark and attribution details.
+
+blank_issues_enabled: false
+contact_links:
+  - name: Ask a question
+    url: https://github.com/NetApp/pace/discussions
+    about: Use Discussions for questions about ONTAP, the examples, or contribution mechanics. Issues are reserved for bug reports and feature requests.
+  - name: Stuck on a contribution?
+    url: https://github.com/NetApp/pace/discussions
+    about: Get help with PR setup, CI failures, or your local environment.
+  - name: Read the troubleshooting guide
+    url: https://github.com/NetApp/pace/blob/main/docs/troubleshooting.md
+    about: Most connection, auth, and CI errors have a one-line fix here.

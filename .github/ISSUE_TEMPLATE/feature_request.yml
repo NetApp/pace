@@ -1,0 +1,74 @@
+# © 2026 NetApp, Inc. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# See the NOTICE file in the repo root for trademark and attribution details.
+
+name: Feature request
+description: Suggest a new example, improvement, or capability for Pace
+title: "[feat] "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea? Great. A few prompts below help us scope it quickly.
+
+        For broad discussion before filing, [GitHub Discussions](https://github.com/NetApp/pace/discussions)
+        is often a better starting point.
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      description: What part of Pace would this touch?
+      multiple: true
+      options:
+        - Python examples
+        - Ansible examples
+        - Terraform examples
+        - Documentation
+        - CI / tooling
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem or limitation are you facing today?
+      placeholder: I want to provision X, but no example covers it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: What would you like Pace to do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you have tried, or other approaches you weighed.
+    validations:
+      required: false
+
+  - type: textarea
+    id: ontap_context
+    attributes:
+      label: ONTAP context
+      description: REST endpoints involved, RBAC roles needed, ONTAP version floor, etc.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Are you willing to contribute this yourself?
+      options:
+        - label: Yes — I'd like to send a PR (a maintainer will follow up to scope).
+        - label: Maybe — with guidance.
+        - label: No — proposing only.

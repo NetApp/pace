@@ -17,6 +17,17 @@
 
 ---
 
+> **New here? Pick the path that matches you.**
+>
+> | You are… | Start with |
+> |---|---|
+> | Just trying out an example | [Quick start](#quick-start) below — copy, paste, run. |
+> | First-time contributor | [CONTRIBUTING.md](CONTRIBUTING.md) — `make install && make hooks` gets you set up in a couple of minutes. |
+> | New to NetApp ONTAP | [Troubleshooting guide](docs/troubleshooting.md) plus the per-style READMEs in [`python/`](python/), [`ansible/`](ansible/), [`terraform/`](terraform/). |
+> | Stuck or have a question | Open a [Discussion](https://github.com/NetApp/pace/discussions) — faster than a GitHub issue for questions. |
+
+---
+
 Pace is an open-source library of ready-to-run **NetApp storage automation**
 examples, implemented three ways - side by side - so you can pick the
 style your team already uses.

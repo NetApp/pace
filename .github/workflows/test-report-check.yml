@@ -14,7 +14,7 @@ name: Test Report Check
 
 on:
   pull_request_target:
-    types: [opened, edited, synchronize, reopened, ready_for_review]
+    types: [opened, edited, synchronize, reopened, ready_for_review, labeled, unlabeled]
     branches: [main]
 
 permissions:
@@ -107,6 +107,27 @@ jobs:
               owner, repo, pull_number: issue_number,
             });
             const body = pr.body || '';
+
+            // Tiered soft gate: skip Test Report nag for PRs that
+            // are docs-only, ci-only, or have been judged trivial by
+            // a maintainer. The 'docs-only' / 'ci-only' labels are
+            // applied automatically by .github/workflows/pr-labeler.yml
+            // (config in .github/labeler.yml). 'trivial' is applied by
+            // hand when warranted.
+            const labels = (pr.labels || []).map(l => l.name);
+            const SKIP_LABELS = ['docs-only', 'ci-only', 'trivial'];
+            const skipReason = SKIP_LABELS.find(l => labels.includes(l));
+            if (skipReason) {
+              await removeLabel();
+              await upsertSticky(
+                `Test Report skipped — this PR is labelled \`${skipReason}\`. ` +
+                'Re-evaluation will run automatically if that label is removed ' +
+                'or the PR scope expands to touch `python/`, `ansible/`, or ' +
+                '`terraform/`.'
+              );
+              core.info(`Skipped due to label: ${skipReason}`);
+              return;
+            }
 
             const hasSection = body.includes('## Test Report');
             const stillRequiredMarker = body.includes('TEST_REPORT_REQUIRED');

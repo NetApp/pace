@@ -1,0 +1,80 @@
+# © 2026 NetApp, Inc. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# See the NOTICE file in the repo root for trademark and attribution details.
+
+# Path-based PR labels for actions/labeler@v5.
+#
+# - Scope labels (python / ansible / terraform / docs / ci) describe what
+#   the PR touches and apply whenever ANY changed file matches.
+# - "-only" labels apply when EVERY changed file matches the glob set.
+#   Used by the Test Report soft gate (Chunk 2) to skip the report on
+#   docs-only / ci-only PRs.
+# - "trivial" is reserved for hand-application by maintainers; counting
+#   changed lines is not supported by labeler v5.
+
+# ── Scope labels (any-glob-to-any-file) ────────────────────────────────
+
+python:
+  - changed-files:
+      - any-glob-to-any-file:
+          - python/**
+
+ansible:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ansible/**
+
+terraform:
+  - changed-files:
+      - any-glob-to-any-file:
+          - terraform/**
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - docs/**
+          - "**/*.md"
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/**
+          - .pre-commit-config.yaml
+          - commitlint.config.mjs
+          - Makefile
+          - Dockerfile
+          - docker-compose.yml
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - python/requirements.txt
+          - ansible/requirements.yml
+          - terraform/**/*.tf
+          - .github/dependabot.yml
+
+# ── "-only" labels (any-glob-to-all-files) ─────────────────────────────
+# Used by Chunk 2's tiered Test Report gate. A PR earns the label only
+# when EVERY changed file fits the scope.
+
+docs-only:
+  - changed-files:
+      - any-glob-to-all-files:
+          - "**/*.md"
+          - docs/**
+          - LICENSE
+          - NOTICE
+
+ci-only:
+  - changed-files:
+      - any-glob-to-all-files:
+          - .github/**
+          - .pre-commit-config.yaml
+          - commitlint.config.mjs
+          - Makefile
+          - Dockerfile
+          - docker-compose.yml
+          - .editorconfig
+          - .gitignore
+          - .dockerignore
+          - ruff.toml
