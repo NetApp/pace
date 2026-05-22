@@ -14,8 +14,8 @@
   connection: local
 
   tasks:
-    # -- Step 1: Get cluster version ------------------------------------
-    - name: Get cluster info
+    # -- Step 1: Get cluster identity ------------------------------------
+    - name: Get cluster identity
       netapp.ontap.na_ontap_rest_info:
         hostname: "{{ ontap_hostname }}"
         username: "{{ ontap_username }}"
@@ -24,17 +24,17 @@
         validate_certs: "{{ ontap_validate_certs }}"
         use_rest: always
         gather_subset:
-          - cluster/nodes
+          - cluster
         fields:
+          - "name"
           - "version"
       register: cluster_result
-      no_log: false
 
     - name: Display cluster version
       ansible.builtin.debug:
         msg: >-
-          Cluster node: {{ cluster_result.ontap_info['cluster/nodes']['records'][0].name | default('unknown') }}
-          — ONTAP {{ cluster_result.ontap_info['cluster/nodes']['records'][0].version.full | default('unknown') }}
+          Cluster: {{ cluster_result.ontap_info.cluster.name | default('unknown') }}
+          — ONTAP {{ cluster_result.ontap_info.cluster.version.full | default('unknown') }}
 
     # -- Step 2: List nodes with serial numbers -------------------------
     - name: Get node details
