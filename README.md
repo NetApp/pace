@@ -44,6 +44,10 @@ and lifecycle management.
 The examples in this repository target NetApp ONTAP - see
 [Prerequisites](#prerequisites) for the exact requirements.
 
+Every example is indexed in [`catalog.yaml`](catalog.yaml) (machine-readable)
+with prerequisites, run commands, and inputs/outputs. Human-readable sections
+live in the per-style READMEs linked below.
+
 > Visit **[netapp.github.io/pace](https://netapp.github.io/pace/)** for the
 > full guided tour, live code examples, and side-by-side comparisons.
 
@@ -92,6 +96,17 @@ terraform init && terraform apply
 Each style directory has its own README with full setup steps, options,
 and example output.
 
+| Use case | Python | Ansible | Terraform |
+| -------- | ------ | ------- | --------- |
+| Cluster info | [python/](python/README.md#cluster-info) | [ansible/](ansible/README.md#cluster-info) | [terraform/](terraform/README.md#cluster-info) |
+| NFS provision | [python/](python/README.md#nfs-volume-provisioning) | [ansible/](ansible/README.md#nfs-volume-provisioning) | [terraform/](terraform/README.md#nfs-volume-provisioning) |
+| CIFS provision | [python/](python/README.md#cifs-share-provisioning) | [ansible/](ansible/README.md#cifs-share-provisioning) | [terraform/](terraform/README.md#cifs-smb-share-provisioning) |
+| Cluster setup | [python/](python/README.md#cluster-setup) | [ansible/](ansible/README.md#cluster-setup) | — |
+| SnapMirror provision (source) | [python/](python/README.md#snapmirror-provision-source-managed) | [ansible/](ansible/README.md#snapmirror-provision-source-managed) | — |
+| SnapMirror provision (dest) | [python/](python/README.md#snapmirror-provision-destination-managed) | [ansible/](ansible/README.md#snapmirror-provision-destination-managed) | — |
+| SnapMirror test failover | [python/](python/README.md#snapmirror-test-failover) | [ansible/](ansible/README.md#snapmirror-test-failover) | — |
+| SnapMirror cleanup failover | [python/](python/README.md#snapmirror-cleanup-test-failover) | [ansible/](ansible/README.md#snapmirror-cleanup-test-failover) | — |
+
 ---
 
 ## Prerequisites
@@ -123,6 +138,8 @@ Once CA-signed certificates are in place, we recommend turning it on.
 
 | Link                                                                  | What's inside                                  |
 | --------------------------------------------------------------------- | ---------------------------------------------- |
+| [Example catalog](catalog.yaml)                                       | Machine-readable index of all use cases        |
+| [Catalog spec](docs/catalog-spec.md)                                  | Field definitions for `catalog.yaml`           |
 | [Project website](https://netapp.github.io/pace/)                     | Guided tour, prompts, full contribution guide  |
 | [Choosing an approach](docs/choosing-an-approach.md)                  | Decision guide and feature matrix              |
 | [Platform API patterns](docs/ontap-api-patterns.md)                   | REST conventions, auth, async jobs             |

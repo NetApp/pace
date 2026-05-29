@@ -10,6 +10,7 @@
 
 **General**
 - [ ] No secrets, credentials, or API tokens in code or config
+- [ ] Updated [`catalog.yaml`](catalog.yaml) and tool README for new/changed examples (see [CONTRIBUTING.md](CONTRIBUTING.md#example-catalog))
 
 **If touching `python/`**
 - [ ] Scripts compile (`python -m py_compile python/*.py`)

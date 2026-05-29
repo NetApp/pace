@@ -1,0 +1,329 @@
+# Machine-readable index of Pace automation examples.
+# Field definitions: docs/catalog-spec.md
+
+use_cases:
+  - id: cluster-info
+    description: Retrieve cluster version and list nodes with serial numbers
+    products: [ONTAP]
+    ontap_min: "9.8"
+    status: verified
+    tags: [cluster, read-only]
+    variants:
+      python:
+        path: python/cluster_info.py
+        command: "python cluster_info.py"
+        cwd: python
+        prerequisites:
+          env: [ONTAP_HOST, ONTAP_PASS, ONTAP_USER]
+          setup: "pip install -r requirements.txt"
+        inputs: []
+        outputs: [cluster_version, nodes]
+      ansible:
+        path: ansible/cluster_info.yml
+        command: "ansible-playbook -i inventory/hosts.yml cluster_info.yml"
+        cwd: ansible
+        prerequisites:
+          env: [ontap_hostname, ontap_username, ontap_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: []
+        outputs: [cluster_version, nodes]
+      terraform:
+        path: terraform/cluster-info
+        command: "terraform init && terraform apply"
+        cwd: terraform/cluster-info
+        prerequisites:
+          env: []
+          setup: "cp terraform.tfvars.example terraform.tfvars && terraform init"
+        inputs: [ontap_host, ontap_username, ontap_password, validate_certs]
+        outputs: [cluster_name, cluster_version, nodes]
+
+  - id: nfs-provision
+    description: Create an NFS volume with a dedicated export policy and client rule
+    products: [ONTAP]
+    ontap_min: "9.8"
+    status: verified
+    tags: [nfs, provisioning]
+    variants:
+      python:
+        path: python/nfs_provision.py
+        command: >-
+          python nfs_provision.py --svm vs0 --volume vol_nfs_test_01
+          --size 100MB --aggregate aggr1 --client-match 10.0.0.0/8
+        cwd: python
+        prerequisites:
+          env: [ONTAP_HOST, ONTAP_PASS, ONTAP_USER]
+          setup: "pip install -r requirements.txt"
+        inputs: [svm, volume, size, aggregate, client_match]
+        outputs: [volume_name, mount_path, export_policy]
+      ansible:
+        path: ansible/nfs_provision.yml
+        command: "ansible-playbook -i inventory/hosts.yml nfs_provision.yml"
+        cwd: ansible
+        prerequisites:
+          env: [ontap_hostname, ontap_username, ontap_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [svm_name, volume_name, volume_size, volume_size_unit, aggregate_name, client_match]
+        outputs: [volume_name, mount_path, export_policy]
+      terraform:
+        path: terraform/nfs-provision
+        command: "terraform init && terraform apply"
+        cwd: terraform/nfs-provision
+        prerequisites:
+          env: []
+          setup: "cp terraform.tfvars.example terraform.tfvars && terraform init"
+        inputs:
+          - ontap_host
+          - ontap_username
+          - ontap_password
+          - validate_certs
+          - svm_name
+          - volume_name
+          - volume_size
+          - volume_size_unit
+          - aggregate_name
+          - client_match
+        outputs: [volume_name, mount_path, export_policy, client_match]
+
+  - id: cifs-provision
+    description: Create a CIFS share with FlexVol volume and share ACL
+    products: [ONTAP]
+    ontap_min: "9.8"
+    status: verified
+    tags: [cifs, smb, provisioning]
+    variants:
+      python:
+        path: python/cifs_provision.py
+        command: "python cifs_provision.py"
+        cwd: python
+        prerequisites:
+          env: [ONTAP_HOST, ONTAP_PASS, ONTAP_USER]
+          setup: "pip install -r requirements.txt"
+        inputs: [svm, volume, size, aggregate, share_name, acl_user, acl_permission]
+        outputs: [volume_name, share_name, mount_path]
+      ansible:
+        path: ansible/cifs_provision.yml
+        command: "ansible-playbook -i inventory/hosts.yml cifs_provision.yml"
+        cwd: ansible
+        prerequisites:
+          env: [ontap_hostname, ontap_username, ontap_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs:
+          - svm_name
+          - volume_name
+          - volume_size
+          - volume_size_unit
+          - aggregate_name
+          - share_name
+          - share_comment
+          - acl_user
+          - acl_permission
+        outputs: [volume_name, share_name, mount_path]
+      terraform:
+        path: terraform/cifs-provision
+        command: "terraform init && terraform apply"
+        cwd: terraform/cifs-provision
+        prerequisites:
+          env: []
+          setup: "cp terraform.tfvars.example terraform.tfvars && terraform init"
+        inputs:
+          - ontap_host
+          - ontap_username
+          - ontap_password
+          - validate_certs
+          - svm_name
+          - volume_name
+          - volume_size
+          - volume_size_unit
+          - aggregate_name
+          - share_name
+          - share_comment
+          - acl_user
+          - acl_permission
+        outputs: [volume_name, mount_path, share_name, share_path]
+
+  - id: cluster-setup
+    description: Create a storage cluster from two pre-cluster nodes
+    products: [ONTAP]
+    ontap_min: "9.8"
+    status: verified
+    tags: [cluster, setup]
+    variants:
+      python:
+        path: python/cluster_setup_basic.py
+        command: "python cluster_setup_basic.py"
+        cwd: python
+        prerequisites:
+          env:
+            - ONTAP_HOST
+            - ONTAP_USER
+            - ONTAP_PASS
+            - CLUSTER_NAME
+            - CLUSTER_PASS
+            - CLUSTER_MGMT_IP
+            - CLUSTER_NETMASK
+            - CLUSTER_GATEWAY
+            - PARTNER_MGMT_IP
+          setup: "pip install -r requirements.txt"
+        inputs:
+          - cluster_name
+          - cluster_pass
+          - cluster_mgmt_ip
+          - cluster_netmask
+          - cluster_gateway
+          - partner_mgmt_ip
+        outputs: [cluster_name, job_status]
+      ansible:
+        path: ansible/cluster_setup.yml
+        command: "ansible-playbook -i inventory/hosts.yml cluster_setup.yml"
+        cwd: ansible
+        prerequisites:
+          env: [ontap_hostname, ontap_username, ontap_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs:
+          - cluster_name
+          - cluster_pass
+          - cluster_mgmt_ip
+          - cluster_netmask
+          - cluster_gateway
+          - partner_mgmt_ip
+        outputs: [cluster_name, job_status]
+
+  - id: snapmirror-provision-src
+    description: Provision a SnapMirror relationship from the source-managed view
+    products: [ONTAP]
+    ontap_min: "9.8"
+    status: verified
+    tags: [snapmirror, replication, provisioning]
+    variants:
+      python:
+        path: python/snapmirror_provision_src_managed.py
+        command: "python snapmirror_provision_src_managed.py"
+        cwd: python
+        prerequisites:
+          env:
+            - SOURCE_HOST
+            - SOURCE_USER
+            - SOURCE_PASS
+            - SOURCE_SVM
+            - SOURCE_VOLUME
+            - DEST_HOST
+            - DEST_USER
+            - DEST_PASS
+            - DEST_SVM
+          setup: "pip install -r requirements.txt"
+        inputs: [source_svm, source_volume, dest_svm, sm_policy]
+        outputs: [relationship_uuid, relationship_state, relationship_healthy]
+      ansible:
+        path: ansible/snapmirror_provision_src_managed.yml
+        command: "ansible-playbook snapmirror_provision_src_managed.yml"
+        cwd: ansible
+        prerequisites:
+          env:
+            - SOURCE_HOST
+            - SOURCE_USER
+            - SOURCE_PASS
+            - SOURCE_SVM
+            - SOURCE_VOLUME
+            - DEST_HOST
+            - DEST_USER
+            - DEST_PASS
+            - DEST_SVM
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [source_svm, source_volume, dest_svm, sm_policy]
+        outputs: [relationship_uuid, relationship_state, relationship_healthy]
+
+  - id: snapmirror-provision-dest
+    description: Provision a SnapMirror relationship from the destination-managed view
+    products: [ONTAP]
+    ontap_min: "9.8"
+    status: verified
+    tags: [snapmirror, replication, provisioning]
+    variants:
+      python:
+        path: python/snapmirror_provision_dest_managed.py
+        command: "python snapmirror_provision_dest_managed.py"
+        cwd: python
+        prerequisites:
+          env:
+            - SOURCE_HOST
+            - SOURCE_USER
+            - SOURCE_PASS
+            - SOURCE_SVM
+            - SOURCE_VOLUME
+            - DEST_HOST
+            - DEST_USER
+            - DEST_PASS
+            - DEST_SVM
+          setup: "pip install -r requirements.txt"
+        inputs: [source_svm, source_volume, dest_svm, sm_policy]
+        outputs: [relationship_uuid, relationship_state, relationship_healthy]
+      ansible:
+        path: ansible/snapmirror_provision_dest_managed.yml
+        command: "ansible-playbook snapmirror_provision_dest_managed.yml"
+        cwd: ansible
+        prerequisites:
+          env:
+            - SOURCE_HOST
+            - SOURCE_USER
+            - SOURCE_PASS
+            - SOURCE_SVM
+            - SOURCE_VOLUME
+            - DEST_HOST
+            - DEST_USER
+            - DEST_PASS
+            - DEST_SVM
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [source_svm, source_volume, dest_svm, sm_policy]
+        outputs: [relationship_uuid, relationship_state, relationship_healthy]
+
+  - id: snapmirror-test-failover
+    description: Create a writable FlexClone of a SnapMirror destination volume for test failover
+    products: [ONTAP]
+    ontap_min: "9.8"
+    status: verified
+    tags: [snapmirror, failover, disaster-recovery]
+    variants:
+      python:
+        path: python/snapmirror_test_failover.py
+        command: "python snapmirror_test_failover.py"
+        cwd: python
+        prerequisites:
+          env: [CLUSTER_A, CLUSTER_B, DEST_USER, DEST_PASS]
+          setup: "pip install -r requirements.txt"
+        inputs: [source_volume]
+        outputs: [clone_volume, relationship_uuid, relationship_state]
+      ansible:
+        path: ansible/snapmirror_test_failover.yml
+        command: "ansible-playbook snapmirror_test_failover.yml"
+        cwd: ansible
+        prerequisites:
+          env: [CLUSTER_A, CLUSTER_B, DEST_USER, DEST_PASS]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [source_volume]
+        outputs: [clone_volume, relationship_uuid, relationship_state]
+
+  - id: snapmirror-cleanup-failover
+    description: Delete the FlexClone created by snapmirror test failover
+    products: [ONTAP]
+    ontap_min: "9.8"
+    status: verified
+    tags: [snapmirror, failover, cleanup]
+    variants:
+      python:
+        path: python/snapmirror_cleanup_test_failover.py
+        command: "python snapmirror_cleanup_test_failover.py"
+        cwd: python
+        prerequisites:
+          env: [CLUSTER_A, CLUSTER_B, DEST_USER, DEST_PASS, SOURCE_VOLUME, SOURCE_SVM]
+          setup: "pip install -r requirements.txt"
+        inputs: [source_volume, source_svm]
+        outputs: [clone_deleted]
+      ansible:
+        path: ansible/snapmirror_cleanup_test_failover.yml
+        command: "ansible-playbook snapmirror_cleanup_test_failover.yml"
+        cwd: ansible
+        prerequisites:
+          env: [CLUSTER_A, CLUSTER_B, DEST_USER, DEST_PASS, SOURCE_VOLUME, SOURCE_SVM]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [source_volume, source_svm]
+        outputs: [clone_deleted]

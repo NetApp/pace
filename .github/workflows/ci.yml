@@ -25,13 +25,16 @@ jobs:
           python-version: "3.11"
 
       - name: Install dev deps
-        run: pip install ruff
+        run: pip install ruff pyyaml
 
       - name: Ruff lint — Python examples
         run: ruff check python/
 
       - name: Ruff format check
         run: ruff format --check python/
+
+      - name: Validate example catalog
+        run: python scripts/validate_catalog.py
 
       - name: Verify example directories have READMEs
         run: |

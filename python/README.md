@@ -10,6 +10,9 @@ async jobs), see the
 To compare this approach with Ansible or Terraform, see
 [Choosing an approach](../docs/choosing-an-approach.md).
 
+> **Catalog:** [`catalog.yaml`](../catalog.yaml) lists every Python example with
+> prerequisites, inputs, and outputs. Sections below follow the same format.
+
 > **Note:** These scripts are runnable illustrations, not a tested library.
 > There are no unit tests by design - CI validates only lint and formatting
 > via Ruff. When you adapt a script for production, add tests appropriate
@@ -69,16 +72,36 @@ set -a && source cluster.env && set +a
 
 ### Cluster Info
 
+**Use case:** `cluster-info` | **Status:** verified | **ONTAP:** 9.8+
+
 Retrieve the cluster version and list all nodes with serial numbers.
+
+**Prerequisites:** Python 3.11+, `pip install -r requirements.txt`, `ONTAP_HOST` / `ONTAP_PASS` / `ONTAP_USER`
+
+**Usage:**
 
 ```bash
 python cluster_info.py
 ```
 
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| _(none)_ | | | |
+
+| Output | Description |
+|--------|-------------|
+| cluster_version | Full ONTAP version string (stdout) |
+| nodes | Node names and serial numbers (stdout) |
+
 ### NFS Volume Provisioning
 
-Create a FlexVol volume, set up an NFS export policy with a client rule, and
-assign the policy to the volume.
+**Use case:** `nfs-provision` | **Status:** verified | **ONTAP:** 9.8+
+
+Create a FlexVol volume, set up an NFS export policy with a client rule, and assign the policy to the volume.
+
+**Prerequisites:** Python 3.11+, `pip install -r requirements.txt`, `ONTAP_HOST` / `ONTAP_PASS` / `ONTAP_USER`
+
+**Usage:**
 
 ```bash
 python nfs_provision.py \
@@ -89,8 +112,198 @@ python nfs_provision.py \
     --client-match 10.0.0.0/8
 ```
 
-All flags can also be set via environment variables (`SVM_NAME`, `VOLUME_NAME`,
-`VOLUME_SIZE`, `AGGR_NAME`, `CLIENT_MATCH`).
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| svm | yes | — | Target SVM name |
+| volume | yes | — | FlexVol name |
+| size | yes | — | Volume size (e.g. `100MB`) |
+| aggregate | yes | — | Target aggregate |
+| client_match | yes | — | NFS export client CIDR |
+
+| Output | Description |
+|--------|-------------|
+| volume_name | Created volume name (stdout) |
+| mount_path | NAS junction path (stdout) |
+| export_policy | Dedicated export policy name (stdout) |
+
+All flags can also be set via environment variables (`SVM_NAME`, `VOLUME_NAME`, `VOLUME_SIZE`, `AGGR_NAME`, `CLIENT_MATCH`).
+
+### CIFS Share Provisioning
+
+**Use case:** `cifs-provision` | **Status:** verified | **ONTAP:** 9.8+
+
+Create a FlexVol volume with NTFS security style, a CIFS share, and share ACL.
+
+**Prerequisites:** Python 3.11+, `pip install -r requirements.txt`, `ONTAP_HOST` / `ONTAP_PASS` / `ONTAP_USER`, CIFS enabled on the SVM
+
+**Usage:**
+
+```bash
+python cifs_provision.py
+```
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| svm | yes | — | Target SVM name |
+| volume | yes | — | FlexVol name |
+| size | yes | — | Volume size |
+| aggregate | yes | — | Target aggregate |
+| share_name | yes | — | CIFS share name |
+| acl_user | no | Everyone | ACL user or group |
+| acl_permission | no | full_control | ACL permission level |
+
+| Output | Description |
+|--------|-------------|
+| volume_name | Created volume name (stdout) |
+| share_name | CIFS share name (stdout) |
+| mount_path | NAS junction path (stdout) |
+
+Configure via CLI flags, environment variables, or `--env-file` — see script docstring.
+
+### Cluster Setup
+
+**Use case:** `cluster-setup` | **Status:** verified | **ONTAP:** 9.8+
+
+Create a storage cluster from two pre-cluster nodes.
+
+**Prerequisites:** Python 3.11+, `pip install -r requirements.txt`, pre-cluster node management IP and cluster network details
+
+**Usage:**
+
+```bash
+export ONTAP_HOST=10.x.x.x ONTAP_USER=admin ONTAP_PASS=
+export CLUSTER_NAME=mycluster CLUSTER_PASS=secret
+export CLUSTER_MGMT_IP=10.x.x.x CLUSTER_NETMASK=255.255.192.0
+export CLUSTER_GATEWAY=10.x.x.1 PARTNER_MGMT_IP=10.x.x.y
+python cluster_setup_basic.py
+```
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| cluster_name | yes | — | New cluster name |
+| cluster_pass | yes | — | Cluster admin password |
+| cluster_mgmt_ip | yes | — | Cluster management LIF IP |
+| cluster_netmask | yes | — | Management subnet mask |
+| cluster_gateway | yes | — | Default gateway |
+| partner_mgmt_ip | yes | — | Partner node management IP |
+
+| Output | Description |
+|--------|-------------|
+| cluster_name | Created cluster name (stdout) |
+| job_status | Cluster-create job result (stdout) |
+
+### SnapMirror Provision (Source-Managed)
+
+**Use case:** `snapmirror-provision-src` | **Status:** verified | **ONTAP:** 9.8+
+
+Provision a SnapMirror relationship from the source-managed view (API calls run on the destination cluster).
+
+**Prerequisites:** Python 3.11+, `pip install -r requirements.txt`, cluster/SVM peering, source RW volume, SnapMirror license on both clusters
+
+**Usage:**
+
+```bash
+export SOURCE_HOST=10.x.x.x SOURCE_USER=admin SOURCE_PASS=secret
+export SOURCE_SVM=vs0 SOURCE_VOLUME=vol_rw_01
+export DEST_HOST=10.y.y.y DEST_USER=admin DEST_PASS=secret DEST_SVM=vs1
+python snapmirror_provision_src_managed.py
+```
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| source_svm | yes | — | Source SVM name |
+| source_volume | yes | — | Source RW volume name |
+| dest_svm | yes | — | Destination SVM name |
+| sm_policy | no | Asynchronous | SnapMirror policy name |
+
+| Output | Description |
+|--------|-------------|
+| relationship_uuid | SnapMirror relationship UUID (stdout) |
+| relationship_state | Final relationship state (stdout) |
+| relationship_healthy | Health status (stdout) |
+
+### SnapMirror Provision (Destination-Managed)
+
+**Use case:** `snapmirror-provision-dest` | **Status:** verified | **ONTAP:** 9.8+
+
+Provision a SnapMirror relationship with all API calls driven from the destination cluster.
+
+**Prerequisites:** Python 3.11+, `pip install -r requirements.txt`, cluster/SVM peering, source RW volume, SnapMirror license on both clusters
+
+**Usage:**
+
+```bash
+export SOURCE_HOST=10.x.x.x SOURCE_USER=admin SOURCE_PASS=secret
+export SOURCE_SVM=vs0 SOURCE_VOLUME=vol_rw_01
+export DEST_HOST=10.y.y.y DEST_USER=admin DEST_PASS=secret DEST_SVM=vs1
+python snapmirror_provision_dest_managed.py
+```
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| source_svm | yes | — | Source SVM name |
+| source_volume | yes | — | Source RW volume name |
+| dest_svm | yes | — | Destination SVM name |
+| sm_policy | no | Asynchronous | SnapMirror policy name |
+
+| Output | Description |
+|--------|-------------|
+| relationship_uuid | SnapMirror relationship UUID (stdout) |
+| relationship_state | Final relationship state (stdout) |
+| relationship_healthy | Health status (stdout) |
+
+### SnapMirror Test Failover
+
+**Use case:** `snapmirror-test-failover` | **Status:** verified | **ONTAP:** 9.8+
+
+Create a writable FlexClone of a SnapMirror destination volume for test failover.
+
+**Prerequisites:** Python 3.11+, `pip install -r requirements.txt`, healthy SnapMirror relationship in `snapmirrored` state
+
+**Usage:**
+
+```bash
+export CLUSTER_A=10.x.x.x CLUSTER_B=10.y.y.y
+export DEST_USER=admin DEST_PASS=secret
+export SOURCE_VOLUME=*
+python snapmirror_test_failover.py
+```
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| source_volume | no | `*` | Source volume name, or `*` to auto-detect |
+
+| Output | Description |
+|--------|-------------|
+| clone_volume | Writable FlexClone volume name (stdout) |
+| relationship_uuid | SnapMirror relationship UUID (stdout) |
+| relationship_state | Post-failover relationship state (stdout) |
+
+### SnapMirror Cleanup Test Failover
+
+**Use case:** `snapmirror-cleanup-failover` | **Status:** verified | **ONTAP:** 9.8+
+
+Delete the FlexClone created by `snapmirror_test_failover.py`.
+
+**Prerequisites:** Python 3.11+, `pip install -r requirements.txt`, test failover clone must exist
+
+**Usage:**
+
+```bash
+export CLUSTER_A=10.x.x.x CLUSTER_B=10.y.y.y
+export DEST_USER=admin DEST_PASS=secret
+export SOURCE_VOLUME=vol_rw_01 SOURCE_SVM=vs0
+python snapmirror_cleanup_test_failover.py
+```
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| source_volume | yes | — | Source volume name used to locate the clone |
+| source_svm | yes | vs0 | Source SVM name |
+
+| Output | Description |
+|--------|-------------|
+| clone_deleted | Confirmation that the tagged clone was removed (stdout) |
 
 ---
 
@@ -101,6 +314,12 @@ All flags can also be set via environment variables (`SVM_NAME`, `VOLUME_NAME`,
 | `ontap_client.py` | Reusable ONTAP REST client (session management, auth, polling, error handling) |
 | `cluster_info.py` | Get cluster version + node list |
 | `nfs_provision.py` | Create NFS volume with export policy |
+| `cifs_provision.py` | Create CIFS share with volume and ACL |
+| `cluster_setup_basic.py` | Create cluster from two pre-cluster nodes |
+| `snapmirror_provision_src_managed.py` | SnapMirror provision (source-managed view) |
+| `snapmirror_provision_dest_managed.py` | SnapMirror provision (destination-managed view) |
+| `snapmirror_test_failover.py` | SnapMirror test failover via FlexClone |
+| `snapmirror_cleanup_test_failover.py` | Clean up test failover clone |
 | `requirements.txt` | Python dependencies |
 
 ## Code Patterns

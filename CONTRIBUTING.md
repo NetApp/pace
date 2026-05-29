@@ -44,6 +44,7 @@ field:
 python/               # Python script examples
 ansible/              # Ansible playbook examples
 terraform/            # Terraform module examples
+catalog.yaml          # Machine-readable example index (see docs/catalog-spec.md)
 docs/                 # Shared documentation
 .github/              # CI workflows, templates, review config
 TESTING.md            # What to capture in the PR Test Report
@@ -72,6 +73,60 @@ Use `docs/example-template/` as a starting point.
 - `<use_case>/outputs.tf` - useful output values
 - `<use_case>/terraform.tfvars.example` - variable template
 - Update `terraform/README.md` with a section for the new example
+
+### Example catalog
+
+Every example must be registered in [`catalog.yaml`](catalog.yaml) at the repo
+root. The catalog is the machine-readable index of use cases, prerequisites,
+run commands, and inputs/outputs.
+
+Field definitions and conventions: [`docs/catalog-spec.md`](docs/catalog-spec.md).
+
+When adding or changing an example:
+
+1. Add or update a `use_cases` entry in `catalog.yaml` (group Python, Ansible,
+   and Terraform variants under the same use case when they automate the same
+   task)
+2. Set `status: draft` on first pull request; maintainers promote to `verified`
+   after review
+3. List all credentials in `prerequisites.env` — no hidden authentication
+4. Include a one-sentence use-case justification in the pull request description
+
+Catalog entries are validated by CI (`scripts/validate_catalog.py`). Run
+`make validate-catalog` locally before pushing.
+
+### README section template
+
+Each example also needs a human-readable section in the parent tool README
+(`python/README.md`, `ansible/README.md`, or `terraform/README.md`). Use this
+template so sections stay consistent with the catalog:
+
+````markdown
+### {Title Case Name}
+
+**Use case:** `{id}` | **Status:** {status} | **ONTAP:** {ontap_min}+
+
+{description}
+
+**Prerequisites:** {setup steps}, {env vars or vars file}
+
+**Usage:**
+```bash
+{command}
+```
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| param | yes | — | What it controls |
+
+| Output | Description |
+|--------|-------------|
+| output_name | What the example produces |
+````
+
+Use `_(none)_` in the Input table when the example takes no parameters. Keep
+`command`, prerequisites, and I/O tables aligned with the matching variant in
+`catalog.yaml`.
 
 ### Quality bar
 
@@ -181,6 +236,7 @@ Use the Makefile to mirror exactly what CI runs:
 make help                # Show all available targets
 make ci                  # Run lint (mirrors ci.yml)
 make lint                # Ruff lint + format check
+make validate-catalog    # Validate catalog.yaml against repo examples
 make ansible-lint        # Ansible syntax-check + ansible-lint
 make terraform-validate  # Terraform fmt, validate, tflint
 make troubleshoot        # Print numbered troubleshooting index
@@ -228,6 +284,7 @@ PRs are validated by GitHub Actions workflows:
 | What | Workflow | Trigger | Scope |
 |------|----------|---------|-------|
 | **Python lint + format** | `ci.yml` | Every push & PR | `ruff check` + `ruff format --check` on `python/` |
+| **Catalog validation** | `ci.yml` | Every push & PR | `scripts/validate_catalog.py` — catalog completeness and field checks |
 | **README check** | `ci.yml` | Every push & PR | Verifies `python/`, `ansible/`, `terraform/` each have a `README.md` |
 | **Commit lint** | `pr-guard.yml` | PRs only | Conventional commit messages via commitlint |
 | **Secret scan** | `pr-guard.yml` | PRs only | TruffleHog scans PR diff for leaked credentials |

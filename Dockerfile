@@ -23,6 +23,7 @@ RUN curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/in
 # Python tooling
 RUN pip install --no-cache-dir \
         ruff \
+        pyyaml \
         pre-commit \
         ansible \
         ansible-lint

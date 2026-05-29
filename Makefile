@@ -13,9 +13,13 @@ $(VENV)/bin/activate:
 
 .PHONY: install
 install: $(VENV)/bin/activate ## Create venv and install dev deps
-	$(PIP) install -q ruff
+	$(PIP) install -q ruff pyyaml
 
 # ── Mirrors ci.yml ─────────────────────────────────────────────
+
+.PHONY: validate-catalog
+validate-catalog: ## Validate catalog.yaml against repo examples
+	$(PYTHON) scripts/validate_catalog.py
 
 .PHONY: lint
 lint: ## Ruff lint + format check (python examples)
@@ -23,7 +27,7 @@ lint: ## Ruff lint + format check (python examples)
 	$(PYTHON) -m ruff format --check python/
 
 .PHONY: ci
-ci: lint ## Run all core CI checks locally
+ci: lint validate-catalog ## Run all core CI checks locally
 
 # ── Mirrors validate-examples.yml ──────────────────────────────
 

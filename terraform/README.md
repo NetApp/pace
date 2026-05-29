@@ -11,6 +11,9 @@ async jobs), see the
 To compare this approach with Python or Ansible, see
 [Choosing an approach](../docs/choosing-an-approach.md).
 
+> **Catalog:** [`catalog.yaml`](../catalog.yaml) lists every Terraform module with
+> prerequisites, inputs, and outputs. Sections below follow the same format.
+
 ---
 
 ## Prerequisites
@@ -53,8 +56,13 @@ terraform apply
 
 ### Cluster Info
 
-Read-only - retrieves the cluster version and lists all nodes. Uses only
-Terraform data sources, so `terraform apply` makes no changes to the cluster.
+**Use case:** `cluster-info` | **Status:** verified | **ONTAP:** 9.8+
+
+Read-only — retrieves the cluster version and lists all nodes. Uses only Terraform data sources, so `terraform apply` makes no changes to the cluster.
+
+**Prerequisites:** Terraform >= 1.4, `cp terraform.tfvars.example terraform.tfvars && terraform init`, cluster credentials in `terraform.tfvars`
+
+**Usage:**
 
 ```bash
 cd cluster-info
@@ -63,25 +71,35 @@ cp terraform.tfvars.example terraform.tfvars
 terraform init && terraform apply
 ```
 
-Outputs:
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| ontap_host | yes | — | Cluster management LIF |
+| ontap_username | no | admin | Admin username |
+| ontap_password | yes | — | Admin password |
+| validate_certs | no | false | TLS certificate validation |
 
-```
-cluster_name    = "cluster1"
-cluster_version = "9.14.1"
-nodes           = [ { name = "node1", serial_number = "..." }, ... ]
-```
+| Output | Description |
+|--------|-------------|
+| cluster_name | ONTAP cluster name |
+| cluster_version | Full ONTAP software version |
+| nodes | List of cluster nodes with serial numbers |
 
 ### NFS Volume Provisioning
 
-Creates a FlexVol volume, a dedicated NFS export policy with a client-match
-rule, and assigns the policy to the volume.
+**Use case:** `nfs-provision` | **Status:** verified | **ONTAP:** 9.8+
+
+Creates a FlexVol volume, a dedicated NFS export policy with a client-match rule, and assigns the policy to the volume.
+
+**Prerequisites:** Terraform >= 1.4, `cp terraform.tfvars.example terraform.tfvars && terraform init`, cluster credentials in `terraform.tfvars`
+
+**Usage:**
 
 ```bash
 cd nfs-provision
 cp terraform.tfvars.example terraform.tfvars
 # edit terraform.tfvars
-terraform init && terraform plan   # review the plan
-terraform apply                     # create resources
+terraform init && terraform plan
+terraform apply
 ```
 
 To tear down the resources:
@@ -90,17 +108,42 @@ To tear down the resources:
 terraform destroy
 ```
 
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| ontap_host | yes | — | Cluster management LIF |
+| ontap_username | no | admin | Admin username |
+| ontap_password | yes | — | Admin password |
+| validate_certs | no | false | TLS certificate validation |
+| svm_name | no | vs0 | Target SVM |
+| volume_name | no | vol_nfs_test_01 | FlexVol name |
+| volume_size | no | 100 | Volume size |
+| volume_size_unit | no | mb | Size unit |
+| aggregate_name | yes | — | Target aggregate |
+| client_match | no | 0.0.0.0/0 | NFS export client CIDR |
+
+| Output | Description |
+|--------|-------------|
+| volume_name | Created volume name |
+| mount_path | NAS junction path |
+| export_policy | Dedicated export policy name |
+| client_match | Export policy client match rule |
+
 ### CIFS (SMB) Share Provisioning
 
-Creates a FlexVol volume with NTFS security style, a CIFS share pointing to the
-volume, and an ACL granting the specified user/group the requested permission level.
+**Use case:** `cifs-provision` | **Status:** verified | **ONTAP:** 9.8+
+
+Creates a FlexVol volume with NTFS security style, a CIFS share, and an ACL.
+
+**Prerequisites:** Terraform >= 1.4, `cp terraform.tfvars.example terraform.tfvars && terraform init`, CIFS enabled on the SVM
+
+**Usage:**
 
 ```bash
 cd cifs-provision
 cp terraform.tfvars.example terraform.tfvars
 # edit terraform.tfvars
-terraform init && terraform plan   # review the plan
-terraform apply                     # create resources
+terraform init && terraform plan
+terraform apply
 ```
 
 To tear down the resources:
@@ -108,6 +151,29 @@ To tear down the resources:
 ```bash
 terraform destroy
 ```
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| ontap_host | yes | — | Cluster management LIF |
+| ontap_username | no | admin | Admin username |
+| ontap_password | yes | — | Admin password |
+| validate_certs | no | false | TLS certificate validation |
+| svm_name | no | vs0 | Target SVM |
+| volume_name | no | vol_cifs_test_01 | FlexVol name |
+| volume_size | no | 100 | Volume size |
+| volume_size_unit | no | mb | Size unit |
+| aggregate_name | yes | — | Target aggregate |
+| share_name | no | cifs_share_test | CIFS share name |
+| share_comment | no | Provisioned by Pace | Share description |
+| acl_user | no | Everyone | ACL user or group |
+| acl_permission | no | full_control | ACL permission level |
+
+| Output | Description |
+|--------|-------------|
+| volume_name | Created volume name |
+| mount_path | NAS junction path |
+| share_name | CIFS share name |
+| share_path | Path the share points to |
 
 ---
 

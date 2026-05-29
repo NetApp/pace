@@ -13,6 +13,8 @@ body:
         Thanks for taking the time to file a bug. The more reproduction
         detail you can paste, the faster we can fix it.
 
+        The canonical list of examples is in [`catalog.yaml`](../../catalog.yaml).
+
   - type: dropdown
     id: example
     attributes:
