@@ -30,7 +30,7 @@ jobs:
     steps:
       - name: Detect example-code changes
         id: scope
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const { data: files } = await github.rest.pulls.listFiles({
@@ -49,7 +49,7 @@ jobs:
       - name: Evaluate Test Report and label
         env:
           TOUCHED: ${{ steps.scope.outputs.touched }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const LABEL = 'needs-test-report';
