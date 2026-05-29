@@ -87,8 +87,9 @@ When adding or changing an example:
 1. Add or update a `use_cases` entry in `catalog.yaml` (group Python, Ansible,
    and Terraform variants under the same use case when they automate the same
    task)
-2. Set `status: draft` on first pull request; maintainers promote to `verified`
-   after review
+2. Set `status: draft` and list `owners` (GitHub handles, no `@`) on first pull
+   request; maintainers promote to `verified` after review with a `verification`
+   block where `verified_by` is one of the listed owners
 3. List all credentials in `prerequisites.env` — no hidden authentication
 4. Include a one-sentence use-case justification in the pull request description
 

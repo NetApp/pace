@@ -56,6 +56,7 @@ Set `status: draft` on your first pull request:
     description: One sentence describing the storage task
     products: [ONTAP]
     ontap_min: "9.8"
+    owners: [your-github-handle]
     status: draft
     tags: [relevant, labels]
     variants:
@@ -72,3 +73,7 @@ Set `status: draft` on your first pull request:
 
 Replace `python` with `ansible` or `terraform` and adjust `path`, `command`,
 `cwd`, and `prerequisites` for each variant you add.
+
+When a maintainer promotes the entry to `verified`, they add a `verification`
+block with `verified_by` set to one of the listed `owners`. See
+[`docs/catalog-spec.md`](../catalog-spec.md#verification-block).

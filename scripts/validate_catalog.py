@@ -29,15 +29,125 @@ CATALOG_PATH = ROOT / "catalog.yaml"
 
 VALID_STATUS = frozenset({"draft", "verified", "deprecated"})
 VALID_TOOLS = frozenset({"python", "ansible", "terraform"})
+VALID_ENVIRONMENT = frozenset(
+    {
+        "ontap-simulator",
+        "ontap-select",
+        "real-cluster",
+        "cloud-volumes-ontap",
+        "other",
+    }
+)
 KEBAB_CASE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+GITHUB_HANDLE = re.compile(r"^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$")
+ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
-USE_CASE_REQUIRED = ("id", "description", "products", "ontap_min", "status", "variants")
+USE_CASE_REQUIRED = (
+    "id",
+    "description",
+    "products",
+    "ontap_min",
+    "owners",
+    "status",
+    "variants",
+)
 VARIANT_REQUIRED = ("path", "command", "cwd", "prerequisites", "inputs", "outputs")
 PREREQ_REQUIRED = ("setup", "env")
+VERIFICATION_REQUIRED = ("verified_by", "tested_at", "ontap_version", "environment")
 
 
 def _err(errors: list[str], message: str) -> None:
     errors.append(message)
+
+
+def _validate_owners(errors: list[str], prefix: str, owners: object) -> list[str] | None:
+    if not isinstance(owners, list) or not owners:
+        _err(errors, f"{prefix}: 'owners' must be a non-empty list")
+        return None
+
+    normalized: list[str] = []
+    for index, owner in enumerate(owners):
+        if not isinstance(owner, str) or not owner.strip():
+            _err(errors, f"{prefix}.owners[{index}]: must be a non-empty string")
+            continue
+        if owner.startswith("@"):
+            _err(errors, f"{prefix}.owners[{index}]: must not include '@' prefix")
+            continue
+        if not GITHUB_HANDLE.match(owner):
+            _err(errors, f"{prefix}.owners[{index}]: invalid GitHub handle '{owner}'")
+            continue
+        normalized.append(owner.lower())
+
+    if len(normalized) != len(set(normalized)):
+        _err(errors, f"{prefix}: 'owners' must not contain duplicates (case-insensitive)")
+
+    return normalized
+
+
+def _validate_verification(
+    errors: list[str],
+    prefix: str,
+    status: str,
+    verification: object,
+    owner_handles: list[str] | None,
+) -> None:
+    has_verification = verification is not None
+
+    if status in {"draft", "deprecated"}:
+        if has_verification:
+            _err(
+                errors,
+                f"{prefix}: 'verification' must not be set when status is '{status}'",
+            )
+        return
+
+    if status != "verified":
+        return
+
+    if not isinstance(verification, dict):
+        _err(errors, f"{prefix}: 'verification' is required when status is 'verified'")
+        return
+
+    for field in VERIFICATION_REQUIRED:
+        if field not in verification:
+            _err(errors, f"{prefix}.verification: missing required field '{field}'")
+
+    verified_by = verification.get("verified_by")
+    if isinstance(verified_by, str) and verified_by.strip():
+        if verified_by.startswith("@"):
+            _err(errors, f"{prefix}.verification.verified_by: must not include '@' prefix")
+        elif not GITHUB_HANDLE.match(verified_by):
+            _err(
+                errors,
+                f"{prefix}.verification.verified_by: invalid GitHub handle '{verified_by}'",
+            )
+        elif owner_handles is not None and verified_by.lower() not in owner_handles:
+            _err(
+                errors,
+                f"{prefix}.verification.verified_by: '{verified_by}' must be listed in owners",
+            )
+    else:
+        _err(errors, f"{prefix}.verification.verified_by: must be a non-empty string")
+
+    tested_at = verification.get("tested_at")
+    if not isinstance(tested_at, str) or not ISO_DATE.match(tested_at):
+        _err(errors, f"{prefix}.verification.tested_at: must be ISO date YYYY-MM-DD")
+
+    ontap_version = verification.get("ontap_version")
+    if not isinstance(ontap_version, str) or not ontap_version.strip():
+        _err(errors, f"{prefix}.verification.ontap_version: must be a non-empty string")
+
+    environment = verification.get("environment")
+    if environment not in VALID_ENVIRONMENT:
+        _err(
+            errors,
+            f"{prefix}.verification.environment: must be one of {sorted(VALID_ENVIRONMENT)}",
+        )
+
+    for optional in ("test_report", "notes"):
+        value = verification.get(optional)
+        if value is not None and (not isinstance(value, str) or not value.strip()):
+            _err(errors, f"{prefix}.verification.{optional}: must be a non-empty string")
 
 
 def _discover_python() -> set[str]:
@@ -96,6 +206,15 @@ def validate_catalog(data: object) -> list[str]:
         status = use_case.get("status")
         if status not in VALID_STATUS:
             _err(errors, f"{prefix}: 'status' must be one of {sorted(VALID_STATUS)}")
+
+        owner_handles = _validate_owners(errors, prefix, use_case.get("owners"))
+        _validate_verification(
+            errors,
+            prefix,
+            status if isinstance(status, str) else "",
+            use_case.get("verification"),
+            owner_handles,
+        )
 
         description = use_case.get("description")
         if not isinstance(description, str) or not description.strip():

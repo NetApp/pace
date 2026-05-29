@@ -6,8 +6,15 @@ use_cases:
     description: Retrieve cluster version and list nodes with serial numbers
     products: [ONTAP]
     ontap_min: "9.8"
+    owners: [57388sp, kxvya-git, mahatvagarg]
     status: verified
     tags: [cluster, read-only]
+    verification:
+      verified_by: 57388sp
+      tested_at: "2026-05-29"
+      ontap_version: "9.8"
+      environment: other
+      notes: "Python: 57388sp, Ansible: kxvya-git, Terraform: mahatvagarg"
     variants:
       python:
         path: python/cluster_info.py
@@ -41,8 +48,15 @@ use_cases:
     description: Create an NFS volume with a dedicated export policy and client rule
     products: [ONTAP]
     ontap_min: "9.8"
+    owners: [57388sp, kxvya-git, mahatvagarg]
     status: verified
     tags: [nfs, provisioning]
+    verification:
+      verified_by: 57388sp
+      tested_at: "2026-05-29"
+      ontap_version: "9.8"
+      environment: other
+      notes: "Python: 57388sp, Ansible: kxvya-git, Terraform: mahatvagarg"
     variants:
       python:
         path: python/nfs_provision.py
@@ -88,8 +102,15 @@ use_cases:
     description: Create a CIFS share with FlexVol volume and share ACL
     products: [ONTAP]
     ontap_min: "9.8"
+    owners: [57388sp, kxvya-git, mahatvagarg]
     status: verified
     tags: [cifs, smb, provisioning]
+    verification:
+      verified_by: 57388sp
+      tested_at: "2026-05-29"
+      ontap_version: "9.8"
+      environment: other
+      notes: "Python: 57388sp, Ansible: kxvya-git, Terraform: mahatvagarg"
     variants:
       python:
         path: python/cifs_provision.py
@@ -145,8 +166,15 @@ use_cases:
     description: Create a storage cluster from two pre-cluster nodes
     products: [ONTAP]
     ontap_min: "9.8"
+    owners: [57388sp, kxvya-git]
     status: verified
     tags: [cluster, setup]
+    verification:
+      verified_by: 57388sp
+      tested_at: "2026-05-29"
+      ontap_version: "9.8"
+      environment: other
+      notes: "Python: 57388sp, Ansible: kxvya-git"
     variants:
       python:
         path: python/cluster_setup_basic.py
@@ -192,8 +220,15 @@ use_cases:
     description: Provision a SnapMirror relationship from the source-managed view
     products: [ONTAP]
     ontap_min: "9.8"
+    owners: [57388sp, kxvya-git]
     status: verified
     tags: [snapmirror, replication, provisioning]
+    verification:
+      verified_by: 57388sp
+      tested_at: "2026-05-29"
+      ontap_version: "9.8"
+      environment: other
+      notes: "Python: 57388sp, Ansible: kxvya-git"
     variants:
       python:
         path: python/snapmirror_provision_src_managed.py
@@ -236,8 +271,15 @@ use_cases:
     description: Provision a SnapMirror relationship from the destination-managed view
     products: [ONTAP]
     ontap_min: "9.8"
+    owners: [57388sp, kxvya-git]
     status: verified
     tags: [snapmirror, replication, provisioning]
+    verification:
+      verified_by: 57388sp
+      tested_at: "2026-05-29"
+      ontap_version: "9.8"
+      environment: other
+      notes: "Python: 57388sp, Ansible: kxvya-git"
     variants:
       python:
         path: python/snapmirror_provision_dest_managed.py
@@ -280,8 +322,15 @@ use_cases:
     description: Create a writable FlexClone of a SnapMirror destination volume for test failover
     products: [ONTAP]
     ontap_min: "9.8"
+    owners: [57388sp, kxvya-git]
     status: verified
     tags: [snapmirror, failover, disaster-recovery]
+    verification:
+      verified_by: 57388sp
+      tested_at: "2026-05-29"
+      ontap_version: "9.8"
+      environment: other
+      notes: "Python: 57388sp, Ansible: kxvya-git"
     variants:
       python:
         path: python/snapmirror_test_failover.py
@@ -306,8 +355,15 @@ use_cases:
     description: Delete the FlexClone created by snapmirror test failover
     products: [ONTAP]
     ontap_min: "9.8"
+    owners: [57388sp, kxvya-git]
     status: verified
     tags: [snapmirror, failover, cleanup]
+    verification:
+      verified_by: 57388sp
+      tested_at: "2026-05-29"
+      ontap_version: "9.8"
+      environment: other
+      notes: "Python: 57388sp, Ansible: kxvya-git"
     variants:
       python:
         path: python/snapmirror_cleanup_test_failover.py
