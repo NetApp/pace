@@ -3,7 +3,7 @@
 
 use_cases:
   - id: cluster-info
-    description: Retrieve cluster version and list nodes with serial numbers
+    description: Retrieve cluster version, list nodes with serial numbers, and display aggregate usage
     products: [ONTAP]
     ontap_min: "9.8"
     owners: [57388sp, kxvya-git, mahatvagarg]
@@ -24,7 +24,7 @@ use_cases:
           env: [ONTAP_HOST, ONTAP_PASS, ONTAP_USER]
           setup: "pip install -r requirements.txt"
         inputs: []
-        outputs: [cluster_version, nodes]
+        outputs: [cluster_version, nodes, aggregates]
       ansible:
         path: ansible/cluster_info.yml
         command: "ansible-playbook -i inventory/hosts.yml cluster_info.yml"

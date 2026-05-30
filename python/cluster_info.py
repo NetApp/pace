@@ -3,11 +3,12 @@
 # SPDX-License-Identifier: Apache-2.0
 # See the NOTICE file in the repo root for trademark and attribution details.
 
-"""Retrieve storage cluster version and list all nodes with serial numbers.
+"""Retrieve storage cluster version, list nodes, and display aggregate usage.
 
 Steps:
     1. GET /cluster — retrieve cluster name and ONTAP version
     2. GET /cluster/nodes — list all nodes with serial numbers
+    3. GET /storage/aggregates — list aggregates with state and used capacity
 
 Prerequisites::
 
@@ -53,6 +54,32 @@ def main() -> None:
                 "  %-30s  serial: %s",
                 node.get("name", "—"),
                 node.get("serial_number", "—"),
+            )
+
+        # Step 3 — aggregate list
+        aggregates_resp = client.get(
+            "/storage/aggregates", fields="name,state,space.block_storage"
+        )
+
+        aggregates = aggregates_resp.get("records", [])
+
+        logger.info(
+            "Aggregates in cluster: %d",
+            aggregates_resp.get("num_records", len(aggregates)),
+        )
+        for aggregate in aggregates:
+            block_storage = aggregate.get("space", {}).get("block_storage", {})
+
+            used = block_storage.get("used", 0)
+            size = block_storage.get("size", 0)
+
+            used_percentage = (used / size * 100) if size else 0
+
+            logger.info(
+                "  %-30s  state: %-10s used: %.1f%%",
+                aggregate.get("name", "—"),
+                aggregate.get("state", "—"),
+                used_percentage,
             )
 
 

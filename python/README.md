@@ -74,7 +74,7 @@ set -a && source cluster.env && set +a
 
 **Use case:** `cluster-info` | **Status:** verified | **ONTAP:** 9.8+
 
-Retrieve the cluster version and list all nodes with serial numbers.
+Retrieve the cluster version, list all nodes with serial numbers, and display aggregate state and used capacity.
 
 **Prerequisites:** Python 3.11+, `pip install -r requirements.txt`, `ONTAP_HOST` / `ONTAP_PASS` / `ONTAP_USER`
 
@@ -92,6 +92,7 @@ python cluster_info.py
 |--------|-------------|
 | cluster_version | Full ONTAP version string (stdout) |
 | nodes | Node names and serial numbers (stdout) |
+| aggregates | Aggregate name, state, and used percentage (stdout) |
 
 ### NFS Volume Provisioning
 
@@ -312,7 +313,7 @@ python snapmirror_cleanup_test_failover.py
 | File | Purpose |
 |---|---|
 | `ontap_client.py` | Reusable ONTAP REST client (session management, auth, polling, error handling) |
-| `cluster_info.py` | Get cluster version + node list |
+| `cluster_info.py` | Get cluster version, node list, and aggregate usage |
 | `nfs_provision.py` | Create NFS volume with export policy |
 | `cifs_provision.py` | Create CIFS share with volume and ACL |
 | `cluster_setup_basic.py` | Create cluster from two pre-cluster nodes |
