@@ -26,11 +26,21 @@ Steps:
 
 Prerequisites:
     1. pip install -r requirements.txt
-    2. ONTAP 9.8+ on both clusters
-    3. SnapMirror licence installed on both clusters
-    4. At least one intercluster LIF on each cluster
+    2. ONTAP 9.8+ on both clusters (mixed versions supported; dest cluster drives all API calls)
+    3. SnapMirror licence installed on BOTH clusters — source AND destination.
+       Verify via: ``system license show -package SnapMirror`` on each cluster.
+    4. At least one intercluster LIF on each cluster, AND:
+         - IC LIFs on both clusters must be on a mutually routable subnet, OR
+           TCP 11104 and 11105 must be open between the two sets of IC LIF IPs.
+         - SnapMirror data transfers are always initiated by the DESTINATION cluster
+           connecting outbound to the source cluster on TCP 11104/11105.
+         - The script checks IC LIF subnets at startup and warns if they are disjoint.
+         - Tip: run ``network interface show -role intercluster`` on each cluster to
+           confirm the IPs and verify reachability with ``ping`` before running this script.
     5. Cluster peer relationship already exists between source and dest clusters
+       (or will be auto-created by this script if none is found)
     6. SVM peer relationship already exists (source SVM <-> dest SVM)
+       (or will be auto-created by this script if none is found)
     7. Source RW volume (SOURCE_VOLUME) already exists on SOURCE_SVM
     8. At least one online aggregate on the destination cluster
     9. Admin credentials for both clusters
@@ -52,7 +62,7 @@ import os
 import sys
 import time
 
-from ontap_client import OntapClient
+from ontap_client import OntapApiError, OntapClient
 
 logging.basicConfig(
     level=logging.INFO,
@@ -67,18 +77,22 @@ INPUTS = {
     "SOURCE_HOST": "",  # source cluster management IP — set via SOURCE_HOST env var
     "SOURCE_USER": "admin",
     "SOURCE_PASS": "",  # set via SOURCE_PASS env var — never hardcode
-    "SOURCE_SVM": "svm1",  # source SVM name
-    "SOURCE_VOLUME": "vol_py1",  # source RW volume name
+    "SOURCE_SVM": "",  # source SVM name
+    "SOURCE_VOLUME": "",  # source RW volume name
     "DEST_HOST": "",  # destination cluster management IP — set via DEST_HOST env var
     "DEST_USER": "admin",
     "DEST_PASS": "",  # set via DEST_PASS env var — never hardcode
-    "DEST_SVM": "vs0",  # destination SVM name
+    "DEST_SVM": "",  # destination SVM name
     "SM_POLICY": "Asynchronous",  # SnapMirror policy (optional)
 }
 # ---------------------------------------------------------------------------
 
 
 def _env(key: str, default: str = "") -> str:
+    """Return the value for *key* from INPUTS or os.environ.
+
+    Logs an error and exits if the resolved value is empty and no *default* is given.
+    """
     val = INPUTS.get(key) or os.environ.get(key, default)
     if not val:
         logger.error(
@@ -89,47 +103,29 @@ def _env(key: str, default: str = "") -> str:
     return val
 
 
-def _poll_job(client: OntapClient, job_uuid: str, interval: int = 10) -> dict:
-    while True:
-        result = client.get(f"/cluster/jobs/{job_uuid}", fields="state,message,error,code")
-        state = result.get("state", "unknown")
-        logger.info("  job %s — state=%s", job_uuid, state)
-        if state != "running":
-            return result
-        time.sleep(interval)
-
-
-def _wait_snapmirrored(
-    client: OntapClient, rel_uuid: str, interval: int = 15, max_wait: int = 1800
-) -> dict:
-    elapsed = 0
-    while elapsed < max_wait:
-        result = client.get(
-            f"/snapmirror/relationships/{rel_uuid}",
-            fields="state,lag_time,healthy",
-        )
-        state = result.get("state", "unknown")
-        logger.info("  relationship %s — state=%s", rel_uuid, state)
-        if state == "snapmirrored":
-            return result
-        time.sleep(interval)
-        elapsed += interval
-    raise RuntimeError(f"Timed out waiting for relationship {rel_uuid} to reach snapmirrored")
-
-
 def _get_ic_lif_ips(client: OntapClient) -> list[str]:
-    """Return intercluster LIF IPs from the given cluster."""
-    resp = client.get(
-        "/network/ip/interfaces",
-        fields="name,ip.address,services",
-        **{"max_records": "50"},
-    )
-    return [
-        r["ip"]["address"]
-        for r in resp.get("records", [])
-        if any("intercluster" in str(s) for s in r.get("services", []))
-        and r.get("ip", {}).get("address")
-    ]
+    """Return intercluster LIF IPs from the given cluster.
+
+    Uses server-side query filters for reliability across ONTAP versions:
+    first tries ``service_policy.name=default-intercluster`` (9.8+ REST
+    model), then ``services=intercluster_core`` as a fallback.  Results
+    from both queries are merged and deduplicated.
+    """
+    seen: set[str] = set()
+    for qp in (
+        {"service_policy.name": "default-intercluster"},
+        {"services": "intercluster_core"},
+    ):
+        resp = client.get(
+            "/network/ip/interfaces",
+            fields="name,ip.address",
+            **{"max_records": "50", **qp},
+        )
+        for r in resp.get("records", []):
+            ip = r.get("ip", {}).get("address", "")
+            if ip:
+                seen.add(ip)
+    return list(seen)
 
 
 def _check_ic_lif_preconditions(
@@ -146,7 +142,7 @@ def _check_ic_lif_preconditions(
         logger.error(
             "PRE-CONDITION FAILED | Source cluster has no intercluster LIFs.\n"
             "  SnapMirror requires at least one IC LIF on each cluster.\n"
-            "  Create one via System Manager: Network → IP Interfaces → Add → Role: Intercluster\n"
+            "  Create one via System Manager: Network -> IP Interfaces -> Add -> Role: Intercluster\n"
             "  Or via CLI: network interface create -role intercluster -home-port e0d "
             "-address <IP> -netmask <mask>"
         )
@@ -155,7 +151,7 @@ def _check_ic_lif_preconditions(
         logger.error(
             "PRE-CONDITION FAILED | Dest cluster has no intercluster LIFs.\n"
             "  SnapMirror requires at least one IC LIF on each cluster.\n"
-            "  Create one via System Manager: Network → IP Interfaces → Add → Role: Intercluster\n"
+            "  Create one via System Manager: Network -> IP Interfaces -> Add -> Role: Intercluster\n"
             "  Or via CLI: network interface create -role intercluster -home-port e0d "
             "-address <IP> -netmask <mask>"
         )
@@ -342,7 +338,7 @@ def _create_svm_peer_relationship(
         )
         peer_job = resp.get("job", {}).get("uuid", "")
         if peer_job:
-            _poll_job(dst, peer_job)
+            dst.poll_job(peer_job)
         logger.info("SVM PEER       | created '%s' <-> '%s'", dest_svm, source_svm)
     except Exception as exc:
         exc_s = str(exc)
@@ -412,11 +408,20 @@ def _phase_a_source_preflight(
         src_cluster.get("name"),
         src_cluster.get("version", {}).get("full"),
     )
-    src_vol_resp = src.get(
-        "/storage/volumes",
-        fields="name,uuid,state,type,space.size",
-        **{"max_records": "1", "name": source_volume, "svm.name": source_svm},
-    )
+    try:
+        src_vol_resp = src.get(
+            "/storage/volumes",
+            fields="name,uuid,state,type,space.size",
+            **{"max_records": "1", "name": source_volume, "svm.name": source_svm},
+        )
+    except OntapApiError as exc:
+        logger.error(
+            "ABORTED — could not query source volume '%s' on %s: %s",
+            source_volume,
+            source_host,
+            exc,
+        )
+        sys.exit(1)
     if src_vol_resp.get("num_records", 0) == 0:
         logger.error(
             "ABORTED — source volume '%s' not found on %s",
@@ -472,7 +477,7 @@ def _phase_d_setup_relationship(
         )
         job_uuid = create_resp.get("job", {}).get("uuid")
         if job_uuid:
-            _poll_job(dst, job_uuid)
+            dst.poll_job(job_uuid)
     except Exception as exc:
         logger.info("create_and_initialize_relationship — %s (may already exist)", exc)
 
@@ -528,6 +533,7 @@ def _phase_d_setup_relationship(
 
 
 def main() -> None:
+    """Orchestrate all six phases (A–F) to provision a SnapMirror relationship from the destination cluster."""
     source_host = _env("SOURCE_HOST")
     source_user = _env("SOURCE_USER")
     source_pass = _env("SOURCE_PASS")
@@ -616,7 +622,7 @@ def main() -> None:
         )
 
         logger.info("=== Phase E: Convergence polling ===")
-        _wait_snapmirrored(dst, rel_uuid)
+        dst.wait_snapmirrored(rel_uuid)
 
         logger.info("=== Phase F: Final validation ===")
         final = dst.get(
