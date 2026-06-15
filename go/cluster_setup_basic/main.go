@@ -27,6 +27,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -207,13 +208,45 @@ func createCluster(client *ontapclient.Client, localNode, partnerNode map[string
 }
 
 // trackJob switches to cluster credentials then polls the job until complete.
-// After POST /cluster the node switches to full cluster mode and requires CLUSTER_PASS.
+// After POST /cluster the node reboots its management stack — network errors
+// are expected and retried until the deadline. HTTP-level errors (4xx/5xx) are fatal.
 func trackJob(host, user, clusterPass, jobUUID string) {
 	clusterClient := ontapclient.New(host, user, clusterPass, false)
 	defer clusterClient.Close()
 
-	if _, err := clusterClient.PollJob(jobUUID, 10); err != nil {
-		log.Fatalf("track_job: %v", err)
+	deadline := time.Now().Add(10 * time.Minute)
+	jobPath := fmt.Sprintf("/cluster/jobs/%s", jobUUID)
+
+	for {
+		if time.Now().After(deadline) {
+			log.Fatal("track_job: timed out waiting for cluster creation")
+		}
+
+		result, err := clusterClient.Get(jobPath,
+			map[string]string{"fields": "state,message,error,code"})
+		if err != nil {
+			var apiErr *ontapclient.OntapApiError
+			if errors.As(err, &apiErr) {
+				// HTTP-level error (e.g. 401, 500) — something is wrong.
+				log.Fatalf("track_job: %v", err)
+			}
+			// Network error: node is rebooting as part of cluster creation.
+			log.Printf("  node rebooting (network error), retrying in 15s — %v", err)
+			time.Sleep(15 * time.Second)
+			continue
+		}
+
+		state, _ := result["state"].(string)
+		log.Printf("  job %s — state=%s", jobUUID, state)
+		switch state {
+		case "running", "queued", "paused":
+			time.Sleep(10 * time.Second)
+		case "success":
+			return
+		default:
+			msg, _ := result["message"].(string)
+			log.Fatalf("job %s ended with state=%s: %s", jobUUID, state, msg)
+		}
 	}
 }
 
