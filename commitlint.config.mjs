@@ -12,6 +12,7 @@ export default {
         'ci',
         'deps',
         'docs',
+        'go',
         'python',
         'terraform',
       ],
