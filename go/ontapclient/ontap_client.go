@@ -13,14 +13,17 @@ package ontapclient
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -28,6 +31,13 @@ const (
 	defaultTimeout = 30 * time.Second
 	clientAppHdr   = "pace-example"
 	maxJobWait     = 10 * time.Minute
+	maxRespBytes   = 32 << 20 // 32 MiB safety cap on response body size
+
+	// PathStorageVolumes is the ONTAP REST API path for storage volume operations.
+	PathStorageVolumes = "/storage/volumes"
+
+	// KeySVMName is the query parameter key for filtering resources by SVM name.
+	KeySVMName = "svm.name"
 )
 
 // OntapApiError is returned when the ONTAP REST API responds with a non-2xx status.
@@ -38,6 +48,22 @@ type OntapApiError struct {
 
 func (e *OntapApiError) Error() string {
 	return fmt.Sprintf("HTTP %d: %v", e.StatusCode, e.Detail)
+}
+
+// ErrorCode extracts the ONTAP API error code string from the parsed response body.
+// Returns an empty string if the code field is absent or unparseable.
+// Example ONTAP error body: {"error": {"code": "917927", "message": "entry already exists"}}
+func (e *OntapApiError) ErrorCode() string {
+	m, ok := e.Detail.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	errMap, ok := m["error"].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	code, _ := errMap["code"].(string)
+	return code
 }
 
 // Client is a thin HTTP client for the ONTAP REST API.
@@ -67,20 +93,22 @@ func New(host, username, password string, verifySSL bool) *Client {
 
 // FromEnv creates a Client from standard ONTAP_* environment variables.
 // Required: ONTAP_HOST, ONTAP_PASS. Optional: ONTAP_USER (default "admin").
-func FromEnv() *Client {
+// Returns an error if a required variable is unset so callers can handle it
+// without os.Exit side-effects (important for testability).
+func FromEnv() (*Client, error) {
 	host := os.Getenv("ONTAP_HOST")
 	if host == "" {
-		log.Fatal("ONTAP_HOST environment variable is required")
+		return nil, fmt.Errorf("ONTAP_HOST environment variable is required")
 	}
 	password := os.Getenv("ONTAP_PASS")
 	if password == "" {
-		log.Fatal("ONTAP_PASS environment variable is required")
+		return nil, fmt.Errorf("ONTAP_PASS environment variable is required")
 	}
 	user := os.Getenv("ONTAP_USER")
 	if user == "" {
 		user = "admin"
 	}
-	return New(host, user, password, false)
+	return New(host, user, password, false), nil
 }
 
 // Close is a no-op provided for symmetry with connection-pooling patterns.
@@ -102,7 +130,7 @@ func (c *Client) buildURL(path string, params map[string]string) string {
 }
 
 // do executes an HTTP request and decodes the JSON response body.
-func (c *Client) do(method, rawURL string, body interface{}) (map[string]interface{}, error) {
+func (c *Client) do(ctx context.Context, method, rawURL string, body interface{}) (map[string]interface{}, error) {
 	var bodyReader io.Reader
 	if body != nil {
 		b, err := json.Marshal(body)
@@ -112,7 +140,7 @@ func (c *Client) do(method, rawURL string, body interface{}) (map[string]interfa
 		bodyReader = bytes.NewReader(b)
 	}
 
-	req, err := http.NewRequest(method, rawURL, bodyReader)
+	req, err := http.NewRequestWithContext(ctx, method, rawURL, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
@@ -127,9 +155,13 @@ func (c *Client) do(method, rawURL string, body interface{}) (map[string]interfa
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	respBytes, err := io.ReadAll(resp.Body)
+	limited := io.LimitReader(resp.Body, maxRespBytes+1)
+	respBytes, err := io.ReadAll(limited)
 	if err != nil {
 		return nil, fmt.Errorf("read response body: %w", err)
+	}
+	if int64(len(respBytes)) > maxRespBytes {
+		return nil, fmt.Errorf("response body exceeds 32 MiB — add max_records to reduce response size")
 	}
 
 	var result map[string]interface{}
@@ -146,37 +178,37 @@ func (c *Client) do(method, rawURL string, body interface{}) (map[string]interfa
 }
 
 // Get sends a GET request to the given API path with optional query params.
-func (c *Client) Get(path string, params map[string]string) (map[string]interface{}, error) {
-	return c.do(http.MethodGet, c.buildURL(path, params), nil)
+func (c *Client) Get(ctx context.Context, path string, params map[string]string) (map[string]interface{}, error) {
+	return c.do(ctx, http.MethodGet, c.buildURL(path, params), nil)
 }
 
-// Post sends a POST request with a JSON body.
-func (c *Client) Post(path string, body interface{}) (map[string]interface{}, error) {
-	return c.do(http.MethodPost, c.baseURL+path, body)
+// Post sends a POST request with a JSON body and optional query params.
+func (c *Client) Post(ctx context.Context, path string, params map[string]string, body interface{}) (map[string]interface{}, error) {
+	return c.do(ctx, http.MethodPost, c.buildURL(path, params), body)
 }
 
-// Patch sends a PATCH request with a JSON body.
-func (c *Client) Patch(path string, body interface{}) (map[string]interface{}, error) {
-	return c.do(http.MethodPatch, c.baseURL+path, body)
+// Patch sends a PATCH request with a JSON body and optional query params.
+func (c *Client) Patch(ctx context.Context, path string, params map[string]string, body interface{}) (map[string]interface{}, error) {
+	return c.do(ctx, http.MethodPatch, c.buildURL(path, params), body)
 }
 
-// Delete sends a DELETE request.
-func (c *Client) Delete(path string) (map[string]interface{}, error) {
-	return c.do(http.MethodDelete, c.baseURL+path, nil)
+// Delete sends a DELETE request with optional query params.
+func (c *Client) Delete(ctx context.Context, path string, params map[string]string) (map[string]interface{}, error) {
+	return c.do(ctx, http.MethodDelete, c.buildURL(path, params), nil)
 }
 
 // PollJob polls /cluster/jobs/{uuid} until the job reaches a terminal state.
 // Returns an error if the job ends in any state other than "success".
-func (c *Client) PollJob(jobUUID string, intervalSecs int) (map[string]interface{}, error) {
-	if intervalSecs <= 0 {
-		intervalSecs = 10
+func (c *Client) PollJob(ctx context.Context, jobUUID string, interval time.Duration) (map[string]interface{}, error) {
+	if interval <= 0 {
+		interval = 10 * time.Second
 	}
 	deadline := time.Now().Add(maxJobWait)
 	for {
 		if time.Now().After(deadline) {
 			return nil, fmt.Errorf("poll job %s: timed out after %s", jobUUID, maxJobWait)
 		}
-		result, err := c.Get(fmt.Sprintf("/cluster/jobs/%s", jobUUID),
+		result, err := c.Get(ctx, fmt.Sprintf("/cluster/jobs/%s", jobUUID),
 			map[string]string{"fields": "state,message,error,code"})
 		if err != nil {
 			return nil, fmt.Errorf("poll job %s: %w", jobUUID, err)
@@ -185,7 +217,7 @@ func (c *Client) PollJob(jobUUID string, intervalSecs int) (map[string]interface
 		log.Printf("  job %s — state=%s", jobUUID, state)
 		switch state {
 		case "running", "queued", "paused":
-			time.Sleep(time.Duration(intervalSecs) * time.Second)
+			time.Sleep(interval)
 		case "success":
 			return result, nil
 		default:
@@ -196,17 +228,20 @@ func (c *Client) PollJob(jobUUID string, intervalSecs int) (map[string]interface
 }
 
 // WaitSnapmirrored polls a SnapMirror relationship until state == "snapmirrored".
-// maxWaitSecs defaults to 1800 if <= 0.
-func (c *Client) WaitSnapmirrored(relUUID string, intervalSecs, maxWaitSecs int) (map[string]interface{}, error) {
-	if intervalSecs <= 0 {
-		intervalSecs = 15
+// Defaults: interval=15s, maxWait=30m when zero or negative values are provided.
+func (c *Client) WaitSnapmirrored(ctx context.Context, relUUID string, interval, maxWait time.Duration) (map[string]interface{}, error) {
+	if interval <= 0 {
+		interval = 15 * time.Second
 	}
-	if maxWaitSecs <= 0 {
-		maxWaitSecs = 1800
+	if maxWait <= 0 {
+		maxWait = 30 * time.Minute
 	}
-	elapsed := 0
-	for elapsed < maxWaitSecs {
-		result, err := c.Get(fmt.Sprintf("/snapmirror/relationships/%s", relUUID),
+	deadline := time.Now().Add(maxWait)
+	for {
+		if time.Now().After(deadline) {
+			return nil, fmt.Errorf("timed out waiting for relationship %s to reach snapmirrored", relUUID)
+		}
+		result, err := c.Get(ctx, fmt.Sprintf("/snapmirror/relationships/%s", relUUID),
 			map[string]string{"fields": "state,lag_time,healthy"})
 		if err != nil {
 			return nil, fmt.Errorf("poll relationship %s: %w", relUUID, err)
@@ -216,10 +251,8 @@ func (c *Client) WaitSnapmirrored(relUUID string, intervalSecs, maxWaitSecs int)
 		if state == "snapmirrored" {
 			return result, nil
 		}
-		time.Sleep(time.Duration(intervalSecs) * time.Second)
-		elapsed += intervalSecs
+		time.Sleep(interval)
 	}
-	return nil, fmt.Errorf("timed out waiting for relationship %s to reach snapmirrored", relUUID)
 }
 
 // NestedStr safely extracts a nested string value from a map[string]interface{}.
@@ -298,4 +331,90 @@ func NumRecords(resp map[string]interface{}) int {
 // JobUUID extracts job.uuid from a response.
 func JobUUID(resp map[string]interface{}) string {
 	return NestedStr(resp, "job", "uuid")
+}
+
+// PollJobTolerant is like PollJob but retries on transient network errors.
+// Use when the management stack may restart during the operation (e.g. POST /cluster).
+// HTTP-level API errors (4xx/5xx) are returned immediately without retrying.
+func (c *Client) PollJobTolerant(ctx context.Context, jobUUID string, interval time.Duration) (map[string]interface{}, error) {
+	if interval <= 0 {
+		interval = 10 * time.Second
+	}
+	deadline := time.Now().Add(maxJobWait)
+	jobPath := fmt.Sprintf("/cluster/jobs/%s", jobUUID)
+	for {
+		if time.Now().After(deadline) {
+			return nil, fmt.Errorf("poll job %s: timed out after %s", jobUUID, maxJobWait)
+		}
+		result, err := c.Get(ctx, jobPath, map[string]string{"fields": "state,message,error,code"})
+		if err != nil {
+			var apiErr *OntapApiError
+			if errors.As(err, &apiErr) {
+				// HTTP-level error — not a transient reboot; return immediately.
+				return nil, fmt.Errorf("poll job %s: %w", jobUUID, err)
+			}
+			// Network error — management stack may be restarting; retry.
+			log.Printf("  job %s — network error, retrying in %s — %v", jobUUID, interval, err)
+			time.Sleep(interval)
+			continue
+		}
+		state, _ := result["state"].(string)
+		log.Printf("  job %s — state=%s", jobUUID, state)
+		switch state {
+		case "running", "queued", "paused":
+			time.Sleep(interval)
+		case "success":
+			return result, nil
+		default:
+			msg, _ := result["message"].(string)
+			return nil, fmt.Errorf("job %s ended with state=%s: %s", jobUUID, state, msg)
+		}
+	}
+}
+
+// MustEnv reads an environment variable and calls log.Fatal if it is not set or empty.
+func MustEnv(key string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	log.Fatalf("'%s' is required — set it in go/.env or as an environment variable", key)
+	return ""
+}
+
+// EnvOrDefault reads an environment variable, returning defaultVal if unset or empty.
+func EnvOrDefault(key, defaultVal string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return defaultVal
+}
+
+// DieOnErr calls log.Fatal if err is non-nil. For use in main packages only.
+func DieOnErr(op string, err error) {
+	if err != nil {
+		log.Fatalf("%s: %v", op, err)
+	}
+}
+
+// LoadDotEnv reads a .env file from the current directory and sets each KEY=VALUE
+// pair as an environment variable (only if not already set). The file is gitignored —
+// safe to store credentials there for local testing.
+func LoadDotEnv() {
+	data, err := os.ReadFile(".env")
+	if err != nil {
+		return
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		k, v, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		if os.Getenv(strings.TrimSpace(k)) == "" {
+			_ = os.Setenv(strings.TrimSpace(k), strings.TrimSpace(v))
+		}
+	}
 }

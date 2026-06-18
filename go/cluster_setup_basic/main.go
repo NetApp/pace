@@ -6,7 +6,7 @@
 //
 // Steps:
 //
-//	1  discoverNodes   — GET /cluster/nodes (membership=available, retry 3x/30s)
+//	1  waitForNodes   — GET /cluster/nodes (membership=available, retry 3x/30s)
 //	2  discoverLocal   — isolate the local node  (management_interfaces != null)
 //	3  discoverPartner — isolate the partner node (exclude local node UUID)
 //	4  createCluster   — POST /cluster
@@ -27,11 +27,9 @@
 package main
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"log"
-	"os"
-	"strings"
 	"time"
 
 	ontapclient "github.com/netapp/pace/go/ontapclient"
@@ -47,6 +45,7 @@ const clusterNodesPath = "/cluster/nodes"
 func main() {
 	log.SetFlags(log.LstdFlags)
 	loadDotEnv()
+	ctx := context.Background()
 
 	host := mustEnv("ONTAP_HOST")
 	user := envOrDefault("ONTAP_USER", "admin")
@@ -59,60 +58,61 @@ func main() {
 
 	// Step 1: Discover available nodes (retry 3x)
 	log.Println("=== Step 1: Discover nodes ===")
-	discoverNodes(client, 3, 30)
+	waitForNodes(ctx, client, 3, 30*time.Second)
 
 	// Step 2: Find local node
 	log.Println("=== Step 2: Discover local node ===")
-	localNode := discoverLocal(client)
+	localNode := discoverLocal(ctx, client)
 	localUUID := ontapclient.NestedStr(localNode, "uuid")
 
 	// Step 3: Find partner node
 	log.Println("=== Step 3: Discover partner node ===")
-	partnerNode := discoverPartner(client, localUUID)
+	partnerNode := discoverPartner(ctx, client, localUUID)
 
 	// Step 4: Create cluster
 	log.Println("=== Step 4: Create cluster ===")
-	jobUUID := createCluster(client, localNode, partnerNode)
+	jobUUID := createCluster(ctx, client, localNode, partnerNode)
 
 	// Step 5: Track job — switch to cluster credentials first
 	log.Println("=== Step 5: Track cluster creation job ===")
 	clusterPass := mustEnv("CLUSTER_PASS")
 	clusterMgmtIP := mustEnv("CLUSTER_MGMT_IP")
-	trackJob(host, user, clusterPass, jobUUID)
+	trackJob(ctx, host, user, clusterPass, jobUUID)
 
 	log.Printf("=== CLUSTER CREATED ===\n"+
 		"  Name    : %s\n"+
 		"  UI      : https://%s\n"+
-		"  Login   : %s / %s",
-		mustEnv("CLUSTER_NAME"), clusterMgmtIP, user, clusterPass)
+		"  User    : %s",
+		mustEnv("CLUSTER_NAME"), clusterMgmtIP, user)
 }
 
-// discoverNodes GETs /cluster/nodes with membership=available, retrying up to maxAttempts times.
-func discoverNodes(client *ontapclient.Client, maxAttempts, delaySecs int) {
+// waitForNodes GETs /cluster/nodes with membership=available, retrying up to maxAttempts times.
+// Acts as a readiness guard — the caller proceeds only when nodes are reachable.
+func waitForNodes(ctx context.Context, client *ontapclient.Client, maxAttempts int, delay time.Duration) {
 	var lastErr error
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		resp, err := client.Get(clusterNodesPath, map[string]string{
+		resp, err := client.Get(ctx, clusterNodesPath, map[string]string{
 			"fields":     nodeFields,
 			"membership": "available",
 		})
 		if err == nil {
-			log.Printf("discover_nodes — %d node(s) found", ontapclient.NumRecords(resp))
+			log.Printf("wait_for_nodes — %d node(s) found", ontapclient.NumRecords(resp))
 			return
 		}
 		lastErr = err
 		if attempt < maxAttempts {
-			log.Printf("discover_nodes failed (attempt %d/%d), retrying in %ds — %v",
-				attempt, maxAttempts, delaySecs, err)
-			time.Sleep(time.Duration(delaySecs) * time.Second)
+			log.Printf("wait_for_nodes failed (attempt %d/%d), retrying in %s — %v",
+				attempt, maxAttempts, delay, err)
+			time.Sleep(delay)
 		}
 	}
-	log.Fatalf("discover_nodes failed after %d attempts: %v", maxAttempts, lastErr)
+	log.Fatalf("wait_for_nodes failed after %d attempts: %v", maxAttempts, lastErr)
 }
 
 // discoverLocal finds the local node (the one with management_interfaces set).
 // Returns the first matching node record.
-func discoverLocal(client *ontapclient.Client) map[string]interface{} {
-	resp, err := client.Get(clusterNodesPath, map[string]string{
+func discoverLocal(ctx context.Context, client *ontapclient.Client) map[string]interface{} {
+	resp, err := client.Get(ctx, clusterNodesPath, map[string]string{
 		"fields":                nodeFields,
 		"membership":            "available",
 		"management_interfaces": "!null",
@@ -128,8 +128,8 @@ func discoverLocal(client *ontapclient.Client) map[string]interface{} {
 
 // discoverPartner finds the partner node by excluding the local node UUID.
 // Returns the first matching node record.
-func discoverPartner(client *ontapclient.Client, localUUID string) map[string]interface{} {
-	resp, err := client.Get(clusterNodesPath, map[string]string{
+func discoverPartner(ctx context.Context, client *ontapclient.Client, localUUID string) map[string]interface{} {
+	resp, err := client.Get(ctx, clusterNodesPath, map[string]string{
 		"fields":     nodeFields,
 		"membership": "available",
 		"uuid":       "!" + localUUID,
@@ -144,7 +144,7 @@ func discoverPartner(client *ontapclient.Client, localUUID string) map[string]in
 }
 
 // createCluster POSTs /cluster to create the cluster; returns the job UUID.
-func createCluster(client *ontapclient.Client, localNode, partnerNode map[string]interface{}) string {
+func createCluster(ctx context.Context, client *ontapclient.Client, localNode, partnerNode map[string]interface{}) string {
 	clusterName := mustEnv("CLUSTER_NAME")
 	clusterPass := mustEnv("CLUSTER_PASS")
 	clusterMgmtIP := mustEnv("CLUSTER_MGMT_IP")
@@ -193,13 +193,9 @@ func createCluster(client *ontapclient.Client, localNode, partnerNode map[string
 				},
 			},
 		},
-		"name_servers":         map[string]interface{}{},
-		"ntp_servers":          map[string]interface{}{},
-		"dns_domains":          map[string]interface{}{},
-		"configuration_backup": map[string]interface{}{},
 	}
 
-	resp, err := client.Post("/cluster?keep_precluster_config=true", body)
+	resp, err := client.Post(ctx, "/cluster", map[string]string{"keep_precluster_config": "true"}, body)
 	dieOnErr("create_cluster", err)
 
 	jobUUID := ontapclient.JobUUID(resp)
@@ -209,44 +205,13 @@ func createCluster(client *ontapclient.Client, localNode, partnerNode map[string
 
 // trackJob switches to cluster credentials then polls the job until complete.
 // After POST /cluster the node reboots its management stack — network errors
-// are expected and retried until the deadline. HTTP-level errors (4xx/5xx) are fatal.
-func trackJob(host, user, clusterPass, jobUUID string) {
+// are expected and retried. HTTP-level errors (4xx/5xx) are fatal.
+// Delegates to PollJobTolerant which encapsulates the network-retry logic.
+func trackJob(ctx context.Context, host, user, clusterPass, jobUUID string) {
 	clusterClient := ontapclient.New(host, user, clusterPass, false)
 	defer clusterClient.Close()
-
-	deadline := time.Now().Add(10 * time.Minute)
-	jobPath := fmt.Sprintf("/cluster/jobs/%s", jobUUID)
-
-	for {
-		if time.Now().After(deadline) {
-			log.Fatal("track_job: timed out waiting for cluster creation")
-		}
-
-		result, err := clusterClient.Get(jobPath,
-			map[string]string{"fields": "state,message,error,code"})
-		if err != nil {
-			var apiErr *ontapclient.OntapApiError
-			if errors.As(err, &apiErr) {
-				// HTTP-level error (e.g. 401, 500) — something is wrong.
-				log.Fatalf("track_job: %v", err)
-			}
-			// Network error: node is rebooting as part of cluster creation.
-			log.Printf("  node rebooting (network error), retrying in 15s — %v", err)
-			time.Sleep(15 * time.Second)
-			continue
-		}
-
-		state, _ := result["state"].(string)
-		log.Printf("  job %s — state=%s", jobUUID, state)
-		switch state {
-		case "running", "queued", "paused":
-			time.Sleep(10 * time.Second)
-		case "success":
-			return
-		default:
-			msg, _ := result["message"].(string)
-			log.Fatalf("job %s ended with state=%s: %s", jobUUID, state, msg)
-		}
+	if _, err := clusterClient.PollJobTolerant(ctx, jobUUID, 15*time.Second); err != nil {
+		log.Fatalf("track_job: %v", err)
 	}
 }
 
@@ -260,46 +225,7 @@ func clusterIfaceIP(node map[string]interface{}) string {
 	return ontapclient.NestedStr(iface, "ip", "address")
 }
 
-func mustEnv(key string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	log.Fatalf("'%s' is required — set it in go/.env or as an environment variable", key)
-	return ""
-}
-
-func envOrDefault(key, defaultVal string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return defaultVal
-}
-
-func dieOnErr(context string, err error) {
-	if err != nil {
-		log.Fatalf("%s: %v", context, err)
-	}
-}
-
-// loadDotEnv reads a .env file from the current directory and exports each
-// KEY=VALUE pair as an environment variable (only if not already set).
-// The file is gitignored — safe to store credentials there for local testing.
-func loadDotEnv() {
-	data, err := os.ReadFile(".env")
-	if err != nil {
-		return
-	}
-	for _, line := range strings.Split(string(data), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		k, v, ok := strings.Cut(line, "=")
-		if !ok {
-			continue
-		}
-		if os.Getenv(strings.TrimSpace(k)) == "" {
-			_ = os.Setenv(strings.TrimSpace(k), strings.TrimSpace(v))
-		}
-	}
-}
+func mustEnv(key string) string         { return ontapclient.MustEnv(key) }
+func envOrDefault(k, def string) string { return ontapclient.EnvOrDefault(k, def) }
+func dieOnErr(op string, err error)     { ontapclient.DieOnErr(op, err) }
+func loadDotEnv()                       { ontapclient.LoadDotEnv() }

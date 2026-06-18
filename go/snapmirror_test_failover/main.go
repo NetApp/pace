@@ -38,21 +38,21 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
-	"os"
-	"strings"
+	"time"
 
 	ontapclient "github.com/netapp/pace/go/ontapclient"
 )
-
-const pathStorageVolumes = "/storage/volumes" // NOSONAR
 
 // ---------------------------------------------------------------------------
 
 func main() {
 	log.SetFlags(log.LstdFlags)
 	loadDotEnv()
+	ctx := context.Background()
 
 	clusterA := mustEnv("CLUSTER_A")
 	clusterB := mustEnv("CLUSTER_B")
@@ -61,7 +61,7 @@ func main() {
 	sourceVolume := envOrDefault("SOURCE_VOLUME", "*")
 
 	log.Println("=== Phase 0: Auto-detect target cluster ===")
-	destHost, dpVol := pickCluster(clusterA, clusterB, destUser, destPass, sourceVolume)
+	destHost, dpVol := pickCluster(ctx, clusterA, clusterB, destUser, destPass, sourceVolume)
 	dpVolName := ontapclient.NestedStr(dpVol, "name")
 	dpSVMName := ontapclient.NestedStr(dpVol, "svm", "name")
 	dpVolUUID := ontapclient.NestedStr(dpVol, "uuid")
@@ -74,30 +74,30 @@ func main() {
 	defer client.Close()
 
 	log.Println("=== Phase A: Pre-flight ===")
-	relUUID := tfPhaseA(client, dpSVMName, dpVolName)
+	relUUID := tfPhaseA(ctx, client, dpSVMName, dpVolName)
 
 	log.Println("=== Phase B: Get latest SnapMirror snapshot ===")
-	snapshotName := tfPhaseB(client, dpVolUUID, dpVolName)
+	snapshotName := tfPhaseB(ctx, client, dpVolUUID, dpVolName)
 
 	log.Println("=== Phase C: Create FlexClone ===")
-	cloneName, cloneUUID := tfPhaseC(client, dpVolName, dpSVMName, snapshotName)
+	cloneName, cloneUUID := tfPhaseC(ctx, client, dpVolName, dpSVMName, snapshotName)
 
 	log.Println("=== Phase D: Verify clone + tag ===")
-	tfPhaseD(client, cloneName, cloneUUID, relUUID, dpSVMName, snapshotName)
+	tfPhaseD(ctx, client, cloneName, cloneUUID, relUUID, dpSVMName, snapshotName)
 
 	log.Println("=== Phase E: Resync SnapMirror ===")
-	tfPhaseE(client, relUUID)
+	tfPhaseE(ctx, client, relUUID)
 }
 
 // tfPhaseA verifies cluster connectivity and fetches the SnapMirror relationship UUID.
-func tfPhaseA(client *ontapclient.Client, dpSVMName, dpVolName string) string {
-	cluster, err := client.Get("/cluster", map[string]string{"fields": "name,version"})
+func tfPhaseA(ctx context.Context, client *ontapclient.Client, dpSVMName, dpVolName string) string {
+	cluster, err := client.Get(ctx, "/cluster", map[string]string{"fields": "name,version"})
 	dieOnErr("get cluster", err)
 	log.Printf("DEST CLUSTER | name=%s | ontap=%s",
 		ontapclient.NestedStr(cluster, "name"),
 		ontapclient.NestedStr(cluster, "version", "full"))
 
-	relResp, err := client.Get("/snapmirror/relationships", map[string]string{
+	relResp, err := client.Get(ctx, "/snapmirror/relationships", map[string]string{
 		"fields":           "uuid,source.path,destination.path,state,lag_time,healthy,policy.name",
 		"destination.path": dpSVMName + ":" + dpVolName,
 		"max_records":      "1",
@@ -119,8 +119,8 @@ func tfPhaseA(client *ontapclient.Client, dpSVMName, dpVolName string) string {
 }
 
 // tfPhaseB fetches the latest SnapMirror snapshot name from the DP volume.
-func tfPhaseB(client *ontapclient.Client, dpVolUUID, dpVolName string) string {
-	snapResp, err := client.Get(fmt.Sprintf("/storage/volumes/%s/snapshots", dpVolUUID), map[string]string{
+func tfPhaseB(ctx context.Context, client *ontapclient.Client, dpVolUUID, dpVolName string) string {
+	snapResp, err := client.Get(ctx, fmt.Sprintf("/storage/volumes/%s/snapshots", dpVolUUID), map[string]string{
 		"fields":      "name,create_time",
 		"max_records": "1",
 		"order_by":    "create_time desc",
@@ -136,9 +136,9 @@ func tfPhaseB(client *ontapclient.Client, dpVolUUID, dpVolName string) string {
 }
 
 // tfPhaseC creates the writable FlexClone; returns (cloneName, cloneUUID).
-func tfPhaseC(client *ontapclient.Client, dpVolName, dpSVMName, snapshotName string) (string, string) {
+func tfPhaseC(ctx context.Context, client *ontapclient.Client, dpVolName, dpSVMName, snapshotName string) (string, string) {
 	cloneName := dpVolName + "_clone"
-	cloneResp, err := client.Post("/storage/volumes?return_timeout=120", map[string]interface{}{
+	cloneResp, err := client.Post(ctx, "/storage/volumes", map[string]string{"return_timeout": "120"}, map[string]interface{}{
 		"name": cloneName,
 		"svm":  map[string]string{"name": dpSVMName},
 		"nas":  map[string]string{"path": "/" + cloneName},
@@ -149,14 +149,19 @@ func tfPhaseC(client *ontapclient.Client, dpVolName, dpSVMName, snapshotName str
 		},
 	})
 	if err != nil {
-		log.Printf("create_test_clone — %v (may already exist)", err)
+		var apiErr *ontapclient.OntapApiError
+		if errors.As(err, &apiErr) && apiErr.ErrorCode() == "917927" {
+			log.Printf("create_test_clone — clone already exists, skipping create")
+		} else {
+			log.Fatalf("create_test_clone: %v", err)
+		}
 	} else if jobUUID := ontapclient.JobUUID(cloneResp); jobUUID != "" {
-		if _, err := client.PollJob(jobUUID, 10); err != nil {
+		if _, err := client.PollJob(ctx, jobUUID, 10*time.Second); err != nil {
 			log.Printf("poll clone job — %v", err)
 		}
 	}
 
-	cloneVolResp, err := client.Get(pathStorageVolumes, map[string]string{
+	cloneVolResp, err := client.Get(ctx, ontapclient.PathStorageVolumes, map[string]string{
 		"fields":      "name,uuid,state,nas.path,space.size",
 		"max_records": "1",
 		"name":        cloneName,
@@ -179,8 +184,9 @@ func tfPhaseC(client *ontapclient.Client, dpVolName, dpSVMName, snapshotName str
 }
 
 // tfPhaseD tags the clone and prints the test-failover-ready message.
-func tfPhaseD(client *ontapclient.Client, cloneName, cloneUUID, relUUID, dpSVMName, snapshotName string) {
-	_, err := client.Patch(fmt.Sprintf("/storage/volumes/%s?return_timeout=120", cloneUUID),
+func tfPhaseD(ctx context.Context, client *ontapclient.Client, cloneName, cloneUUID, relUUID, dpSVMName, snapshotName string) {
+	_, err := client.Patch(ctx, fmt.Sprintf("/storage/volumes/%s", cloneUUID),
+		map[string]string{"return_timeout": "120"},
 		map[string]interface{}{"_tags": []string{relUUID + ":test"}})
 	if err != nil {
 		log.Printf("tag_clone_volume — %v", err)
@@ -188,7 +194,7 @@ func tfPhaseD(client *ontapclient.Client, cloneName, cloneUUID, relUUID, dpSVMNa
 		log.Printf("TAG APPLIED | clone=%s | tag=%s:test", cloneName, relUUID)
 	}
 
-	cloneVolResp, err := client.Get(pathStorageVolumes, map[string]string{
+	cloneVolResp, err := client.Get(ctx, ontapclient.PathStorageVolumes, map[string]string{
 		"fields":      "name,uuid,state,nas.path",
 		"max_records": "1",
 		"name":        cloneName,
@@ -214,90 +220,58 @@ func tfPhaseD(client *ontapclient.Client, cloneName, cloneUUID, relUUID, dpSVMNa
 }
 
 // tfPhaseE resyncs the SnapMirror relationship and waits for snapmirrored state.
-func tfPhaseE(client *ontapclient.Client, relUUID string) {
-	resyncResp, err := client.Patch(fmt.Sprintf("/snapmirror/relationships/%s?return_timeout=120", relUUID),
+func tfPhaseE(ctx context.Context, client *ontapclient.Client, relUUID string) {
+	resyncResp, err := client.Patch(ctx, fmt.Sprintf("/snapmirror/relationships/%s", relUUID),
+		map[string]string{"return_timeout": "120"},
 		map[string]interface{}{"state": "snapmirrored"})
 	if err != nil {
 		log.Printf("resync_sm_relationship — %v", err)
 	} else if jobUUID := ontapclient.JobUUID(resyncResp); jobUUID != "" {
-		if _, err := client.PollJob(jobUUID, 10); err != nil {
+		if _, err := client.PollJob(ctx, jobUUID, 10*time.Second); err != nil {
 			log.Printf("poll resync job — %v", err)
 		}
 	}
-	if _, err := client.WaitSnapmirrored(relUUID, 15, 1800); err != nil {
+	if _, err := client.WaitSnapmirrored(ctx, relUUID, 15*time.Second, 30*time.Minute); err != nil {
 		log.Fatalf("wait snapmirrored: %v", err)
 	}
 	log.Println("=== TEST FAILOVER COMPLETE — SnapMirror resynced ===")
 }
 
 // pickCluster finds which cluster has the target DP volume; returns (clusterIP, volRecord).
-func pickCluster(clusterA, clusterB, user, passwd, volNameFilter string) (string, map[string]interface{}) {
+func pickCluster(ctx context.Context, clusterA, clusterB, user, passwd, volNameFilter string) (string, map[string]interface{}) {
 	destFilter := volNameFilter + "_dest"
 	if volNameFilter == "*" {
 		destFilter = "*_dest"
 	}
-	for _, host := range []string{clusterA, clusterB} {
-		client := ontapclient.New(host, user, passwd, false)
-		resp, err := client.Get(pathStorageVolumes, map[string]string{
+	tryHost := func(host string) (map[string]interface{}, bool) {
+		c := ontapclient.New(host, user, passwd, false)
+		defer c.Close()
+		resp, err := c.Get(ctx, ontapclient.PathStorageVolumes, map[string]string{
 			"fields":      "name,create_time,uuid,svm.name,state,space.size",
 			"type":        "dp",
 			"name":        destFilter,
 			"order_by":    "create_time desc",
 			"max_records": "1",
 		})
-		client.Close()
 		if err != nil {
 			log.Printf("  cluster %s — %v", host, err)
-			continue
+			return nil, false
 		}
 		if ontapclient.NumRecords(resp) >= 1 {
-			return host, ontapclient.Records(resp)[0]
+			return ontapclient.Records(resp)[0], true
+		}
+		return nil, false
+	}
+	for _, host := range []string{clusterA, clusterB} {
+		if vol, ok := tryHost(host); ok {
+			return host, vol
 		}
 	}
 	log.Fatalf("No DP volumes found on either cluster (%s, %s)", clusterA, clusterB)
 	return "", nil
 }
 
-func mustEnv(key string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	log.Fatalf("'%s' is required — set it in go/.env or as an environment variable", key)
-	return ""
-}
-
-func envOrDefault(key, defaultVal string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return defaultVal
-}
-
-func dieOnErr(context string, err error) {
-	if err != nil {
-		log.Fatalf("%s: %v", context, err)
-	}
-}
-
-// loadDotEnv reads a .env file from the current directory and exports each
-// KEY=VALUE pair as an environment variable (only if not already set).
-// The file is gitignored — safe to store credentials there for local testing.
-func loadDotEnv() {
-	data, err := os.ReadFile(".env")
-	if err != nil {
-		return
-	}
-	for _, line := range strings.Split(string(data), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		k, v, ok := strings.Cut(line, "=")
-		if !ok {
-			continue
-		}
-		if os.Getenv(strings.TrimSpace(k)) == "" {
-			_ = os.Setenv(strings.TrimSpace(k), strings.TrimSpace(v))
-		}
-	}
-}
+func mustEnv(key string) string         { return ontapclient.MustEnv(key) }
+func envOrDefault(k, def string) string { return ontapclient.EnvOrDefault(k, def) }
+func dieOnErr(op string, err error)     { ontapclient.DieOnErr(op, err) }
+func loadDotEnv()                       { ontapclient.LoadDotEnv() }

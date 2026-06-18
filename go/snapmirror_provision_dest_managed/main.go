@@ -41,9 +41,10 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 	"time"
 
@@ -51,11 +52,9 @@ import (
 )
 
 const (
-	pathStorageVolumes = "/storage/volumes" // NOSONAR
-	pathClusterPeers   = "/cluster/peers"
-	pathSVMPeers       = "/svm/peers"
-	keySVMName         = "svm.name"
-	peerFields         = "name,uuid,status.state"
+	pathClusterPeers = "/cluster/peers"
+	pathSVMPeers     = "/svm/peers"
+	peerFields       = "name,uuid,status.state"
 )
 
 // smRelConfig groups SnapMirror relationship parameters to keep function signatures compact.
@@ -64,26 +63,11 @@ type smRelConfig struct {
 }
 
 // ---------------------------------------------------------------------------
-// USER INPUTS — fill in your values here before running
-// ---------------------------------------------------------------------------
-var inputs = map[string]string{
-	"SOURCE_HOST":   "", // set via SOURCE_HOST in go/.env or env var
-	"SOURCE_USER":   "admin",
-	"SOURCE_PASS":   "", // set via SOURCE_PASS in go/.env or env var
-	"SOURCE_SVM":    "", // set via SOURCE_SVM  in go/.env or env var
-	"SOURCE_VOLUME": "", // set via SOURCE_VOLUME in go/.env or env var
-	"DEST_HOST":     "", // set via DEST_HOST   in go/.env or env var
-	"DEST_USER":     "admin",
-	"DEST_PASS":     "", // set via DEST_PASS   in go/.env or env var
-	"DEST_SVM":      "", // set via DEST_SVM    in go/.env or env var
-	"SM_POLICY":     "Asynchronous",
-}
-
-// ---------------------------------------------------------------------------
 
 func main() {
 	log.SetFlags(log.LstdFlags)
 	loadDotEnv()
+	ctx := context.Background()
 
 	sourceHost := mustEnv("SOURCE_HOST")
 	sourceUser := envOrDefault("SOURCE_USER", "admin")
@@ -106,12 +90,12 @@ func main() {
 
 	// === Phase A: Source pre-flight ===
 	log.Println("=== Phase A: Source pre-flight ===")
-	srcVol := phaseASourcePreflight(src, sourceSVM, sourceVolume, sourceHost)
-	srcVolSize := fmt.Sprintf("%.0f", ontapclient.NestedFloat(srcVol, "space", "size"))
+	srcVol := phaseASourcePreflight(ctx, src, sourceSVM, sourceVolume, sourceHost)
+	srcVolSize := int64(ontapclient.NestedFloat(srcVol, "space", "size"))
 
 	// === Phase B: Dest pre-flight ===
 	log.Println("=== Phase B: Dest pre-flight ===")
-	dstCluster, err := dst.Get("/cluster", map[string]string{"fields": "name,version"})
+	dstCluster, err := dst.Get(ctx, "/cluster", map[string]string{"fields": "name,version"})
 	dieOnErr("get dest cluster", err)
 	log.Printf("DEST CLUSTER   | name=%s | ontap=%s",
 		ontapclient.NestedStr(dstCluster, "name"),
@@ -119,11 +103,13 @@ func main() {
 
 	// === Phase B0: Cluster peer setup ===
 	log.Println("=== Phase B0: Cluster peer setup ===")
-	srcPeerName, peerName, dstPeerUUID := setupClusterPeer(src, dst, sourceSVM, destSVM)
+	srcPeerName, peerName, dstPeerUUID := setupClusterPeer(ctx, src, dst, sourceSVM, destSVM)
 
-	aggrResp, err := dst.Get("/storage/aggregates", map[string]string{
-		"fields":      "name,state",
+	aggrResp, err := dst.Get(ctx, "/storage/aggregates", map[string]string{
+		"fields":      "name,state,space.block_storage.available",
+		"state":       "online",
 		"max_records": "1",
+		"order_by":    "space.block_storage.available desc",
 	})
 	dieOnErr("get dest aggregate", err)
 	aggrName := ""
@@ -138,30 +124,35 @@ func main() {
 
 	// === Phase B1: SVM peer setup ===
 	log.Println("=== Phase B1: SVM peer setup ===")
-	sourceSVMAlias := setupSVMPeer(src, dst, sourceSVM, destSVM, srcPeerName, peerName, dstPeerUUID)
+	sourceSVMAlias := setupSVMPeer(ctx, src, dst, sourceSVM, destSVM, srcPeerName, peerName, dstPeerUUID)
 
 	// === Phase C: Dest volume setup ===
 	log.Println("=== Phase C: Dest volume setup ===")
-	_, err = dst.Post("/storage/volumes?return_timeout=120", map[string]interface{}{
+	_, err = dst.Post(ctx, "/storage/volumes", map[string]string{"return_timeout": "120"}, map[string]interface{}{
 		"name": destVolume,
 		"type": "dp",
 		"svm":  map[string]string{"name": destSVM},
 		"aggregates": []map[string]string{
 			{"name": aggrName},
 		},
-		"space": map[string]string{"size": srcVolSize},
+		"size": srcVolSize,
 	})
 	if err != nil {
-		log.Printf("create_dest_volume — %v (skipped — may already exist)", err)
+		var apiErr *ontapclient.OntapApiError
+		if errors.As(err, &apiErr) && apiErr.ErrorCode() == "917927" {
+			log.Printf("create_dest_volume — volume already exists, skipping")
+		} else {
+			log.Fatalf("create_dest_volume: %v", err)
+		}
 	} else {
 		log.Printf("DEST VOLUME    | created '%s' on aggregate '%s'", destVolume, aggrName)
 	}
 
-	dstVolResp, err := dst.Get("/storage/volumes", map[string]string{
-		"fields":      "name,uuid,state,type",
-		"max_records": "1",
-		"name":        destVolume,
-		keySVMName:    destSVM,
+	dstVolResp, err := dst.Get(ctx, "/storage/volumes", map[string]string{
+		"fields":               "name,uuid,state,type",
+		"max_records":          "1",
+		"name":                 destVolume,
+		ontapclient.KeySVMName: destSVM,
 	})
 	dieOnErr("verify dest volume", err)
 	dstVols := ontapclient.Records(dstVolResp)
@@ -178,7 +169,7 @@ func main() {
 
 	// === Phase D: Relationship setup ===
 	log.Println("=== Phase D: Relationship setup ===")
-	relUUID := phaseDSetupRelationship(src, dst, smRelConfig{
+	relUUID := phaseDSetupRelationship(ctx, src, dst, smRelConfig{
 		destSVM: destSVM, destVolume: destVolume,
 		sourceSVMAlias: sourceSVMAlias, sourceVolume: sourceVolume,
 		peerName: peerName, smPolicy: smPolicy,
@@ -186,13 +177,13 @@ func main() {
 
 	// === Phase E: Convergence polling ===
 	log.Println("=== Phase E: Convergence polling ===")
-	if _, err := dst.WaitSnapmirrored(relUUID, 15, 1800); err != nil {
+	if _, err := dst.WaitSnapmirrored(ctx, relUUID, 15*time.Second, 30*time.Minute); err != nil {
 		log.Fatalf("wait snapmirrored: %v", err)
 	}
 
 	// === Phase F: Final validation ===
 	log.Println("=== Phase F: Final validation ===")
-	final, err := dst.Get(fmt.Sprintf("/snapmirror/relationships/%s", relUUID),
+	final, err := dst.Get(ctx, fmt.Sprintf("/snapmirror/relationships/%s", relUUID),
 		map[string]string{"fields": "uuid,source.path,destination.path,state,lag_time,healthy,policy.name"})
 	dieOnErr("final validation", err)
 	log.Printf("=== SNAPMIRROR PROVISION COMPLETE ===\n"+
@@ -211,18 +202,18 @@ func main() {
 }
 
 // phaseASourcePreflight verifies source cluster connectivity and validates the source volume.
-func phaseASourcePreflight(src *ontapclient.Client, sourceSVM, sourceVolume, sourceHost string) map[string]interface{} {
-	srcCluster, err := src.Get("/cluster", map[string]string{"fields": "name,version"})
+func phaseASourcePreflight(ctx context.Context, src *ontapclient.Client, sourceSVM, sourceVolume, sourceHost string) map[string]interface{} {
+	srcCluster, err := src.Get(ctx, "/cluster", map[string]string{"fields": "name,version"})
 	dieOnErr("get source cluster", err)
 	log.Printf("SOURCE CLUSTER | name=%s | ontap=%s",
 		ontapclient.NestedStr(srcCluster, "name"),
 		ontapclient.NestedStr(srcCluster, "version", "full"))
 
-	srcVolResp, err := src.Get("/storage/volumes", map[string]string{
-		"fields":      "name,uuid,state,type,space.size",
-		"max_records": "1",
-		"name":        sourceVolume,
-		keySVMName:    sourceSVM,
+	srcVolResp, err := src.Get(ctx, "/storage/volumes", map[string]string{
+		"fields":               "name,uuid,state,type,space.size",
+		"max_records":          "1",
+		"name":                 sourceVolume,
+		ontapclient.KeySVMName: sourceSVM,
 	})
 	dieOnErr("get source volume", err)
 	if ontapclient.NumRecords(srcVolResp) == 0 {
@@ -243,8 +234,8 @@ func phaseASourcePreflight(src *ontapclient.Client, sourceSVM, sourceVolume, sou
 }
 
 // getICLIFIPs returns intercluster LIF IP addresses from a cluster.
-func getICLIFIPs(client *ontapclient.Client) []string {
-	resp, err := client.Get("/network/ip/interfaces", map[string]string{
+func getICLIFIPs(ctx context.Context, client *ontapclient.Client) []string {
+	resp, err := client.Get(ctx, "/network/ip/interfaces", map[string]string{
 		"fields":      "name,ip.address,services",
 		"max_records": "50",
 	})
@@ -310,10 +301,10 @@ func checkICLIFPreconditions(srcIPs, dstIPs []string) {
 
 // setupClusterPeer ensures a cluster peer exists; auto-creates if missing.
 // Returns (srcPeerName, dstPeerName, dstPeerUUID).
-func setupClusterPeer(src, dst *ontapclient.Client, sourceSVM, destSVM string) (string, string, string) {
+func setupClusterPeer(ctx context.Context, src, dst *ontapclient.Client, sourceSVM, destSVM string) (string, string, string) {
 	okStates := map[string]bool{"available": true, "partial": true, "pending": true}
 
-	dstCP, err := dst.Get(pathClusterPeers, map[string]string{
+	dstCP, err := dst.Get(ctx, pathClusterPeers, map[string]string{
 		"fields":      peerFields,
 		"max_records": "10",
 	})
@@ -325,7 +316,7 @@ func setupClusterPeer(src, dst *ontapclient.Client, sourceSVM, destSVM string) (
 			continue
 		}
 		// Peer already exists
-		srcCP, err2 := src.Get(pathClusterPeers, map[string]string{
+		srcCP, err2 := src.Get(ctx, pathClusterPeers, map[string]string{
 			"fields":      peerFields,
 			"max_records": "10",
 		})
@@ -339,8 +330,8 @@ func setupClusterPeer(src, dst *ontapclient.Client, sourceSVM, destSVM string) (
 				break
 			}
 		}
-		srcIPs := getICLIFIPs(src)
-		dstIPs := getICLIFIPs(dst)
+		srcIPs := getICLIFIPs(ctx, src)
+		dstIPs := getICLIFIPs(ctx, dst)
 		log.Printf("CLUSTER PEER   | already peered — dst sees src as '%s' (state=%s) — skipping",
 			ontapclient.NestedStr(p, "name"), state)
 		log.Printf("IC LIFs        | src=%v  dst=%v", srcIPs, dstIPs)
@@ -350,16 +341,16 @@ func setupClusterPeer(src, dst *ontapclient.Client, sourceSVM, destSVM string) (
 
 	// No existing peer — auto-create
 	log.Println("CLUSTER PEER   | no existing peer found — auto-creating")
-	srcIPs := getICLIFIPs(src)
-	dstIPs := getICLIFIPs(dst)
+	srcIPs := getICLIFIPs(ctx, src)
+	dstIPs := getICLIFIPs(ctx, dst)
 	log.Printf("CLUSTER PEER   | src IC LIFs=%v  dst IC LIFs=%v", srcIPs, dstIPs)
 	checkICLIFPreconditions(srcIPs, dstIPs)
-	return createNewClusterPeer(src, dst, srcIPs, dstIPs, sourceSVM, destSVM)
+	return createNewClusterPeer(ctx, src, dst, srcIPs, dstIPs, sourceSVM, destSVM)
 }
 
 // createNewClusterPeer posts a new cluster peer on both sides.
 // Returns (srcPeerName, dstPeerName, dstPeerUUID).
-func createNewClusterPeer(src, dst *ontapclient.Client, srcIPs, dstIPs []string, sourceSVM, destSVM string) (string, string, string) {
+func createNewClusterPeer(ctx context.Context, src, dst *ontapclient.Client, srcIPs, dstIPs []string, sourceSVM, destSVM string) (string, string, string) {
 	if len(srcIPs) == 0 {
 		log.Fatal("ABORTED — no intercluster LIFs found on source cluster.")
 	}
@@ -369,7 +360,7 @@ func createNewClusterPeer(src, dst *ontapclient.Client, srcIPs, dstIPs []string,
 
 	peerAddrs := make([]string, len(dstIPs))
 	copy(peerAddrs, dstIPs)
-	srcResp, err := src.Post(pathClusterPeers, map[string]interface{}{
+	srcResp, err := src.Post(ctx, pathClusterPeers, nil, map[string]interface{}{
 		"peer_addresses":      peerAddrs,
 		"generate_passphrase": true,
 		"encryption":          map[string]string{"proposed": "tls-psk"},
@@ -379,11 +370,14 @@ func createNewClusterPeer(src, dst *ontapclient.Client, srcIPs, dstIPs []string,
 	})
 	dieOnErr("create cluster peer on source", err)
 	passphrase, _ := srcResp["passphrase"].(string)
+	if passphrase == "" {
+		log.Fatal("ABORTED — cluster peer response missing passphrase field")
+	}
 	log.Println("CLUSTER PEER   | created on source")
 
 	dstPeerAddrs := make([]string, len(srcIPs))
 	copy(dstPeerAddrs, srcIPs)
-	_, err = dst.Post(pathClusterPeers, map[string]interface{}{
+	_, err = dst.Post(ctx, pathClusterPeers, nil, map[string]interface{}{
 		"peer_addresses": dstPeerAddrs,
 		"passphrase":     passphrase,
 		"initial_allowed_svms": []map[string]string{
@@ -394,13 +388,13 @@ func createNewClusterPeer(src, dst *ontapclient.Client, srcIPs, dstIPs []string,
 	log.Println("CLUSTER PEER   | accepted on dest")
 
 	time.Sleep(5 * time.Second)
-	return fetchCreatedPeerNames(src, dst)
+	return fetchCreatedPeerNames(ctx, src, dst)
 }
 
 // fetchCreatedPeerNames retrieves peer names from both clusters after creation.
-func fetchCreatedPeerNames(src, dst *ontapclient.Client) (string, string, string) {
+func fetchCreatedPeerNames(ctx context.Context, src, dst *ontapclient.Client) (string, string, string) {
 	okStates := map[string]bool{"available": true, "partial": true, "pending": true}
-	dstCP, err := dst.Get(pathClusterPeers, map[string]string{"fields": peerFields, "max_records": "10"})
+	dstCP, err := dst.Get(ctx, pathClusterPeers, map[string]string{"fields": peerFields, "max_records": "10"})
 	if err != nil {
 		log.Fatalf("ABORTED — could not query cluster peers on destination: %v", err)
 	}
@@ -414,7 +408,7 @@ func fetchCreatedPeerNames(src, dst *ontapclient.Client) (string, string, string
 	if len(dstPeer) == 0 {
 		log.Fatal("ABORTED — no usable cluster peer found on destination after creation")
 	}
-	srcCP, err := src.Get(pathClusterPeers, map[string]string{"fields": peerFields, "max_records": "10"})
+	srcCP, err := src.Get(ctx, pathClusterPeers, map[string]string{"fields": peerFields, "max_records": "10"})
 	if err != nil {
 		log.Fatalf("ABORTED — could not query cluster peers on source: %v", err)
 	}
@@ -435,15 +429,15 @@ func fetchCreatedPeerNames(src, dst *ontapclient.Client) (string, string, string
 }
 
 // grantSVMPeerPermission grants SnapMirror peer-permission on the source SVM.
-func grantSVMPeerPermission(src *ontapclient.Client, sourceSVM, srcPeerName string) {
-	_, err := src.Post("/svm/peer-permissions", map[string]interface{}{
+func grantSVMPeerPermission(ctx context.Context, src *ontapclient.Client, sourceSVM, srcPeerName string) {
+	_, err := src.Post(ctx, "/svm/peer-permissions", nil, map[string]interface{}{
 		"svm":          map[string]string{"name": sourceSVM},
 		"cluster_peer": map[string]string{"name": srcPeerName},
 		"applications": []string{"snapmirror"},
 	})
 	if err != nil {
-		s := err.Error()
-		if strings.Contains(s, "already exists") || strings.Contains(strings.ToLower(s), "duplicate") || strings.Contains(s, "13001") {
+		var apiErr *ontapclient.OntapApiError
+		if errors.As(err, &apiErr) && (apiErr.ErrorCode() == "13001" || apiErr.ErrorCode() == "917927") {
 			log.Println("SVM PEER       | peer-permission already exists — skipping")
 			return
 		}
@@ -453,8 +447,8 @@ func grantSVMPeerPermission(src *ontapclient.Client, sourceSVM, srcPeerName stri
 }
 
 // createSVMPeerRelationship creates the SVM peer relationship on the destination.
-func createSVMPeerRelationship(dst *ontapclient.Client, destSVM, sourceSVM, dstPeerName string) {
-	resp, err := dst.Post(pathSVMPeers, map[string]interface{}{
+func createSVMPeerRelationship(ctx context.Context, dst *ontapclient.Client, destSVM, sourceSVM, dstPeerName string) {
+	resp, err := dst.Post(ctx, pathSVMPeers, nil, map[string]interface{}{
 		"svm": map[string]string{"name": destSVM},
 		"peer": map[string]interface{}{
 			"svm":     map[string]string{"name": sourceSVM},
@@ -463,15 +457,15 @@ func createSVMPeerRelationship(dst *ontapclient.Client, destSVM, sourceSVM, dstP
 		"applications": []string{"snapmirror"},
 	})
 	if err != nil {
-		s := err.Error()
-		if strings.Contains(s, "already exists") || strings.Contains(strings.ToLower(s), "duplicate") || strings.Contains(s, "13001") {
+		var apiErr *ontapclient.OntapApiError
+		if errors.As(err, &apiErr) && (apiErr.ErrorCode() == "13001" || apiErr.ErrorCode() == "917927") {
 			log.Println("SVM PEER       | already exists — skipping")
 			return
 		}
 		log.Fatalf("SVM PEER       | create failed: %v", err)
 	}
 	if jobUUID := ontapclient.JobUUID(resp); jobUUID != "" {
-		if _, err := dst.PollJob(jobUUID, 10); err != nil {
+		if _, err := dst.PollJob(ctx, jobUUID, 10*time.Second); err != nil {
 			log.Printf("poll svm peer job: %v", err)
 		}
 	}
@@ -479,10 +473,10 @@ func createSVMPeerRelationship(dst *ontapclient.Client, destSVM, sourceSVM, dstP
 }
 
 // setupSVMPeer ensures SVM peer exists; returns the source SVM alias used in SnapMirror paths.
-func setupSVMPeer(src, dst *ontapclient.Client, sourceSVM, destSVM, srcPeerName, dstPeerName, srcClusterPeerUUID string) string {
-	svmResp, err := dst.Get(pathSVMPeers, map[string]string{
-		"fields":   "uuid,name,state,peer",
-		keySVMName: destSVM,
+func setupSVMPeer(ctx context.Context, src, dst *ontapclient.Client, sourceSVM, destSVM, srcPeerName, dstPeerName, srcClusterPeerUUID string) string {
+	svmResp, err := dst.Get(ctx, pathSVMPeers, map[string]string{
+		"fields":               "uuid,name,state,peer",
+		ontapclient.KeySVMName: destSVM,
 	})
 	dieOnErr("get svm peers", err)
 
@@ -503,12 +497,12 @@ func setupSVMPeer(src, dst *ontapclient.Client, sourceSVM, destSVM, srcPeerName,
 		return alias
 	}
 
-	grantSVMPeerPermission(src, sourceSVM, srcPeerName)
-	createSVMPeerRelationship(dst, destSVM, sourceSVM, dstPeerName)
+	grantSVMPeerPermission(ctx, src, sourceSVM, srcPeerName)
+	createSVMPeerRelationship(ctx, dst, destSVM, sourceSVM, dstPeerName)
 
-	svmResp2, err := dst.Get(pathSVMPeers, map[string]string{
-		"fields":   "uuid,name,state,peer",
-		keySVMName: destSVM,
+	svmResp2, err := dst.Get(ctx, pathSVMPeers, map[string]string{
+		"fields":               "uuid,name,state,peer",
+		ontapclient.KeySVMName: destSVM,
 	})
 	if err != nil {
 		return sourceSVM
@@ -526,8 +520,8 @@ func setupSVMPeer(src, dst *ontapclient.Client, sourceSVM, destSVM, srcPeerName,
 }
 
 // phaseDSetupRelationship creates and initializes the SnapMirror relationship; returns its UUID.
-func phaseDSetupRelationship(src, dst *ontapclient.Client, cfg smRelConfig) string {
-	existing, err := dst.Get("/snapmirror/relationships", map[string]string{
+func phaseDSetupRelationship(ctx context.Context, src, dst *ontapclient.Client, cfg smRelConfig) string {
+	existing, err := dst.Get(ctx, "/snapmirror/relationships", map[string]string{
 		"fields":           "uuid,state,healthy",
 		"destination.path": cfg.destSVM + ":" + cfg.destVolume,
 		"max_records":      "1",
@@ -535,7 +529,7 @@ func phaseDSetupRelationship(src, dst *ontapclient.Client, cfg smRelConfig) stri
 	dieOnErr("check existing relationship", err)
 	log.Printf("RELATIONSHIP CHECK | existing=%d", ontapclient.NumRecords(existing))
 
-	createResp, err := dst.Post("/snapmirror/relationships?return_timeout=120", map[string]interface{}{
+	createResp, err := dst.Post(ctx, "/snapmirror/relationships", map[string]string{"return_timeout": "120"}, map[string]interface{}{
 		"source": map[string]interface{}{
 			"path":    cfg.sourceSVMAlias + ":" + cfg.sourceVolume,
 			"cluster": map[string]string{"name": cfg.peerName},
@@ -544,14 +538,19 @@ func phaseDSetupRelationship(src, dst *ontapclient.Client, cfg smRelConfig) stri
 		"policy":      map[string]string{"name": cfg.smPolicy},
 	})
 	if err != nil {
-		log.Printf("create_and_initialize_relationship — %v (may already exist)", err)
+		var apiErr *ontapclient.OntapApiError
+		if errors.As(err, &apiErr) && apiErr.ErrorCode() == "917927" {
+			log.Printf("create_and_initialize_relationship — relationship already exists, skipping create")
+		} else {
+			log.Fatalf("create_and_initialize_relationship: %v", err)
+		}
 	} else if jobUUID := ontapclient.JobUUID(createResp); jobUUID != "" {
-		if _, err := dst.PollJob(jobUUID, 10); err != nil {
+		if _, err := dst.PollJob(ctx, jobUUID, 10*time.Second); err != nil {
 			log.Printf("poll create job — %v", err)
 		}
 	}
 
-	relResp, err := dst.Get("/snapmirror/relationships", map[string]string{
+	relResp, err := dst.Get(ctx, "/snapmirror/relationships", map[string]string{
 		"fields":           "uuid,source.path,destination.path,state,lag_time,healthy,policy.name",
 		"destination.path": cfg.destSVM + ":" + cfg.destVolume,
 		"max_records":      "1",
@@ -569,67 +568,23 @@ func phaseDSetupRelationship(src, dst *ontapclient.Client, cfg smRelConfig) stri
 		rel["healthy"],
 		ontapclient.NestedStr(rel, "policy", "name"))
 
-	_, err = dst.Post(fmt.Sprintf("/snapmirror/relationships/%s/transfers?return_timeout=120", relUUID), map[string]interface{}{})
+	_, err = dst.Post(ctx, fmt.Sprintf("/snapmirror/relationships/%s/transfers", relUUID), map[string]string{"return_timeout": "120"}, map[string]interface{}{})
 	if err != nil {
-		s := err.Error()
-		if strings.Contains(s, "13303812") {
-			srcIPs := getICLIFIPs(src)
-			dstIPs := getICLIFIPs(dst)
+		var apiErr *ontapclient.OntapApiError
+		if errors.As(err, &apiErr) && apiErr.ErrorCode() == "13303812" {
+			srcIPs := getICLIFIPs(ctx, src)
+			dstIPs := getICLIFIPs(ctx, dst)
 			log.Fatalf("ABORTED — SnapMirror initialize failed: intercluster LIF connectivity issue.\n"+
-				"  Error   : %s\n  src IC  : %v\n  dst IC  : %v\n"+
+				"  Error   : %v\n  src IC  : %v\n  dst IC  : %v\n"+
 				"  Cause   : TCP ports 11104/11105 are likely blocked between these IPs.",
-				s, srcIPs, dstIPs)
+				err, srcIPs, dstIPs)
 		}
 		log.Printf("initialize_relationship — %v (may already be initialized)", err)
 	}
 	return relUUID
 }
 
-func mustEnv(key string) string {
-	if v := inputs[key]; v != "" {
-		return v
-	}
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	log.Fatalf("'%s' is required — set it in the INPUTS block at the top of this file", key)
-	return ""
-}
-
-func envOrDefault(key, defaultVal string) string {
-	if v := inputs[key]; v != "" {
-		return v
-	}
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return defaultVal
-}
-
-func dieOnErr(context string, err error) {
-	if err != nil {
-		log.Fatalf("%s: %v", context, err)
-	}
-}
-
-// loadDotEnv reads go/.env and sets each KEY=VALUE as an env var (if not already set).
-// Equivalent to Python's os.environ — credentials stay out of source code.
-func loadDotEnv() {
-	data, err := os.ReadFile(".env")
-	if err != nil {
-		return
-	}
-	for _, line := range strings.Split(string(data), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		k, v, ok := strings.Cut(line, "=")
-		if !ok {
-			continue
-		}
-		if os.Getenv(strings.TrimSpace(k)) == "" {
-			_ = os.Setenv(strings.TrimSpace(k), strings.TrimSpace(v))
-		}
-	}
-}
+func mustEnv(key string) string         { return ontapclient.MustEnv(key) }
+func envOrDefault(k, def string) string { return ontapclient.EnvOrDefault(k, def) }
+func dieOnErr(op string, err error)     { ontapclient.DieOnErr(op, err) }
+func loadDotEnv()                       { ontapclient.LoadDotEnv() }
