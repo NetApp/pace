@@ -24,6 +24,17 @@ ansible/
 Uses inventory and `group_vars/` already in `ansible/`. All modules should
 use FQCNs (`netapp.ontap.*`).
 
+## Go
+
+```
+go/<use_case>/
+  main.go                 # copy and rename directory to <use_case>
+```
+
+Uses the shared `ontapclient` package already in `go/ontapclient/`. See
+existing programs for patterns (env-based config, `loadDotEnv()`, phase
+logging, `PollJob` for async calls).
+
 ## Terraform
 
 ```
@@ -68,6 +79,15 @@ Set `status: draft` on your first pull request:
           env: [ONTAP_HOST, ONTAP_PASS]
           setup: "pip install -r requirements.txt"
         inputs: [param_one]   # use [] if none
+        outputs: [result_one]
+      go:
+        path: go/my_use_case/main.go
+        command: "go run ."
+        cwd: go/my_use_case
+        prerequisites:
+          env: [ONTAP_HOST, ONTAP_PASS]
+          setup: "cd go && go mod download"
+        inputs: [param_one]
         outputs: [result_one]
 ```
 

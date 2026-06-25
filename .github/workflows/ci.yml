@@ -39,7 +39,7 @@ jobs:
       - name: Verify example directories have READMEs
         run: |
           ERRORS=0
-          for dir in python ansible terraform; do
+          for dir in python ansible terraform go; do
             if [ ! -f "$dir/README.md" ]; then
               echo "::error::Missing README.md in $dir/"
               ERRORS=$((ERRORS + 1))
@@ -57,13 +57,14 @@ jobs:
             'python/*.py' \
             'ansible/*.yml' \
             'terraform/**/*.tf' \
+            'go/**/*.go' \
             'docs/example-template/**/*.py' \
             'docs/example-template/**/*.yml' \
             'docs/example-template/**/*.tf' \
             '.github/scripts/*.sh' \
             'docs/*.html' \
             'poc/*.html' \
-            | grep -Ev '(\.example$|requirements\.|inventory/|group_vars/)')
+            | grep -Ev '(\.example$|requirements\.|inventory/|group_vars/|example-template/go/)')
           for f in "${FILES[@]}"; do
             if ! head -10 "$f" | grep -q "$MARKER"; then
               echo "::error file=$f::Missing NetApp copyright header"
@@ -75,3 +76,29 @@ jobs:
             exit 1
           fi
           echo "All checked files carry the NetApp copyright header."
+
+  go-vet:
+    name: go-vet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+
+      - name: go vet
+        working-directory: go
+        run: go vet ./...
+
+      - name: Build-check all programs
+        working-directory: go
+        run: |
+          ERRORS=0
+          for dir in */; do
+            [ -f "${dir}main.go" ] || continue
+            echo "Building ${dir} …"
+            (cd "${dir}" && go build -o /dev/null .) || ERRORS=$((ERRORS + 1))
+          done
+          [ "$ERRORS" -eq 0 ] || exit 1

@@ -40,6 +40,14 @@ body:
         - terraform/cluster-info
         - terraform/cifs-provision
         - terraform/nfs-provision
+        - go/cluster_info
+        - go/nfs_provision
+        - go/cifs_provision
+        - go/cluster_setup_basic
+        - go/snapmirror_provision_src_managed
+        - go/snapmirror_provision_dest_managed
+        - go/snapmirror_test_failover
+        - go/snapmirror_cleanup_test_failover
         - Other (describe in summary)
     validations:
       required: true
