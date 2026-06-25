@@ -43,9 +43,8 @@ import argparse
 import logging
 import os
 import sys
-from pathlib import Path
 
-from ontap_client import OntapClient
+from ontap_client import OntapClient, load_env_file
 
 logging.basicConfig(
     level=logging.INFO,
@@ -54,32 +53,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 ENV = {
-    "ONTAP_HOST": "",  # cluster management IP — set here or via ONTAP_HOST env var
+    "ONTAP_HOST": "",  # cluster management IP — set via ONTAP_HOST env var
     "ONTAP_USER": "admin",
     "ONTAP_PASS": "",  # never hardcode — set via ONTAP_PASS env var
-    "SVM_NAME": "vs1",
-    "VOLUME_NAME": "vol_001",
+    "SVM_NAME": "vs0",
+    "VOLUME_NAME": "vol",
     "VOLUME_SIZE": "100MB",
-    "AGGR_NAME": "sti232_vsim_sr091o_aggr1",  # required — set via --aggregate or AGGR_NAME env var
+    "AGGR_NAME": "",  # required — set via --aggregate or AGGR_NAME env var
     "CLIENT_MATCH": "0.0.0.0/0",
 }
-
-
-def _load_env_file(path: str) -> None:
-    """Load KEY=VALUE pairs from an env file into os.environ (dotenv style)."""
-    p = Path(path)
-    if not p.is_file():
-        logger.error("Env file not found: %s", path)
-        sys.exit(1)
-    for lineno, raw in enumerate(p.read_text().splitlines(), start=1):
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        if "=" not in line:
-            logger.error("Env file %s line %d: expected KEY=VALUE, got: %s", path, lineno, line)
-            sys.exit(1)
-        key, _, value = line.partition("=")
-        os.environ.setdefault(key.strip(), value.strip())
 
 
 def parse_args() -> argparse.Namespace:
@@ -104,15 +86,22 @@ def _pick(arg: str | None, env_key: str, default: str = "") -> str:
 
 
 def _resolve_config(args: argparse.Namespace) -> tuple[str, str, str, str, str]:
-    """Push ENV defaults into os.environ then resolve final values from all sources."""
+    """Load env file (if provided) and resolve final values from all sources.
+
+    Also pushes ENV block defaults into os.environ so ``OntapClient.from_env()``
+    can pick up ``ONTAP_HOST`` / ``ONTAP_PASS`` from the ENV block when no real
+    env vars are set.
+    """
+    if args.env_file:
+        load_env_file(args.env_file)
     for key, value in ENV.items():
         if value and key not in os.environ:
             os.environ[key] = value
-    svm = _pick(args.svm, "SVM_NAME", "vs0")
-    volume = _pick(args.volume, "VOLUME_NAME", "vol_nfs_test_01")
+    svm = _pick(args.svm, "SVM_NAME")
+    volume = _pick(args.volume, "VOLUME_NAME")
     size = _pick(args.size, "VOLUME_SIZE", "100MB")
     aggregate = _pick(args.aggregate, "AGGR_NAME")
-    client_match = _pick(args.client_match, "CLIENT_MATCH", "0.0.0.0/0")
+    client_match = _pick(args.client_match, "CLIENT_MATCH")
     return svm, volume, size, aggregate, client_match
 
 
@@ -220,12 +209,20 @@ def _assign_policy(client: OntapClient, volume_uuid: str, policy_name: str) -> N
 
 
 def main() -> None:
+    """Parse args, resolve config, then provision volume, export policy, and client rule."""
     args = parse_args()
-    if args.env_file:
-        _load_env_file(args.env_file)
     svm, volume, size, aggregate, client_match = _resolve_config(args)
+    if not svm:
+        logger.error("--svm is required (or set SVM_NAME in env / --env-file)")
+        sys.exit(1)
+    if not volume:
+        logger.error("--volume is required (or set VOLUME_NAME in env / --env-file)")
+        sys.exit(1)
     if not aggregate:
         logger.error("--aggregate is required (or set AGGR_NAME in env / --env-file)")
+        sys.exit(1)
+    if not client_match:
+        logger.error("--client-match is required (or set CLIENT_MATCH in env / --env-file)")
         sys.exit(1)
     policy_name = f"{volume}_export_policy"
     with OntapClient.from_env() as client:

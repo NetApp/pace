@@ -3,11 +3,12 @@
 # SPDX-License-Identifier: Apache-2.0
 # See the NOTICE file in the repo root for trademark and attribution details.
 
-"""Retrieve storage cluster version and list all nodes with serial numbers.
+"""Retrieve storage cluster version, nodes, and aggregates.
 
 Steps:
-    1. GET /cluster — retrieve cluster name and ONTAP version
-    2. GET /cluster/nodes — list all nodes with serial numbers
+    1. GET /cluster          — cluster name, ONTAP version, contact, location
+    2. GET /cluster/nodes    — list all nodes with serial numbers
+    3. GET /storage/aggregates — list aggregates with state and used space
 
 Prerequisites::
 
@@ -34,13 +35,16 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> None:
+    """Retrieve cluster version and print all node names with serial numbers."""
     with OntapClient.from_env() as client:
-        # Step 1 — cluster version
-        cluster = client.get("/cluster", fields="name,version")
+        # Step 1 — cluster version, contact, and location
+        cluster = client.get("/cluster", fields="name,version,contact,location")
         logger.info(
-            "Cluster: %s — ONTAP %s",
+            "Cluster: %s — ONTAP %s  contact=%s  location=%s",
             cluster.get("name", "unknown"),
             cluster.get("version", {}).get("full", "unknown"),
+            cluster.get("contact", "—"),
+            cluster.get("location", "—"),
         )
 
         # Step 2 — node list with serial numbers
@@ -53,6 +57,23 @@ def main() -> None:
                 "  %-30s  serial: %s",
                 node.get("name", "—"),
                 node.get("serial_number", "—"),
+            )
+
+        # Step 3 — aggregate list with state and used space
+        aggr_resp = client.get("/storage/aggregates", fields="name,state,space.block_storage")
+        aggr_records = aggr_resp.get("records", [])
+        logger.info("Aggregates in cluster: %d", aggr_resp.get("num_records", len(aggr_records)))
+
+        for aggr in aggr_records:
+            block = aggr.get("space", {}).get("block_storage", {})
+            total = block.get("size", 0)
+            used = block.get("used", 0)
+            used_pct = (used / total * 100) if total else 0
+            logger.info(
+                "  %-30s  state: %-10s  used: %.1f%%",
+                aggr.get("name", "—"),
+                aggr.get("state", "—"),
+                used_pct,
             )
 
 

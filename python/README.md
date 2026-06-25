@@ -13,10 +13,9 @@ To compare this approach with Ansible or Terraform, see
 > **Catalog:** [`catalog.yaml`](../catalog.yaml) lists every Python example with
 > prerequisites, inputs, and outputs. Sections below follow the same format.
 
-> **Note:** These scripts are runnable illustrations, not a tested library.
-> There are no unit tests by design - CI validates only lint and formatting
-> via Ruff. When you adapt a script for production, add tests appropriate
-> to your environment.
+> **Note:** These scripts are runnable illustrations. Unit tests live in
+> `Unit_tests/` and can be run with `pytest Unit_tests/`. CI validates lint
+> and formatting via Ruff in addition to running the test suite.
 
 ---
 
@@ -47,9 +46,10 @@ All scripts read connection details from environment variables.
 export ONTAP_HOST=10.0.0.1       # cluster management LIF
 export ONTAP_USER=admin           # default: admin
 export ONTAP_PASS=your_password
+export ONTAP_TIMEOUT=30          # optional: request timeout in seconds (default: 90)
 ```
 
-Or use an env file:
+Or use an env file and pass it to scripts that support `--env-file`:
 
 ```bash
 # cluster.env
@@ -59,12 +59,45 @@ ONTAP_PASS=your_password
 ```
 
 ```bash
+# Linux / macOS
 set -a && source cluster.env && set +a
+
+# Windows PowerShell
+Get-Content cluster.env | ForEach-Object {
+    if ($_ -match '^([^#][^=]*)=(.*)$') { [System.Environment]::SetEnvironmentVariable($Matches[1].Trim(), $Matches[2].Trim()) }
+}
+```
+
+Scripts that accept `--env-file` (e.g. `cluster_setup_basic.py`) can also load
+the file directly:
+
+```bash
+python cluster_setup_basic.py --env-file cluster.env
 ```
 
 > SSL verification is disabled by default to support environments that use
 > self-signed certificates. We recommend setting `ONTAP_VERIFY_SSL=true`
 > once CA-signed certificates are in place.
+
+### SSL / CA-bundle configuration
+
+| Knob | Description |
+|---|---|
+| Default | `verify_ssl=False` — SSL certificate errors are suppressed so scripts work out-of-the-box with self-signed certs. |
+| `ONTAP_VERIFY_SSL=true` | Enable full certificate verification (recommended for production). |
+| `REQUESTS_CA_BUNDLE` | Path to a custom CA bundle PEM file when your cluster uses an internal/private CA. |
+
+To enable verification with a custom CA bundle:
+
+```bash
+export ONTAP_VERIFY_SSL=true
+export REQUESTS_CA_BUNDLE=/path/to/your/ca-bundle.pem
+python cluster_info.py
+```
+
+For more details and common SSL errors, see the
+[SSL / TLS errors section](../docs/troubleshooting.md#ssl--tls-errors) in the
+troubleshooting guide.
 
 ---
 
@@ -313,13 +346,13 @@ python snapmirror_cleanup_test_failover.py
 |---|---|
 | `ontap_client.py` | Reusable ONTAP REST client (session management, auth, polling, error handling) |
 | `cluster_info.py` | Get cluster version + node list |
+| `cluster_setup_basic.py` | Create a new ONTAP cluster from two pre-cluster nodes |
 | `nfs_provision.py` | Create NFS volume with export policy |
-| `cifs_provision.py` | Create CIFS share with volume and ACL |
-| `cluster_setup_basic.py` | Create cluster from two pre-cluster nodes |
-| `snapmirror_provision_src_managed.py` | SnapMirror provision (source-managed view) |
-| `snapmirror_provision_dest_managed.py` | SnapMirror provision (destination-managed view) |
-| `snapmirror_test_failover.py` | SnapMirror test failover via FlexClone |
-| `snapmirror_cleanup_test_failover.py` | Clean up test failover clone |
+| `cifs_provision.py` | Create CIFS/SMB share (optionally create CIFS server) |
+| `snapmirror_provision_src_managed.py` | Provision a SnapMirror relationship from the source cluster |
+| `snapmirror_provision_dest_managed.py` | Provision a SnapMirror relationship from the destination cluster |
+| `snapmirror_test_failover.py` | Create a FlexClone of the SnapMirror destination for test failover |
+| `snapmirror_cleanup_test_failover.py` | Delete the FlexClone created by a test failover |
 | `requirements.txt` | Python dependencies |
 
 ## Code Patterns
@@ -328,8 +361,14 @@ These scripts demonstrate several patterns you can reuse:
 
 - **`OntapClient.from_env()`** - builds a configured client from environment
   variables so credentials never appear in code
-- **`client.poll_job(uuid)`** - polls an async ONTAP job until completion with
-  configurable interval and timeout
+- **`client.poll_job(uuid)`** - polls an async ONTAP job until completion;
+  accepts keyword args `interval` (seconds between polls, default 5) and
+  `timeout` (max seconds to wait, default 300); raises `RuntimeError` on
+  job failure and `TimeoutError` on timeout
+- **`client.wait_snapmirrored(rel_uuid)`** - polls a SnapMirror relationship
+  until its state reaches `snapmirrored`; accepts `interval` and `max_wait`
+- **`client.update_auth(username, password)`** - replaces session credentials
+  mid-workflow (used by `cluster_setup_basic.py` after cluster creation)
 - **Context manager** - `with OntapClient.from_env() as client:` ensures the
   HTTP session is properly closed
 - **Structured logging** - all output goes through `logging`, not `print()`,
