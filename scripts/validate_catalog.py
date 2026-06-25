@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parent.parent
 CATALOG_PATH = ROOT / "catalog.yaml"
 
 VALID_STATUS = frozenset({"draft", "verified", "deprecated"})
-VALID_TOOLS = frozenset({"python", "ansible", "terraform"})
+VALID_TOOLS = frozenset({"python", "ansible", "terraform", "go"})
 VALID_ENVIRONMENT = frozenset(
     {
         "ontap-simulator",
@@ -170,6 +170,10 @@ def _discover_terraform() -> set[str]:
     return {str(p.relative_to(ROOT)) for p in (ROOT / "terraform").iterdir() if p.is_dir()}
 
 
+def _discover_go() -> set[str]:
+    return {str(p.relative_to(ROOT)) for p in (ROOT / "go").glob("*/main.go")}
+
+
 def validate_catalog(data: object) -> list[str]:
     errors: list[str] = []
     catalog_paths: set[str] = set()
@@ -284,7 +288,7 @@ def validate_catalog(data: object) -> list[str]:
 
 
 def _check_coverage(errors: list[str], catalog_paths: set[str]) -> None:
-    expected = _discover_python() | _discover_ansible() | _discover_terraform()
+    expected = _discover_python() | _discover_ansible() | _discover_terraform() | _discover_go()
 
     for path in sorted(expected - catalog_paths):
         _err(errors, f"uncataloged example: {path} (add to catalog.yaml)")
@@ -314,7 +318,8 @@ def main() -> int:
         f"catalog OK — {len(use_cases)} use case(s), {variant_count} variant(s), "
         f"{len(_discover_python())} python, "
         f"{len(_discover_ansible())} ansible, "
-        f"{len(_discover_terraform())} terraform"
+        f"{len(_discover_terraform())} terraform, "
+        f"{len(_discover_go())} go"
     )
     return 0
 
