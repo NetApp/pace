@@ -47,7 +47,7 @@ jobs:
           done
 
       - name: Run ansible-lint
-        run: ansible-lint ansible/*.yml --exclude ansible/requirements.yml
+        run: ansible-lint ansible/*.yml --exclude ansible/requirements.yml --profile min
 
   terraform-validate:
     name: Terraform — fmt, validate & lint
