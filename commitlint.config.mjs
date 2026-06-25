@@ -25,6 +25,7 @@ export default {
         'chore',
         'ci',
         'doc',
+        'docs',
         'feat',
         'fix',
         'perf',
