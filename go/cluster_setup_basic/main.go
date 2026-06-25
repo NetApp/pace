@@ -13,9 +13,10 @@
 //	5  trackJob        — switch to cluster credentials, poll job until complete
 //
 // Prerequisites:
-//  1. Two ONTAP 9 nodes in pre-cluster state (factory default or freshly wiped)
-//  2. Both nodes reachable at their management IPs
-//  3. Node 1 (ONTAP_HOST) must have at least one cluster interface already configured
+//  1. Go 1.22+ installed; run `cd go && go mod download` once to cache deps
+//  2. Two ONTAP 9 nodes in pre-cluster state (factory default or freshly wiped)
+//  3. Both nodes reachable at their management IPs
+//  4. Node 1 (ONTAP_HOST) must have at least one cluster interface already configured
 //
 // Usage:
 //
@@ -35,8 +36,13 @@ import (
 	ontapclient "github.com/netapp/pace/go/ontapclient"
 )
 
-// ---------------------------------------------------------------------------
+// clusterConfig holds all cluster-creation parameters so that createCluster
+// stays within the 7-parameter limit enforced by the linter.
+type clusterConfig struct {
+	name, password, mgmtIP, netmask, gateway, nodeHost, partnerIP string
+}
 
+// ---------------------------------------------------------------------------
 const nodeFields = "name,uuid,model,state,ha,version,serial_number,membership," +
 	"cluster_interfaces,management_interfaces,metrocluster"
 
@@ -51,10 +57,23 @@ func main() {
 	user := envOrDefault("ONTAP_USER", "admin")
 	pass := envOrDefault("ONTAP_PASS", "") // empty on pre-cluster nodes
 
+	clusterName := mustEnv("CLUSTER_NAME")
+	clusterPass := mustEnv("CLUSTER_PASS")
+	clusterMgmtIP := mustEnv("CLUSTER_MGMT_IP")
+	clusterNetmask := mustEnv("CLUSTER_NETMASK")
+	clusterGateway := mustEnv("CLUSTER_GATEWAY")
+	partnerMgmtIP := mustEnv("PARTNER_MGMT_IP")
+
 	log.Printf("Cluster setup starting — connecting to %s", host)
 
 	client := ontapclient.New(host, user, pass, false)
 	defer client.Close()
+
+	cfg := clusterConfig{
+		name: clusterName, password: clusterPass,
+		mgmtIP: clusterMgmtIP, netmask: clusterNetmask, gateway: clusterGateway,
+		nodeHost: host, partnerIP: partnerMgmtIP,
+	}
 
 	// Step 1: Discover available nodes (retry 3x)
 	log.Println("=== Step 1: Discover nodes ===")
@@ -71,19 +90,17 @@ func main() {
 
 	// Step 4: Create cluster
 	log.Println("=== Step 4: Create cluster ===")
-	jobUUID := createCluster(ctx, client, localNode, partnerNode)
+	jobUUID := createCluster(ctx, client, localNode, partnerNode, cfg)
 
 	// Step 5: Track job — switch to cluster credentials first
 	log.Println("=== Step 5: Track cluster creation job ===")
-	clusterPass := mustEnv("CLUSTER_PASS")
-	clusterMgmtIP := mustEnv("CLUSTER_MGMT_IP")
 	trackJob(ctx, host, user, clusterPass, jobUUID)
 
 	log.Printf("=== CLUSTER CREATED ===\n"+
 		"  Name    : %s\n"+
 		"  UI      : https://%s\n"+
 		"  User    : %s",
-		mustEnv("CLUSTER_NAME"), clusterMgmtIP, user)
+		clusterName, clusterMgmtIP, user)
 }
 
 // waitForNodes GETs /cluster/nodes with membership=available, retrying up to maxAttempts times.
@@ -103,7 +120,11 @@ func waitForNodes(ctx context.Context, client *ontapclient.Client, maxAttempts i
 		if attempt < maxAttempts {
 			log.Printf("wait_for_nodes failed (attempt %d/%d), retrying in %s — %v",
 				attempt, maxAttempts, delay, err)
-			time.Sleep(delay)
+			select {
+			case <-ctx.Done():
+				log.Fatalf("wait_for_nodes: context cancelled — %v", ctx.Err())
+			case <-time.After(delay):
+			}
 		}
 	}
 	log.Fatalf("wait_for_nodes failed after %d attempts: %v", maxAttempts, lastErr)
@@ -126,32 +147,27 @@ func discoverLocal(ctx context.Context, client *ontapclient.Client) map[string]i
 	return nodes[0]
 }
 
-// discoverPartner finds the partner node by excluding the local node UUID.
-// Returns the first matching node record.
+// discoverPartner finds the partner node by excluding the local node UUID client-side.
+// Returns the first node record whose UUID does not match localUUID.
 func discoverPartner(ctx context.Context, client *ontapclient.Client, localUUID string) map[string]interface{} {
 	resp, err := client.Get(ctx, clusterNodesPath, map[string]string{
 		"fields":     nodeFields,
 		"membership": "available",
-		"uuid":       "!" + localUUID,
 	})
 	dieOnErr("discover_partner", err)
-	nodes := ontapclient.Records(resp)
-	if len(nodes) == 0 {
-		log.Fatal("discover_partner: no partner node returned")
+	for _, node := range ontapclient.Records(resp) {
+		if ontapclient.NestedStr(node, "uuid") != localUUID {
+			log.Printf("discover_partner — %s", ontapclient.NestedStr(node, "name"))
+			return node
+		}
 	}
-	log.Printf("discover_partner — %s", ontapclient.NestedStr(nodes[0], "name"))
-	return nodes[0]
+	log.Fatal("discover_partner: no partner node found (only the local node is visible)")
+	return nil
 }
 
 // createCluster POSTs /cluster to create the cluster; returns the job UUID.
-func createCluster(ctx context.Context, client *ontapclient.Client, localNode, partnerNode map[string]interface{}) string {
-	clusterName := mustEnv("CLUSTER_NAME")
-	clusterPass := mustEnv("CLUSTER_PASS")
-	clusterMgmtIP := mustEnv("CLUSTER_MGMT_IP")
-	clusterNetmask := mustEnv("CLUSTER_NETMASK")
-	clusterGateway := mustEnv("CLUSTER_GATEWAY")
-	ontapHost := mustEnv("ONTAP_HOST")
-	partnerMgmtIP := mustEnv("PARTNER_MGMT_IP")
+func createCluster(ctx context.Context, client *ontapclient.Client,
+	localNode, partnerNode map[string]interface{}, cfg clusterConfig) string {
 
 	localClusterIP := clusterIfaceIP(localNode)
 	partnerClusterIP := clusterIfaceIP(partnerNode)
@@ -164,29 +180,29 @@ func createCluster(ctx context.Context, client *ontapclient.Client, localNode, p
 	}
 
 	body := map[string]interface{}{
-		"name":     clusterName,
-		"password": clusterPass,
+		"name":     cfg.name,
+		"password": cfg.password,
 		"management_interface": map[string]interface{}{
 			"ip": map[string]string{
-				"address": clusterMgmtIP,
-				"netmask": clusterNetmask,
-				"gateway": clusterGateway,
+				"address": cfg.mgmtIP,
+				"netmask": cfg.netmask,
+				"gateway": cfg.gateway,
 			},
 		},
 		"nodes": []map[string]interface{}{
 			{
-				"name": fmt.Sprintf("%s-01", clusterName),
+				"name": fmt.Sprintf("%s-01", cfg.name),
 				"management_interface": map[string]interface{}{
-					"ip": map[string]string{"address": ontapHost},
+					"ip": map[string]string{"address": cfg.nodeHost},
 				},
 				"cluster_interface": map[string]interface{}{
 					"ip": map[string]string{"address": localClusterIP},
 				},
 			},
 			{
-				"name": fmt.Sprintf("%s-02", clusterName),
+				"name": fmt.Sprintf("%s-02", cfg.name),
 				"management_interface": map[string]interface{}{
-					"ip": map[string]string{"address": partnerMgmtIP},
+					"ip": map[string]string{"address": cfg.partnerIP},
 				},
 				"cluster_interface": map[string]interface{}{
 					"ip": map[string]string{"address": partnerClusterIP},

@@ -18,10 +18,11 @@
 //	E  Delete             — delete the clone and confirm removal
 //
 // Prerequisites:
-//  1. ONTAP 9.8+ on both clusters
-//  2. snapmirror_test_failover.go must have been run first
-//  3. The SnapMirror relationship must still be accessible on one of the clusters
-//  4. Admin credentials for both clusters
+//  1. Go 1.22+ installed; run `cd go && go mod download` once to cache deps
+//  2. ONTAP 9.8+ on both clusters
+//  3. snapmirror_test_failover.go must have been run first
+//  4. The SnapMirror relationship must still be accessible on one of the clusters
+//  5. Admin credentials for both clusters
 //
 // Usage:
 //
@@ -34,6 +35,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -41,7 +43,10 @@ import (
 	ontapclient "github.com/netapp/pace/go/ontapclient"
 )
 
-const volumeOpPathFmt = "/storage/volumes/%s"
+const (
+	volumeOpPathFmt     = ontapclient.PathStorageVolumes + "/%s"
+	pathSMRelationships = "/snapmirror/relationships"
+)
 
 // ---------------------------------------------------------------------------
 
@@ -96,7 +101,6 @@ func main() {
 	cloneName, _ := clone["name"].(string)
 
 	removeSMASRelationships(ctx, client, cloneSVM, cloneName)
-	bringCloneOnline(ctx, client, cloneUUID)
 	unmountClone(ctx, client, cloneUUID)
 	offlineClone(ctx, client, cloneUUID)
 	deleteAndConfirmClone(ctx, client, cloneUUID, cloneName, destHost)
@@ -108,7 +112,7 @@ func pickClusterByRelationship(ctx context.Context, clusterA, clusterB, user, pa
 	tryHost := func(host string) (map[string]interface{}, bool) {
 		c := ontapclient.New(host, user, passwd, false)
 		defer c.Close()
-		resp, err := c.Get(ctx, "/snapmirror/relationships", map[string]string{
+		resp, err := c.Get(ctx, pathSMRelationships, map[string]string{
 			"fields":      "uuid,source.path,destination.path,state,healthy",
 			"source.path": sourcePath,
 			"max_records": "1",
@@ -135,7 +139,7 @@ func pickClusterByRelationship(ctx context.Context, clusterA, clusterB, user, pa
 // Returns a non-nil error if the API call itself fails (e.g. auth error, network failure),
 // distinguishing a genuine "nothing to clean up" from a broken connection.
 func findTaggedClone(ctx context.Context, client *ontapclient.Client, relUUID string) (map[string]interface{}, error) {
-	resp, err := client.Get(ctx, "/storage/volumes", map[string]string{
+	resp, err := client.Get(ctx, ontapclient.PathStorageVolumes, map[string]string{
 		"fields":      "name,uuid,svm.name,state,nas.path",
 		"_tags":       relUUID + ":test",
 		"max_records": "1",
@@ -157,19 +161,19 @@ func findTaggedClone(ctx context.Context, client *ontapclient.Client, relUUID st
 // removeSMASRelationships deletes any SMAS SnapMirror relationships on the clone volume.
 func removeSMASRelationships(ctx context.Context, client *ontapclient.Client, cloneSVM, cloneName string) {
 	log.Println("=== Phase B: Remove SMAS relationship on clone (if any) ===")
-	smasResp, err := client.Get(ctx, "/snapmirror/relationships", map[string]string{
+	smasResp, err := client.Get(ctx, pathSMRelationships, map[string]string{
 		"fields":           "uuid,state",
 		"destination.path": cloneSVM + ":" + cloneName,
 		"max_records":      "10",
 	})
 	if err != nil {
-		log.Printf("list smas relationships: %v (continuing)", err)
+		log.Fatalf("list smas relationships: %v", err)
 	}
 	smasRels := ontapclient.Records(smasResp)
 	for _, r := range smasRels {
 		smasUUID := ontapclient.NestedStr(r, "uuid")
 		log.Printf("  Deleting SMAS relationship %s on clone", smasUUID)
-		resp, err := client.Delete(ctx, fmt.Sprintf("/snapmirror/relationships/%s", smasUUID),
+		resp, err := client.Delete(ctx, fmt.Sprintf(pathSMRelationships+"/%s", smasUUID),
 			map[string]string{"return_timeout": "120", "force": "true"})
 		if err != nil {
 			log.Printf("delete_smas_rel %s — %v (continuing)", smasUUID, err)
@@ -186,22 +190,6 @@ func removeSMASRelationships(ctx context.Context, client *ontapclient.Client, cl
 	}
 }
 
-// bringCloneOnline sets the clone volume state to online.
-func bringCloneOnline(ctx context.Context, client *ontapclient.Client, cloneUUID string) {
-	resp, err := client.Patch(ctx, fmt.Sprintf(volumeOpPathFmt, cloneUUID),
-		map[string]string{"return_timeout": "120"},
-		map[string]interface{}{"state": "online"})
-	if err != nil {
-		log.Printf("bring_online — %v (continuing)", err)
-		return
-	}
-	if jobUUID := ontapclient.JobUUID(resp); jobUUID != "" {
-		if _, err := client.PollJob(ctx, jobUUID, 10*time.Second); err != nil {
-			log.Printf("poll bring-online job — %v", err)
-		}
-	}
-}
-
 // unmountClone removes the NAS junction path; retries up to 6 times before aborting.
 func unmountClone(ctx context.Context, client *ontapclient.Client, cloneUUID string) {
 	log.Println("=== Phase C: Unmount clone ===")
@@ -212,7 +200,11 @@ func unmountClone(ctx context.Context, client *ontapclient.Client, cloneUUID str
 		if err != nil {
 			log.Printf("unmount_clone attempt %d/6 — %v", attempt, err)
 			if attempt < 6 {
-				time.Sleep(10 * time.Second)
+				select {
+				case <-ctx.Done():
+					log.Fatalf("unmount_clone: context cancelled — %v", ctx.Err())
+				case <-time.After(10 * time.Second):
+				}
 			}
 			continue
 		}
@@ -250,13 +242,9 @@ func deleteAndConfirmClone(ctx context.Context, client *ontapclient.Client, clon
 	log.Println("=== Phase E: Delete clone ===")
 	resp, err := client.Delete(ctx, fmt.Sprintf(volumeOpPathFmt, cloneUUID), map[string]string{"return_timeout": "120"})
 	if err != nil {
-		// Volume may already be gone — confirm before declaring failure.
-		confirm, cErr := client.Get(ctx, "/storage/volumes", map[string]string{
-			"fields":      "name,uuid",
-			"uuid":        cloneUUID,
-			"max_records": "1",
-		})
-		if cErr == nil && ontapclient.NumRecords(confirm) == 0 {
+		// Volume may already be gone — confirm via direct path GET before declaring failure.
+		_, cErr := client.Get(ctx, fmt.Sprintf(volumeOpPathFmt, cloneUUID), nil)
+		if isNotFound(cErr) {
 			log.Printf("=== CLEANUP COMPLETE — clone '%s' already removed from cluster %s ===", cloneName, destHost)
 			return
 		}
@@ -268,16 +256,18 @@ func deleteAndConfirmClone(ctx context.Context, client *ontapclient.Client, clon
 		}
 	}
 
-	confirm, err := client.Get(ctx, "/storage/volumes", map[string]string{
-		"fields":      "name,uuid",
-		"uuid":        cloneUUID,
-		"max_records": "1",
-	})
-	if err != nil || ontapclient.NumRecords(confirm) == 0 {
+	_, cErr := client.Get(ctx, fmt.Sprintf(volumeOpPathFmt, cloneUUID), nil)
+	if isNotFound(cErr) {
 		log.Printf("=== CLEANUP COMPLETE — clone '%s' deleted from cluster %s ===", cloneName, destHost)
 	} else {
 		log.Fatalf("Clone '%s' still exists after delete attempt", cloneName)
 	}
+}
+
+// isNotFound reports whether err is an ONTAP 404 Not Found response.
+func isNotFound(err error) bool {
+	var apiErr *ontapclient.OntapApiError
+	return errors.As(err, &apiErr) && apiErr.StatusCode == 404
 }
 
 func mustEnv(key string) string         { return ontapclient.MustEnv(key) }

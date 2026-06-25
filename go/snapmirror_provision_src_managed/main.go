@@ -17,14 +17,17 @@
 //	F  Validation         — health check + final report
 //
 // Prerequisites:
-//  1. ONTAP 9.8+ on both clusters
-//  2. SnapMirror licence installed on both clusters
-//  3. At least one intercluster LIF on each cluster
-//  4. Cluster peer relationship already exists between source and dest clusters
-//  5. SVM peer relationship already exists (source SVM <-> dest SVM)
-//  6. Source RW volume (SOURCE_VOLUME) already exists on SOURCE_SVM
-//  7. At least one online aggregate on the destination cluster
-//  8. Admin credentials for both clusters
+//  1. Go 1.22+ installed; run `cd go && go mod download` once to cache deps
+//  2. ONTAP 9.8+ on both clusters
+//  3. SnapMirror licence installed on both clusters
+//  4. At least one intercluster LIF on each cluster
+//  5. Cluster peer relationship must already exist between source and dest clusters
+//     (this script does NOT auto-create peers — run snapmirror_provision_dest_managed
+//     first, or set up peers manually via System Manager)
+//  6. SVM peer relationship must already exist (source SVM <-> dest SVM)
+//  7. Source RW volume (SOURCE_VOLUME) already exists on SOURCE_SVM
+//  8. At least one online aggregate on the destination cluster
+//  9. Admin credentials for both clusters
 //
 // Usage:
 //
@@ -48,6 +51,14 @@ import (
 
 // ---------------------------------------------------------------------------
 
+const pathSMRelationships = "/snapmirror/relationships"
+
+// smRelConfig groups SnapMirror relationship parameters to keep function
+// signatures within the 7-parameter limit.
+type smRelConfig struct {
+	sourceSVM, sourceVolume, destSVM, destVolume, peerName, smPolicy string
+}
+
 func main() {
 	log.SetFlags(log.LstdFlags)
 	loadDotEnv()
@@ -65,7 +76,7 @@ func main() {
 	destSVM := mustEnv("DEST_SVM")
 	smPolicy := envOrDefault("SM_POLICY", "Asynchronous")
 
-	destVolume := sourceVolume + "_dest"
+	destVolume := envOrDefault("DEST_VOLUME", sourceVolume+"_dest")
 
 	src := ontapclient.New(sourceHost, sourceUser, sourcePass, false)
 	defer src.Close()
@@ -82,7 +93,12 @@ func main() {
 	smSrcPhaseC(ctx, dst, destSVM, destVolume, aggrName, srcVolSize)
 
 	log.Println("=== Phase D: Relationship setup ===")
-	relUUID := smSrcPhaseD(ctx, dst, sourceSVM, sourceVolume, destSVM, destVolume, peerName, smPolicy)
+	smCfg := smRelConfig{
+		sourceSVM: sourceSVM, sourceVolume: sourceVolume,
+		destSVM: destSVM, destVolume: destVolume,
+		peerName: peerName, smPolicy: smPolicy,
+	}
+	relUUID := smSrcPhaseD(ctx, dst, smCfg)
 
 	log.Println("=== Phase E: Convergence polling ===")
 	if _, err := dst.WaitSnapmirrored(ctx, relUUID, 15*time.Second, 30*time.Minute); err != nil {
@@ -220,22 +236,22 @@ func smSrcPhaseC(ctx context.Context, dst *ontapclient.Client, destSVM, destVolu
 }
 
 // smSrcPhaseD creates and initializes the SnapMirror relationship; returns the relationship UUID.
-func smSrcPhaseD(ctx context.Context, dst *ontapclient.Client, sourceSVM, sourceVolume, destSVM, destVolume, peerName, smPolicy string) string {
-	existing, err := dst.Get(ctx, "/snapmirror/relationships", map[string]string{
+func smSrcPhaseD(ctx context.Context, dst *ontapclient.Client, cfg smRelConfig) string {
+	existing, err := dst.Get(ctx, pathSMRelationships, map[string]string{
 		"fields":           "uuid,state,healthy",
-		"destination.path": destSVM + ":" + destVolume,
+		"destination.path": cfg.destSVM + ":" + cfg.destVolume,
 		"max_records":      "1",
 	})
 	dieOnErr("check existing relationship", err)
 
 	if ontapclient.NumRecords(existing) == 0 {
-		createResp, err := dst.Post(ctx, "/snapmirror/relationships", map[string]string{"return_timeout": "120"}, map[string]interface{}{
+		createResp, err := dst.Post(ctx, pathSMRelationships, map[string]string{"return_timeout": "120"}, map[string]interface{}{
 			"source": map[string]interface{}{
-				"path":    sourceSVM + ":" + sourceVolume,
-				"cluster": map[string]string{"name": peerName},
+				"path":    cfg.sourceSVM + ":" + cfg.sourceVolume,
+				"cluster": map[string]string{"name": cfg.peerName},
 			},
-			"destination": map[string]string{"path": destSVM + ":" + destVolume},
-			"policy":      map[string]string{"name": smPolicy},
+			"destination": map[string]string{"path": cfg.destSVM + ":" + cfg.destVolume},
+			"policy":      map[string]string{"name": cfg.smPolicy},
 		})
 		if err != nil {
 			log.Fatalf("create_and_initialize_relationship: %v", err)
@@ -250,38 +266,54 @@ func smSrcPhaseD(ctx context.Context, dst *ontapclient.Client, sourceSVM, source
 		log.Println("RELATIONSHIP   | already exists — skipping create")
 	}
 
-	relResp, err := dst.Get(ctx, "/snapmirror/relationships", map[string]string{
+	relResp, err := dst.Get(ctx, pathSMRelationships, map[string]string{
 		"fields":           "uuid,source.path,destination.path,state,lag_time,healthy,policy.name",
-		"destination.path": destSVM + ":" + destVolume,
+		"destination.path": cfg.destSVM + ":" + cfg.destVolume,
 		"max_records":      "1",
 	})
 	dieOnErr("get relationship", err)
 	rels := ontapclient.Records(relResp)
 	if len(rels) == 0 {
-		log.Fatalf("ABORTED — SnapMirror relationship not found for '%s:%s'", destSVM, destVolume)
+		log.Fatalf("ABORTED — SnapMirror relationship not found for '%s:%s'", cfg.destSVM, cfg.destVolume)
 	}
 	rel := rels[0]
 	relUUID := ontapclient.NestedStr(rel, "uuid")
 	log.Printf("RELATIONSHIP FOUND | uuid=%s | state=%s | healthy=%v",
 		relUUID, ontapclient.NestedStr(rel, "state"), rel["healthy"])
 
-	_, err = dst.Post(ctx, fmt.Sprintf("/snapmirror/relationships/%s/transfers", relUUID), map[string]string{"return_timeout": "120"}, map[string]interface{}{})
-	if err != nil {
-		var apiErr *ontapclient.OntapApiError
-		if errors.As(err, &apiErr) && apiErr.ErrorCode() == "13303812" {
+	srcInitTransfer(ctx, dst, relUUID)
+	return relUUID
+}
+
+// srcInitTransfer posts the initial transfer for a SnapMirror relationship and
+// handles expected error codes (duplicate, in-progress, LIF connectivity).
+func srcInitTransfer(ctx context.Context, dst *ontapclient.Client, relUUID string) {
+	_, err := dst.Post(ctx, fmt.Sprintf("%s/%s/transfers", pathSMRelationships, relUUID),
+		map[string]string{"return_timeout": "120"}, map[string]interface{}{})
+	if err == nil {
+		return
+	}
+	var apiErr *ontapclient.OntapApiError
+	if errors.As(err, &apiErr) {
+		switch apiErr.ErrorCode() {
+		case "13303812":
 			log.Fatalf("ABORTED — SnapMirror initialize failed: intercluster LIF connectivity issue.\n"+
 				"  Error : %v\n"+
 				"  Cause : TCP ports 11104/11105 are likely blocked between the source and dest IC LIFs.",
 				err)
+		case "917927", "13303809": // already exists / transfer already in progress
+			log.Printf("initialize_relationship — already initialized or in progress (code %s)", apiErr.ErrorCode())
+		default:
+			log.Fatalf("initialize_relationship failed (code=%s): %v", apiErr.ErrorCode(), err)
 		}
-		log.Printf("initialize_relationship — %v (may already be initialized)", err)
+	} else {
+		log.Fatalf("initialize_relationship failed (network error): %v", err)
 	}
-	return relUUID
 }
 
 // smSrcPhaseF prints the final validation report.
 func smSrcPhaseF(ctx context.Context, dst *ontapclient.Client, relUUID, sourceSVM, sourceVolume, destSVM, destVolume string) {
-	final, err := dst.Get(ctx, fmt.Sprintf("/snapmirror/relationships/%s", relUUID),
+	final, err := dst.Get(ctx, fmt.Sprintf(pathSMRelationships+"/%s", relUUID),
 		map[string]string{"fields": "uuid,source.path,destination.path,state,lag_time,healthy,policy.name"})
 	dieOnErr("final validation", err)
 	log.Printf("=== SNAPMIRROR PROVISION COMPLETE ===\n"+

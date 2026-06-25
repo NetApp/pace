@@ -1,12 +1,12 @@
 ---
-description: "Generate a complete NetApp storage workflow - Python + Ansible + Terraform - for a storage task"
+description: "Generate a complete NetApp storage workflow - Python + Ansible + Terraform + Go - for a storage task"
 ---
 
-# Generate Complete Storage Workflow (All Three Tools)
+# Generate Complete Storage Workflow (All Four Tools)
 
 You are generating a full automation example set for the **pace**
-repository. Every use case in this repo ships Python, Ansible, and Terraform
-implementations so users can compare side-by-side.
+repository. Every use case in this repo ships Python, Ansible, Terraform,
+and Go implementations so users can compare side-by-side.
 
 ## Task
 
@@ -19,6 +19,8 @@ implementations so users can compare side-by-side.
 - [ansible/nfs_provision.yml](../../ansible/nfs_provision.yml) - Ansible reference
 - [ansible/cifs_provision.yml](../../ansible/cifs_provision.yml) - Ansible CIFS reference
 - [terraform/nfs-provision/](../../terraform/nfs-provision/) - Terraform reference
+- [go/ontapclient/ontap_client.go](../../go/ontapclient/ontap_client.go) - shared Go REST client
+- [go/snapmirror_provision_src_managed/main.go](../../go/snapmirror_provision_src_managed/main.go) - Go reference
 - [docs/ontap-api-patterns.md](../../docs/ontap-api-patterns.md) - API endpoints, auth, async jobs
 - [docs/example-template/](../../docs/example-template/) - skeleton files for all tools
 - [CONTRIBUTING.md](../../CONTRIBUTING.md) - naming, CI, quality bar
@@ -48,7 +50,7 @@ Rules:
 
 **Wait for my approval before Phase 3.**
 
-## Phase 3 - Generate All Three Implementations
+## Phase 3 - Generate All Four Implementations
 
 ### 3A. Python - `python/<use_case>.py`
 
@@ -80,6 +82,20 @@ Rules:
 - `outputs.tf`: meaningful outputs with descriptions.
 - `terraform.tfvars.example`: placeholder values, no real credentials.
 - `depends_on` where ordering matters.
+
+### 3D. Go - `go/<use_case>/main.go`
+
+- `package main`, copyright `//` comment header.
+- Package-level doc comment: phases/steps, prerequisites, usage env vars.
+- `import ontapclient "github.com/netapp/pace/go/ontapclient"` — no new HTTP client.
+- Use `ontapclient.New(host, user, pass, false)` or `ontapclient.FromEnv()`.
+- `defer client.Close()` immediately after creating each client.
+- Required env vars via `mustEnv()`, optional via `envOrDefault()`.
+- `loadDotEnv()` called at start of `main()`.
+- Async jobs: `client.PollJob(ctx, uuid)`.
+- `log.Printf(...)` only — never `fmt.Print()`.
+- `context.Background()` passed through all API calls.
+- Do **not** create a new `go.mod` — module is `github.com/netapp/pace/go`.
 
 ## Phase 4 - Validate
 

@@ -23,11 +23,12 @@
 //	E  Resync      — resync SnapMirror + validate healthy state
 //
 // Prerequisites:
-//  1. ONTAP 9.8+ on both clusters
-//  2. A healthy SnapMirror relationship must already exist
-//  3. Relationship state must be 'snapmirrored' (baseline transfer complete)
-//  4. At least one SnapMirror snapshot on the destination volume
-//  5. Admin credentials for both clusters
+//  1. Go 1.22+ installed; run `cd go && go mod download` once to cache deps
+//  2. ONTAP 9.8+ on both clusters
+//  3. A healthy SnapMirror relationship must already exist
+//  4. Relationship state must be 'snapmirrored' (baseline transfer complete)
+//  5. At least one SnapMirror snapshot on the destination volume
+//  6. Admin credentials for both clusters
 //
 // Usage:
 //
@@ -48,6 +49,8 @@ import (
 )
 
 // ---------------------------------------------------------------------------
+
+const pathSMRelationships = "/snapmirror/relationships"
 
 func main() {
 	log.SetFlags(log.LstdFlags)
@@ -97,7 +100,7 @@ func tfPhaseA(ctx context.Context, client *ontapclient.Client, dpSVMName, dpVolN
 		ontapclient.NestedStr(cluster, "name"),
 		ontapclient.NestedStr(cluster, "version", "full"))
 
-	relResp, err := client.Get(ctx, "/snapmirror/relationships", map[string]string{
+	relResp, err := client.Get(ctx, pathSMRelationships, map[string]string{
 		"fields":           "uuid,source.path,destination.path,state,lag_time,healthy,policy.name",
 		"destination.path": dpSVMName + ":" + dpVolName,
 		"max_records":      "1",
@@ -138,7 +141,7 @@ func tfPhaseB(ctx context.Context, client *ontapclient.Client, dpVolUUID, dpVolN
 // tfPhaseC creates the writable FlexClone; returns (cloneName, cloneUUID).
 func tfPhaseC(ctx context.Context, client *ontapclient.Client, dpVolName, dpSVMName, snapshotName string) (string, string) {
 	cloneName := dpVolName + "_clone"
-	cloneResp, err := client.Post(ctx, "/storage/volumes", map[string]string{"return_timeout": "120"}, map[string]interface{}{
+	cloneResp, err := client.Post(ctx, ontapclient.PathStorageVolumes, map[string]string{"return_timeout": "120"}, map[string]interface{}{
 		"name": cloneName,
 		"svm":  map[string]string{"name": dpSVMName},
 		"nas":  map[string]string{"path": "/" + cloneName},
@@ -189,7 +192,9 @@ func tfPhaseD(ctx context.Context, client *ontapclient.Client, cloneName, cloneU
 		map[string]string{"return_timeout": "120"},
 		map[string]interface{}{"_tags": []string{relUUID + ":test"}})
 	if err != nil {
-		log.Printf("tag_clone_volume — %v", err)
+		log.Printf("WARNING: clone tagging failed — cleanup auto-detection will not work for this clone.\n"+
+			"  To clean up manually: delete volume '%s' on SVM '%s'\n  Error: %v",
+			cloneName, dpSVMName, err)
 	} else {
 		log.Printf("TAG APPLIED | clone=%s | tag=%s:test", cloneName, relUUID)
 	}
@@ -221,7 +226,7 @@ func tfPhaseD(ctx context.Context, client *ontapclient.Client, cloneName, cloneU
 
 // tfPhaseE resyncs the SnapMirror relationship and waits for snapmirrored state.
 func tfPhaseE(ctx context.Context, client *ontapclient.Client, relUUID string) {
-	resyncResp, err := client.Patch(ctx, fmt.Sprintf("/snapmirror/relationships/%s", relUUID),
+	resyncResp, err := client.Patch(ctx, fmt.Sprintf(pathSMRelationships+"/%s", relUUID),
 		map[string]string{"return_timeout": "120"},
 		map[string]interface{}{"state": "snapmirrored"})
 	if err != nil {

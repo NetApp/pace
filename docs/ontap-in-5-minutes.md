@@ -103,6 +103,7 @@ endpoint set. List with `security login role show`.
 |---|---|
 | [`cluster_info.py`](../python/cluster_info.py) | Cluster, Node, REST API |
 | [`cluster_setup.yml`](../ansible/cluster_setup.yml) | Cluster, Node, LIF, Aggregate, RBAC |
+| [`cluster_setup_basic/main.go`](../go/cluster_setup_basic/main.go) | Cluster, Node, REST API jobs |
 | [`nfs_provision.*`](../python/nfs_provision.py) | SVM, Aggregate, Volume, LIF, Export policy |
 | [`cifs_provision.*`](../python/cifs_provision.py) | SVM, Aggregate, Volume, LIF, CIFS share |
 | [`snapmirror_*`](../ansible/snapmirror_provision_src_managed.yml) | Volume, Snapshot, SnapMirror, REST API jobs |

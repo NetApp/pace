@@ -34,7 +34,8 @@ generating suggestions in PRs and issues.
 | `generate-python.prompt.md` | `generate-python` | You need a Python script only |
 | `generate-ansible.prompt.md` | `generate-ansible` | You need an Ansible playbook only |
 | `generate-terraform.prompt.md` | `generate-terraform` | You need a Terraform module only |
-| `generate-workflow.prompt.md` | `generate-workflow` | You need all three implementations |
+| `generate-go.prompt.md` | `generate-go` | You need a Go program only |
+| `generate-workflow.prompt.md` | `generate-workflow` | You need all four implementations |
 | `plan-api-sequence.prompt.md` | `plan-api-sequence` | Design the API call sequence before coding |
 | `review-contribution.prompt.md` | `review-contribution` | Check code against conventions before a PR |
 
@@ -42,8 +43,8 @@ generating suggestions in PRs and issues.
 
 ```
 1.  plan-api-sequence       →  Design and validate the REST API sequence
-2.  generate-workflow        →  Generate Python + Ansible + Terraform
-    (or generate-python / generate-ansible / generate-terraform individually)
+2.  generate-workflow        →  Generate Python + Ansible + Terraform + Go
+    (or generate-python / generate-ansible / generate-terraform / generate-go individually)
 3.  review-contribution      →  Verify conventions, CI compliance, README updates
 ```
 
@@ -77,7 +78,7 @@ STEP 3 - GENERATE PYTHON: File `python/<use_case>.py` with:
   • #!/usr/bin/env python3, from __future__ import annotations
   • Module docstring with steps, prerequisites, usage
   • from ontap_client import OntapClient (shared client, do NOT create a new one)
-  • with OntapClient.from_env() as client: (env: ONTAP_HOST, ONTAP_PASS)
+  • with OntapClient.from_env() as client: (env: ONTAP_HOST, ONTAP_USER (default admin), ONTAP_PASS)
   • argparse with env-var fallbacks for operational params
   • client.get/post/patch/delete + client.poll_job() for async
   • logging module only (no print), type hints, no hardcoded credentials
@@ -144,11 +145,45 @@ STEP 4 - VALIDATE: init/plan/apply commands, drift behavior, destroy teardown.
 
 ---
 
-### Master Prompt (All Three)
+### Go-Only Prompt
+
+````text
+You are a NetApp ONTAP automation engineer writing a Go program that uses
+ONLY the ONTAP REST API.
+
+Task: [DESCRIBE THE STORAGE TASK]
+
+STEP 1 - CLARIFY: Ask me for any missing information (SVM, volume, aggregate,
+protocol, cluster hostname, special options).
+
+STEP 2 - API SEQUENCE: List ONTAP REST API calls in order. For each: method,
+endpoint, key body/query params, sync/async, one-sentence justification.
+Rules: REST only (no ZAPI, no CLI, no SSH), target ONTAP 9.8+. Wait for my
+approval.
+
+STEP 3 - GENERATE GO: Directory `go/<use_case>/main.go` with:
+  • Copyright header as // lines, package main
+  • Package-level doc comment with steps, prerequisites, usage env vars
+  • import ontapclient "github.com/netapp/pace/go/ontapclient" (shared client,
+    do NOT create a new one; do NOT create a new go.mod)
+  • ontapclient.New(host, user, pass, false) or ontapclient.FromEnv()
+  • defer client.Close() immediately after creating each client
+  • mustEnv() for required vars, envOrDefault() for optional vars
+  • loadDotEnv() called at start of main()
+  • client.PollJob(ctx, uuid) for async jobs
+  • log.Printf only (no fmt.Print), context.Background() through all calls
+  • No hardcoded credentials
+
+STEP 4 - VALIDATE: Run commands, error scenarios, teardown instructions.
+````
+
+---
+
+### Master Prompt (All Four)
 
 ````text
 You are a NetApp ONTAP automation engineer. Generate a COMPLETE example set
-(Python + Ansible + Terraform) for this storage task:
+(Python + Ansible + Terraform + Go) for this storage task:
 
 Task: [DESCRIBE THE STORAGE TASK]
 
@@ -161,7 +196,8 @@ method, endpoint, body/query, sync/async, justification. REST only, ONTAP
 
 PHASE 3 - GENERATE CODE:
   Python (python/<use_case>.py):
-    • from ontap_client import OntapClient, OntapClient.from_env(), argparse,
+    • from ontap_client import OntapClient, OntapClient.from_env() (env: ONTAP_HOST,
+      ONTAP_USER (default admin), ONTAP_PASS), argparse,
       logging, type hints, poll_job for async, try/except guard.
   Ansible (ansible/<use_case>.yml):
     • hosts: ontap, gather_facts: false, connection: local, FQCNs,
@@ -170,6 +206,11 @@ PHASE 3 - GENERATE CODE:
   Terraform (terraform/<use-case>/):
     • main.tf + variables.tf + outputs.tf + terraform.tfvars.example,
       provider ~> 2.5, connection_profiles, sensitive passwords.
+  Go (go/<use_case>/main.go):
+    • import ontapclient "github.com/netapp/pace/go/ontapclient" (no new HTTP
+      client, no new go.mod), ontapclient.New or FromEnv, defer client.Close,
+      mustEnv/envOrDefault/loadDotEnv helpers, PollJob for async,
+      log.Printf only, context.Background() through all calls.
 
 PHASE 4 - VALIDATE: Run commands, error handling, teardown for each tool.
 ````

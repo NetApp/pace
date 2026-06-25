@@ -6,9 +6,10 @@
 //
 // Usage:
 //
+//	ctx := context.Background()
 //	client := ontapclient.New("10.x.x.x", "admin", "secret", false)
 //	defer client.Close()
-//	cluster, err := client.Get("/cluster", map[string]string{"fields": "name,version"})
+//	cluster, err := client.Get(ctx, "/cluster", map[string]string{"fields": "name,version"})
 package ontapclient
 
 import (
@@ -28,7 +29,10 @@ import (
 )
 
 const (
-	defaultTimeout = 30 * time.Second
+	// defaultTimeout must exceed the largest return_timeout used in POST/PATCH calls (120 s).
+	// ONTAP holds the HTTP connection open for up to return_timeout seconds when processing
+	// synchronous operations; a shorter HTTP client timeout causes spurious timeout errors.
+	defaultTimeout = 180 * time.Second
 	clientAppHdr   = "pace-example"
 	maxJobWait     = 10 * time.Minute
 	maxRespBytes   = 32 << 20 // 32 MiB safety cap on response body size
@@ -64,6 +68,21 @@ func (e *OntapApiError) ErrorCode() string {
 	}
 	code, _ := errMap["code"].(string)
 	return code
+}
+
+// ErrorMessage extracts the ONTAP API human-readable error message from the parsed response body.
+// Returns an empty string if the message field is absent or unparseable.
+func (e *OntapApiError) ErrorMessage() string {
+	m, ok := e.Detail.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	errMap, ok := m["error"].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	msg, _ := errMap["message"].(string)
+	return msg
 }
 
 // Client is a thin HTTP client for the ONTAP REST API.
@@ -217,7 +236,11 @@ func (c *Client) PollJob(ctx context.Context, jobUUID string, interval time.Dura
 		log.Printf("  job %s — state=%s", jobUUID, state)
 		switch state {
 		case "running", "queued", "paused":
-			time.Sleep(interval)
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(interval):
+			}
 		case "success":
 			return result, nil
 		default:
@@ -251,7 +274,11 @@ func (c *Client) WaitSnapmirrored(ctx context.Context, relUUID string, interval,
 		if state == "snapmirrored" {
 			return result, nil
 		}
-		time.Sleep(interval)
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(interval):
+		}
 	}
 }
 
@@ -355,14 +382,22 @@ func (c *Client) PollJobTolerant(ctx context.Context, jobUUID string, interval t
 			}
 			// Network error — management stack may be restarting; retry.
 			log.Printf("  job %s — network error, retrying in %s — %v", jobUUID, interval, err)
-			time.Sleep(interval)
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(interval):
+			}
 			continue
 		}
 		state, _ := result["state"].(string)
 		log.Printf("  job %s — state=%s", jobUUID, state)
 		switch state {
 		case "running", "queued", "paused":
-			time.Sleep(interval)
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(interval):
+			}
 		case "success":
 			return result, nil
 		default:
@@ -410,7 +445,7 @@ func LoadDotEnv() {
 			continue
 		}
 		k, v, ok := strings.Cut(line, "=")
-		if !ok {
+		if !ok || strings.TrimSpace(k) == "" {
 			continue
 		}
 		if os.Getenv(strings.TrimSpace(k)) == "" {

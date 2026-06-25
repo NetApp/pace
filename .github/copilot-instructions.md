@@ -12,6 +12,7 @@ side-by-side and pick the tool their team already knows.
 python/                 # Python script examples (snake_case files)
 ansible/                # Ansible playbook examples (snake_case files)
 terraform/              # Terraform module examples (kebab-case dirs)
+go/                     # Go program examples (snake_case subdirs, one main.go each)
 docs/                   # Guides, API patterns, comparison docs
 .github/prompts/        # Reusable Copilot prompts for workflow generation
 ```
@@ -27,7 +28,8 @@ convention:
 | `generate-python` | Generate a Python script using `ontap_client.OntapClient` |
 | `generate-ansible` | Generate an Ansible playbook using `netapp.ontap` modules |
 | `generate-terraform` | Generate a Terraform module using `NetApp/netapp-ontap` provider |
-| `generate-workflow` | Generate all three implementations at once |
+| `generate-go` | Generate a Go program using `ontapclient.Client` |
+| `generate-workflow` | Generate all four implementations at once |
 | `plan-api-sequence` | Design the REST API call sequence before writing code |
 | `review-contribution` | Review code against CI, naming, and PR requirements |
 
@@ -39,7 +41,8 @@ convention:
 - Never hardcode credentials - use env vars, Ansible Vault, or Terraform `sensitive`.
 - Ansible playbooks use `netapp.ontap` FQCNs with `use_rest: always`.
 - Terraform modules use the `NetApp/netapp-ontap` provider `~> 2.5`.
-- Every generated source file (`.py`, `.yml`, `.tf`, `.sh`, `.html`) MUST start
+- Go programs use Go 1.22+; import `go/ontapclient` — never build a new HTTP client.
+- Every generated source file (`.py`, `.yml`, `.tf`, `.sh`, `.html`, `.go`) MUST start
   with the standard NetApp copyright header (see below).
 
 ## Copyright header (required on all source files)
@@ -66,9 +69,9 @@ Exempt files: Markdown, `requirements.*`, `ansible/inventory/*`,
 ## Python conventions
 
 - Import and use `python/ontap_client.py` - never build a new HTTP client.
-- Authenticate via `OntapClient.from_env()` (reads `ONTAP_HOST`, `ONTAP_PASS`).
+- Authenticate via `OntapClient.from_env()` (reads `ONTAP_HOST`, `ONTAP_USER` (default `admin`), `ONTAP_PASS`, `ONTAP_VERIFY_SSL` (default `false`)).
 - Operational params via `argparse` with env-var fallbacks.
-- Async jobs: `client.poll_job(resp["job"]["uuid"])`.
+- Async jobs: `job_uuid = resp["job"]["uuid"]; client.poll_job(job_uuid)`.
 - Logging via `logging` module - never `print()`.
 
 ## Ansible conventions
@@ -83,3 +86,16 @@ Exempt files: Markdown, `requirements.*`, `ansible/inventory/*`,
 - `connection_profiles` with `cx_profile_name = "cluster1"`.
 - `sensitive = true` on password variables.
 - Four files per module: `main.tf`, `variables.tf`, `outputs.tf`, `terraform.tfvars.example`.
+
+## Go conventions
+
+- Import and use `go/ontapclient/ontap_client.go` — never build a new HTTP client.
+- Authenticate via `ontapclient.FromEnv()` (reads `ONTAP_HOST`, `ONTAP_PASS`) or
+  `ontapclient.New(host, user, pass, false)` for multi-cluster scenarios.
+- Each program lives in its own subdirectory under `go/` with a single `main.go`.
+- All env vars: required via `mustEnv()`, optional via `envOrDefault()`.
+- Load `.env` file with `loadDotEnv()` at the start of `main()`.
+- Async jobs: `client.PollJob(ctx, uuid)`.
+- Logging: `log.Printf(...)` — never `fmt.Print()`.
+- Pass `context.Background()` through all API calls.
+- Module path: `github.com/netapp/pace/go` — do not create new `go.mod` files.
