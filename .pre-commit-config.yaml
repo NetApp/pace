@@ -61,6 +61,16 @@ repos:
             .*requirements\.ya?ml
           )$
       - id: insert-license
+        name: insert-license (Go)
+        args:
+          - --license-filepath=.github/license-headers/header.txt
+          - --comment-style=//
+        files: '\.go$'
+        exclude: |
+          (?x)^(
+            docs/example-template/.*
+          )$
+      - id: insert-license
         name: insert-license (HTML)
         args:
           - --license-filepath=.github/license-headers/header.txt

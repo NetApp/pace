@@ -2,7 +2,7 @@
 
 # Pace
 
-### Storage automation, in three different styles
+### Storage automation, in four different styles
 
 [![Website](https://img.shields.io/badge/Website-netapp.github.io%2Fpace-0067C5?style=for-the-badge&logo=readthedocs&logoColor=white)](https://netapp.github.io/pace/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg?style=for-the-badge)](LICENSE)
@@ -23,7 +23,7 @@
 > |---|---|
 > | Just trying out an example | [Quick start](#quick-start) below — copy, paste, run. |
 > | First-time contributor | [CONTRIBUTING.md](CONTRIBUTING.md) — `make install && make hooks` gets you set up in a couple of minutes. |
-> | New to NetApp ONTAP | [Troubleshooting guide](docs/troubleshooting.md) plus the per-style READMEs in [`python/`](python/), [`ansible/`](ansible/), [`terraform/`](terraform/). |
+> | New to NetApp ONTAP | [Troubleshooting guide](docs/troubleshooting.md) plus the per-style READMEs in [`python/`](python/), [`ansible/`](ansible/), [`terraform/`](terraform/), [`go/`](go/). |
 > | Stuck or have a question | Open a [Discussion](https://github.com/NetApp/pace/discussions) — faster than a GitHub issue for questions. |
 
 ---
@@ -37,6 +37,7 @@ style your team already uses.
 | **Imperative scripts**    | Python    | You write each step yourself.       |
 | **Declarative playbooks** | Ansible   | You describe the outcome.           |
 | **Stateful blueprints**   | Terraform | The tool tracks every change.       |
+| **Compiled programs**     | Go        | Strongly typed, single binary.      |
 
 Same task, same outcome - different trade-offs in readability, idempotency,
 and lifecycle management.
@@ -93,19 +94,30 @@ terraform init && terraform apply
 
 </details>
 
+<details>
+<summary><strong>Compiled programs - Go</strong></summary>
+
+```bash
+cd go/cluster_info
+export ONTAP_HOST=10.0.0.1 ONTAP_USER=admin ONTAP_PASS=changeme
+go run .
+```
+
+</details>
+
 Each style directory has its own README with full setup steps, options,
 and example output.
 
-| Use case | Python | Ansible | Terraform |
-| -------- | ------ | ------- | --------- |
-| Cluster info | [python/](python/README.md#cluster-info) | [ansible/](ansible/README.md#cluster-info) | [terraform/](terraform/README.md#cluster-info) |
-| NFS provision | [python/](python/README.md#nfs-volume-provisioning) | [ansible/](ansible/README.md#nfs-volume-provisioning) | [terraform/](terraform/README.md#nfs-volume-provisioning) |
-| CIFS provision | [python/](python/README.md#cifs-share-provisioning) | [ansible/](ansible/README.md#cifs-share-provisioning) | [terraform/](terraform/README.md#cifs-smb-share-provisioning) |
-| Cluster setup | [python/](python/README.md#cluster-setup) | [ansible/](ansible/README.md#cluster-setup) | — |
-| SnapMirror provision (source) | [python/](python/README.md#snapmirror-provision-source-managed) | [ansible/](ansible/README.md#snapmirror-provision-source-managed) | — |
-| SnapMirror provision (dest) | [python/](python/README.md#snapmirror-provision-destination-managed) | [ansible/](ansible/README.md#snapmirror-provision-destination-managed) | — |
-| SnapMirror test failover | [python/](python/README.md#snapmirror-test-failover) | [ansible/](ansible/README.md#snapmirror-test-failover) | — |
-| SnapMirror cleanup failover | [python/](python/README.md#snapmirror-cleanup-test-failover) | [ansible/](ansible/README.md#snapmirror-cleanup-test-failover) | — |
+| Use case | Python | Ansible | Terraform | Go |
+| -------- | ------ | ------- | --------- | -- |
+| Cluster info | [python/](python/README.md#cluster-info) | [ansible/](ansible/README.md#cluster-info) | [terraform/](terraform/README.md#cluster-info) | [go/](go/README.md#cluster-info) |
+| NFS provision | [python/](python/README.md#nfs-volume-provisioning) | [ansible/](ansible/README.md#nfs-volume-provisioning) | [terraform/](terraform/README.md#nfs-volume-provisioning) | [go/](go/README.md#nfs-provision) |
+| CIFS provision | [python/](python/README.md#cifs-share-provisioning) | [ansible/](ansible/README.md#cifs-share-provisioning) | [terraform/](terraform/README.md#cifs-smb-share-provisioning) | [go/](go/README.md#cifs-provision) |
+| Cluster setup | [python/](python/README.md#cluster-setup) | [ansible/](ansible/README.md#cluster-setup) | — | [go/](go/README.md#cluster-setup) |
+| SnapMirror provision (source) | [python/](python/README.md#snapmirror-provision-source-managed) | [ansible/](ansible/README.md#snapmirror-provision-source-managed) | — | [go/](go/README.md#snapmirror-provision-source-managed) |
+| SnapMirror provision (dest) | [python/](python/README.md#snapmirror-provision-destination-managed) | [ansible/](ansible/README.md#snapmirror-provision-destination-managed) | — | [go/](go/README.md#snapmirror-provision-destination-managed) |
+| SnapMirror test failover | [python/](python/README.md#snapmirror-test-failover) | [ansible/](ansible/README.md#snapmirror-test-failover) | — | [go/](go/README.md#snapmirror-test-failover) |
+| SnapMirror cleanup failover | [python/](python/README.md#snapmirror-cleanup-test-failover) | [ansible/](ansible/README.md#snapmirror-cleanup-test-failover) | — | [go/](go/README.md#snapmirror-test-failover-cleanup) |
 
 ---
 
@@ -127,6 +139,7 @@ variables.
 | Python    | `export ONTAP_VERIFY_SSL=true`                           |
 | Ansible   | `ontap_validate_certs: true` in `group_vars/ontap.yml`   |
 | Terraform | `validate_certs = true` in `terraform.tfvars`            |
+| Go        | Pass `true` as the `verifySSL` arg to `ontapclient.New`  |
 
 Once CA-signed certificates are in place, we recommend turning it on.
 

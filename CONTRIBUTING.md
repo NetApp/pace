@@ -44,6 +44,7 @@ field:
 python/               # Python script examples
 ansible/              # Ansible playbook examples
 terraform/            # Terraform module examples
+go/                   # Go program examples
 catalog.yaml          # Machine-readable example index (see docs/catalog-spec.md)
 docs/                 # Shared documentation
 .github/              # CI workflows, templates, review config
@@ -56,7 +57,7 @@ TESTING.md            # What to capture in the PR Test Report
 
 ### Required files
 
-Each new use case should be implemented across all three tools where practical.
+Each new use case should be implemented across all four tools where practical.
 Use `docs/example-template/` as a starting point.
 
 **Python** (`python/`):
@@ -74,6 +75,10 @@ Use `docs/example-template/` as a starting point.
 - `<use_case>/terraform.tfvars.example` - variable template
 - Update `terraform/README.md` with a section for the new example
 
+**Go** (`go/`):
+- `<use_case>/main.go` - self-contained program using the shared `ontapclient` package
+- Update `go/README.md` with a section for the new example
+
 ### Example catalog
 
 Every example must be registered in [`catalog.yaml`](catalog.yaml) at the repo
@@ -85,7 +90,7 @@ Field definitions and conventions: [`docs/catalog-spec.md`](docs/catalog-spec.md
 When adding or changing an example:
 
 1. Add or update a `use_cases` entry in `catalog.yaml` (group Python, Ansible,
-   and Terraform variants under the same use case when they automate the same
+   Terraform, and Go variants under the same use case when they automate the same
    task)
 2. Set `status: draft` and list `owners` (GitHub handles, no `@`) on first pull
    request; maintainers promote to `verified` after review with a `verification`
@@ -99,7 +104,7 @@ Catalog entries are validated by CI (`scripts/validate_catalog.py`). Run
 ### README section template
 
 Each example also needs a human-readable section in the parent tool README
-(`python/README.md`, `ansible/README.md`, or `terraform/README.md`). Use this
+(`python/README.md`, `ansible/README.md`, `terraform/README.md`, or `go/README.md`). Use this
 template so sections stay consistent with the catalog:
 
 ````markdown
@@ -142,7 +147,7 @@ Every example must:
 
 ### Copyright headers
 
-Every source file (`*.py`, `*.yml`/`*.yaml`, `*.tf`, `*.sh`, `*.html`) must
+Every source file (`*.py`, `*.yml`/`*.yaml`, `*.tf`, `*.sh`, `*.html`, `*.go`) must
 begin with the short NetApp header in the language-appropriate comment
 syntax. The full trademark notice lives in [NOTICE](NOTICE) and the LICENSE
 appendix; source headers stay short and reference it.
@@ -159,7 +164,7 @@ header automatically; CI rejects PRs that drop it. Exempt files: Markdown,
 `requirements.*`, `ansible/inventory/*`, `ansible/group_vars/*`, `*.example`,
 and `dependabot.yml` - all covered by the root [NOTICE](NOTICE).
 
-> **Testing:** Every PR that touches `python/`, `ansible/`, or `terraform/`
+> **Testing:** Every PR that touches `python/`, `ansible/`, `terraform/`, or `go/`
 > must include a populated **Test Report** in the PR body - see
 > [TESTING.md](TESTING.md) for what to capture (environment, platform
 > version, first-run output, idempotency / re-run check, teardown). A
@@ -184,6 +189,7 @@ auth patterns, async job handling, and standard environment variables.
 | Tool | Version | Purpose | Install |
 |------|---------|---------|---------|
 | **Python** | >= 3.11 | Linting | [python.org](https://www.python.org/downloads/) or `brew install python@3.11` |
+| **Go** | >= 1.22 | Go example validation | [go.dev/dl](https://go.dev/dl/) or `brew install go` |
 | **make** | any | Task runner | Pre-installed on macOS/Linux |
 | **pre-commit** | any | Git hook manager | `pip install pre-commit` or `brew install pre-commit` |
 
@@ -284,6 +290,7 @@ PRs are validated by GitHub Actions workflows:
 
 | What | Workflow | Trigger | Scope |
 |------|----------|---------|-------|
+| **Go vet** | `ci.yml` | Every push & PR | `go vet ./...` + build-check on all `go/*/main.go` |
 | **Python lint + format** | `ci.yml` | Every push & PR | `ruff check` + `ruff format --check` on `python/` |
 | **Catalog validation** | `ci.yml` | Every push & PR | `scripts/validate_catalog.py` — catalog completeness and field checks |
 | **README check** | `ci.yml` | Every push & PR | Verifies `python/`, `ansible/`, `terraform/` each have a `README.md` |
@@ -292,6 +299,7 @@ PRs are validated by GitHub Actions workflows:
 | **YAML syntax** | `pr-guard.yml` | PRs only | Parse-checks changed YAML files |
 | **Ansible lint** | `validate-examples.yml` | `ansible/**` changes | `ansible-playbook --syntax-check`, `ansible-lint` |
 | **Terraform lint** | `validate-examples.yml` | `terraform/**` changes | `terraform fmt -check`, `terraform validate`, `tflint` |
+| **Go vet** | `validate-examples.yml` | `go/**` changes | `go vet ./...` on the `go/` module |
 | **Test Report check** | `test-report-check.yml` | PRs only | Soft gate: labels PR `needs-test-report` if the body's Test Report section is unfilled (see [TESTING.md](TESTING.md)) |
 
 All checks except the Test Report check are **hard gates** - PRs must
@@ -320,6 +328,7 @@ When in doubt, follow the pattern used by existing files in the same directory.
 | **Python files** | `snake_case` | `cluster_info.py`, `nfs_provision.py` |
 | **Ansible playbooks** | `snake_case` | `cluster_info.yml`, `nfs_provision.yml` |
 | **Terraform modules** | `kebab-case` directories | `cluster-info/`, `nfs-provision/` |
+| **Go programs** | `snake_case` subdirectory, `main.go` file | `cluster_setup_basic/main.go` |
 | **GitHub workflow files** | `kebab-case` `.yml` | `pr-checks.yml`, `validate-examples.yml` |
 | **Documentation** | `kebab-case` `.md` for multi-word | `ontap-api-patterns.md` |
 | **Shell scripts** | `kebab-case` for multi-word | `setup-branch-protection.sh` |
@@ -357,4 +366,4 @@ Commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 **Types:** `build`, `chore`, `ci`, `doc`, `feat`, `fix`, `perf`, `refactor`,
 `revert`, `style`, `test`
 
-**Scopes:** `python`, `ansible`, `terraform`, `docs`, `ci`, `deps`
+**Scopes:** `python`, `ansible`, `terraform`, `go`, `docs`, `ci`, `deps`
