@@ -1,7 +1,7 @@
 # Choosing an Automation Approach
 
 This guide helps you pick the right tool for automating NetApp storage
-workflows. All three approaches in this repo do the same things - the
+workflows. All four approaches in this repo do the same things - the
 difference is **how much you write**, **what you control**, and **what the
 tool manages for you**.
 
@@ -15,9 +15,11 @@ flowchart TD
     Q1 -->|Yes| Terraform[Terraform]
     Q1 -->|No| Q2{Fleet management across\nmultiple clusters?}
     Q2 -->|Yes| Ansible[Ansible]
-    Q2 -->|No| Q3{Custom logic, branching,\nor Python integrations?}
-    Q3 -->|Yes| Python[Python scripts]
-    Q3 -->|No| Any[Any approach works -\npick what your team knows]
+    Q2 -->|No| Q3{Strongly typed, single binary,\nor Go integrations?}
+    Q3 -->|Yes| Go[Go]
+    Q3 -->|No| Q4{Custom logic, branching,\nor Python integrations?}
+    Q4 -->|Yes| Python[Python scripts]
+    Q4 -->|No| Any[Any approach works -\npick what your team knows]
 ```
 
 Each tool has clear strengths. There is no single "right" answer - choose based
@@ -29,42 +31,45 @@ on your team's existing skills and the operational requirements of your workflow
 
 ### Lines of code (real counts from this repo)
 
-| Use case | Python | Ansible | Terraform |
-|---|---|---|---|
-| Cluster info | 54 (+188 shared client) | 63 | 72 |
-| NFS provision | 145 (+188 shared client) | 96 | 155 |
+| Use case | Python | Ansible | Terraform | Go |
+|---|---|---|---|---|
+| Cluster info | 54 (+188 shared client) | 63 | 72 | ~70 (+shared client) |
+| NFS provision | 145 (+188 shared client) | 96 | 155 | ~160 (+shared client) |
+| CIFS provision | 200 (+188 shared client) | 120 | 180 | ~220 (+shared client) |
+| Cluster setup | 95 (+188 shared client) | 80 | — | ~240 (+shared client) |
 
 Notes:
-- Python scripts depend on a shared `ontap_client.py` (188 lines). The
-  Ansible collection and Terraform provider provide this layer for you.
+- Python and Go scripts depend on a shared client (`ontap_client.py` / `ontapclient` package).
+  The Ansible collection and Terraform provider provide this layer for you.
 - Terraform counts include `variables.tf` and `outputs.tf` boilerplate.
 
 ### Feature matrix
 
-| Capability | Python | Ansible | Terraform |
-|---|---|---|---|
-| Idempotency | You build it | Yes (modules) | Yes (plan/apply) |
-| State tracking | You build it | No (stateless runs) | Yes (.tfstate) |
-| Drift detection | No | No | Yes (plan) |
-| Destroy/rollback | You build it | Re-run with `state: absent` | `terraform destroy` |
-| Retry on failure | You build it | `retries:` on tasks | Provider-level |
-| Dry run / preview | No | `--check` (module-dependent) | `terraform plan` |
-| Interactive debug | Debugger (pdb) | `--step` (basic) | No |
-| Structured logging | You build it | Callback plugins | JSON plan output |
-| Step output chaining | Variables | `register` + Jinja2 | Resource references |
-| Parallelism | Threading/asyncio | `serial`, `async` | Dependency graph |
-| Fleet / multi-target | Loops (you write) | Inventory groups | `for_each`, modules |
-| Secret management | Env vars | Vault, external lookups | `sensitive`, backends |
-| Custom logic | Full language | Jinja2, filters | HCL expressions, functions |
-| Ecosystem size | All of PyPI | 150+ ONTAP modules | Provider resources |
+| Capability | Python | Ansible | Terraform | Go |
+|---|---|---|---|---|
+| Idempotency | You build it | Yes (modules) | Yes (plan/apply) | You build it |
+| State tracking | You build it | No (stateless runs) | Yes (.tfstate) | You build it |
+| Drift detection | No | No | Yes (plan) | No |
+| Destroy/rollback | You build it | Re-run with `state: absent` | `terraform destroy` | You build it |
+| Retry on failure | You build it | `retries:` on tasks | Provider-level | You build it |
+| Dry run / preview | No | `--check` (module-dependent) | `terraform plan` | No |
+| Interactive debug | Debugger (pdb) | `--step` (basic) | No | Debugger (dlv) |
+| Structured logging | You build it | Callback plugins | JSON plan output | You build it |
+| Step output chaining | Variables | `register` + Jinja2 | Resource references | Variables |
+| Parallelism | Threading/asyncio | `serial`, `async` | Dependency graph | Goroutines |
+| Fleet / multi-target | Loops (you write) | Inventory groups | `for_each`, modules | Loops (you write) |
+| Secret management | Env vars | Vault, external lookups | `sensitive`, backends | Env vars |
+| Custom logic | Full language | Jinja2, filters | HCL expressions, functions | Full language |
+| Ecosystem size | All of PyPI | 150+ ONTAP modules | Provider resources | All of Go modules |
+| Compiled binary | No | No | Yes (provider) | Yes |
 
 ### Setup effort
 
-| | Python | Ansible | Terraform |
-|---|---|---|---|
-| **Install** | `pip install requests` | `pip install ansible` + `ansible-galaxy collection install netapp.ontap` | Download binary + `terraform init` |
-| **Config files needed** | 1 (script) + env | Inventory + group_vars + playbook | main.tf + variables.tf + tfvars |
-| **Time to first run** | ~5 minutes | ~10 minutes | ~10 minutes |
+| | Python | Ansible | Terraform | Go |
+|---|---|---|---|---|
+| **Install** | `pip install requests` | `pip install ansible` + `ansible-galaxy collection install netapp.ontap` | Download binary + `terraform init` | `go mod download` |
+| **Config files needed** | 1 (script) + env | Inventory + group_vars + playbook | main.tf + variables.tf + tfvars | 1 (main.go) + env |
+| **Time to first run** | ~5 minutes | ~10 minutes | ~10 minutes | ~5 minutes |
 
 ---
 
@@ -91,6 +96,14 @@ Notes:
 - **Multi-provider** - manage NetApp storage alongside AWS/Azure/GCP in one plan
 - **Compliance / auditability** - state file is the source of truth
 
+### Go programs
+
+- **Type safety** - compile-time checks catch API field mismatches early
+- **Single compiled binary** - distribute one executable, no runtime deps
+- **Go integrations** - combine storage calls with Go services, CLIs, or gRPC
+- **Performance** - goroutines for concurrent multi-cluster operations
+- **Teams already using Go** for infrastructure tooling or CLIs
+
 ---
 
 ## Migration Paths
@@ -99,7 +112,8 @@ As your automation needs grow, you may migrate between approaches:
 
 ```
 Python ─────────────┬──→ Ansible     (need inventory-driven fleet ops)
-                    └──→ Terraform   (need state tracking and drift detection)
+                    ├──→ Terraform   (need state tracking and drift detection)
+                    └──→ Go          (need compiled binary or Go integrations)
 ```
 
 The API endpoints, request bodies, and response paths translate directly
@@ -111,11 +125,12 @@ across all approaches.
 
 | I want to... | Use |
 |---|---|
-| See the exact REST API calls being made | Python |
+| See the exact REST API calls being made | Python or Go |
 | Create resources that I can later destroy cleanly | Terraform |
 | See what changed on my cluster since last run | Terraform |
 | Run the same automation across many clusters | Ansible |
 | Ensure repeated runs don't create duplicates | Ansible or Terraform |
 | Add custom Python logic to a workflow | Python scripts |
-| Integrate storage automation with other tools | Python scripts |
+| Compile a single distributable binary | Go |
+| Integrate storage automation with other tools | Python scripts or Go |
 | Combine NetApp storage + cloud infra in one config | Terraform |

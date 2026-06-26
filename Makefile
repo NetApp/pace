@@ -27,9 +27,18 @@ lint: ## Ruff lint + format check (python examples)
 	$(PYTHON) -m ruff format --check python/
 
 .PHONY: ci
-ci: lint validate-catalog ## Run all core CI checks locally
+ci: lint validate-catalog go-vet ## Run all core CI checks locally
 
 # ── Mirrors validate-examples.yml ──────────────────────────────
+
+.PHONY: go-vet
+go-vet: ## Vet and build-check all Go programs
+	cd go && go vet ./...
+	@for dir in go/*/; do \
+		[ -f "$$dir/main.go" ] || continue; \
+		echo "Building $$dir …"; \
+		(cd "$$dir" && go build -o /dev/null .) || exit 1; \
+	done
 
 .PHONY: ansible-lint
 ansible-lint: ## Syntax-check and lint Ansible playbooks

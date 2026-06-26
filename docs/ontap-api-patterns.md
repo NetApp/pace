@@ -168,10 +168,10 @@ Additional variables depend on the operation (e.g. `VOLUME_NAME`, `AGGR_NAME`, `
 
 | Operation | Recommended `timeout` | Notes |
 |-----------|----------------------|-------|
-| Simple GET | 30s | Default |
-| POST/PATCH (sync) | 60s | Volume create, snapshot |
-| Discovery (many fields) | 150s | Node discovery with all fields |
-| `return_timeout` query param | 30–120s | Server-side wait before async return |
+| Simple GET | 180s (client default) | Client default covers all operations |
+| POST/PATCH (sync) | 180s (client default) | Volume create, snapshot |
+| Discovery (many fields) | 180s (client default) | Node discovery with all fields |
+| `return_timeout` query param | 120s | Server-side wait before async return — client timeout must exceed this |
 
 ## Retry Guidance
 

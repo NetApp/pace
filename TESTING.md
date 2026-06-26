@@ -1,7 +1,7 @@
 # Testing
 
 Pace ships *runnable examples*, not a library. Every PR that adds or
-modifies an example under `python/`, `ansible/`, or `terraform/` must
+modifies an example under `python/`, `ansible/`, `terraform/`, or `go/` must
 include a populated **Test Report** in the PR body so reviewers can see
 the example actually worked end-to-end against the target NetApp storage
 system.
@@ -106,6 +106,28 @@ The full lifecycle is the test. Capture each step:
 
 For data-source-only modules (no resources), steps 1-3 plus the
 *Apply complete!* line are enough.
+
+### Go (`go/`)
+
+1. **First run** — run the program from its subdirectory:
+
+   ```bash
+   cd go/<use_case>
+   export ONTAP_HOST=10.0.0.1 ONTAP_USER=admin ONTAP_PASS=secret
+   go run .
+   ```
+
+   Capture the log output (10–50 lines) and the exit code.
+
+2. **Re-run safety** — run the same command again. Either:
+   - the program is idempotent and exits 0 with no destructive change, or
+   - the program detects the existing state and reports it, or
+   - if the program is intentionally not re-runnable, document that in
+     the report so reviewers know what to expect.
+
+3. **Cleanup** — if the program created resources, show the commands
+   used to remove them (often a companion cleanup program or REST `DELETE`
+   calls). Read-only programs can skip this.
 
 ---
 

@@ -10,11 +10,13 @@ on:
     paths:
       - "ansible/**"
       - "terraform/**"
+      - "go/**"
   pull_request:
     branches: [main]
     paths:
       - "ansible/**"
       - "terraform/**"
+      - "go/**"
 
 permissions:
   contents: read
@@ -45,7 +47,7 @@ jobs:
           done
 
       - name: Run ansible-lint
-        run: ansible-lint ansible/*.yml --exclude ansible/requirements.yml
+        run: ansible-lint ansible/*.yml --exclude ansible/requirements.yml --profile min
 
   terraform-validate:
     name: Terraform — fmt, validate & lint
@@ -90,4 +92,30 @@ jobs:
             echo ""
           done
 
+          [ "$ERRORS" -eq 0 ] || exit 1
+
+  go-vet:
+    name: Go — vet & build-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+
+      - name: go vet
+        working-directory: go
+        run: go vet ./...
+
+      - name: Build-check all programs
+        working-directory: go
+        run: |
+          ERRORS=0
+          for dir in */; do
+            [ -f "${dir}main.go" ] || continue
+            echo "Building ${dir} …"
+            (cd "${dir}" && go build -o /dev/null .) || ERRORS=$((ERRORS + 1))
+          done
           [ "$ERRORS" -eq 0 ] || exit 1

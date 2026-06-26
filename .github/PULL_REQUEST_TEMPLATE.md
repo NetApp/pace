@@ -24,10 +24,14 @@
 - [ ] `terraform fmt -check` passes
 - [ ] `terraform validate` passes
 
+**If touching `go/`**
+- [ ] `go vet ./...` passes (from `go/` directory)
+- [ ] `go build -o /dev/null .` passes for the changed program
+
 ## Test Report
 
 <!-- TEST_REPORT_REQUIRED: contributors MUST fill this in. See TESTING.md. -->
-<!-- Delete this entire section ONLY for docs-only or CI-only PRs (no files under python/, ansible/, terraform/). -->
+<!-- Delete this entire section ONLY for docs-only or CI-only PRs (no files under python/, ansible/, terraform/, go/). -->
 
 **Environment:** <!-- e.g. ONTAP Simulator / ONTAP Select / Real cluster / Cloud Volumes ONTAP -->
 **Platform version:** <!-- e.g. ONTAP 9.14.1P3 -->

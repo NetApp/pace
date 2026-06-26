@@ -9,8 +9,16 @@ review:
     - "Python code must follow ruff conventions (line-length 99, target py311)."
     - "Never commit secrets, passwords, or API tokens."
     - "All new Python code should have type hints."
+    - "Go code must import ontapclient from github.com/netapp/pace/go/ontapclient — never build a new HTTP client."
+    - "Go programs must use log.Printf, never fmt.Print, and pass context.Background() through all API calls."
 
   path_instructions:
+    - path: "go/**"
+      instructions: >-
+        Review Go programs for: correct use of ontapclient (no new HTTP clients),
+        mustEnv/envOrDefault/loadDotEnv helpers present, defer client.Close() after
+        each client creation, PollJob used for async calls, no hardcoded credentials,
+        and NetApp copyright header (// lines) at the top of every .go file.
     - path: ".github/**"
       instructions: >-
         Review for CI security: no secret leaks in workflow files,

@@ -51,3 +51,7 @@ terraform.tfvars
 
 # POC
 poc/
+
+# Go build outputs
+go/**/*.exe
+go/**/*.test

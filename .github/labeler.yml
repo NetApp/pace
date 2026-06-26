@@ -29,6 +29,11 @@ terraform:
       - any-glob-to-any-file:
           - terraform/**
 
+go:
+  - changed-files:
+      - any-glob-to-any-file:
+          - go/**
+
 docs:
   - changed-files:
       - any-glob-to-any-file:
@@ -51,6 +56,7 @@ dependencies:
           - python/requirements.txt
           - ansible/requirements.yml
           - terraform/**/*.tf
+          - go/go.mod
           - .github/dependabot.yml
 
 # ── "-only" labels (any-glob-to-all-files) ─────────────────────────────
