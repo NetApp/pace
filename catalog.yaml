@@ -97,6 +97,21 @@ use_cases:
           - aggregate_name
           - client_match
         outputs: [volume_name, mount_path, export_policy, client_match]
+      go:
+        path: go/nfs_provision/main.go
+        command: "go run ."
+        cwd: go/nfs_provision
+        prerequisites:
+          env:
+            - ONTAP_HOST
+            - ONTAP_USER
+            - ONTAP_PASS
+            - SVM_NAME
+            - VOLUME_NAME
+            - AGGR_NAME
+          setup: "cd go && go mod download"
+        inputs: [svm, volume, size, aggregate, client_match]
+        outputs: [volume_name, mount_path, export_policy]
 
   - id: cifs-provision
     description: Create a CIFS share with FlexVol volume and share ACL
@@ -161,6 +176,21 @@ use_cases:
           - acl_user
           - acl_permission
         outputs: [volume_name, mount_path, share_name, share_path]
+      go:
+        path: go/cifs_provision/main.go
+        command: "go run ."
+        cwd: go/cifs_provision
+        prerequisites:
+          env:
+            - ONTAP_HOST
+            - ONTAP_USER
+            - ONTAP_PASS
+            - SVM_NAME
+            - VOLUME_NAME
+            - AGGR_NAME
+          setup: "cd go && go mod download"
+        inputs: [svm, volume, size, aggregate, share_name, acl_user, acl_permission]
+        outputs: [volume_name, share_name, mount_path]
 
   - id: cluster-setup
     description: Create a storage cluster from two pre-cluster nodes
