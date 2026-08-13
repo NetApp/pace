@@ -167,6 +167,7 @@ Once CA-signed certificates are in place, we recommend turning it on.
 | [Troubleshooting](docs/troubleshooting.md)                            | Common errors and fixes                        |
 | [Testing](TESTING.md)                                                 | What to run and capture in the PR Test Report  |
 | [Contributing](CONTRIBUTING.md)                                       | Fork, branch, run checks, open a PR            |
+| [Security policy](SECURITY.md)                                        | How to report a vulnerability privately        |
 
 ---
 

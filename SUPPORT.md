@@ -23,10 +23,12 @@ We use GitHub for tracking bugs and feature requests.
 - **Bug reports** - [open an issue](https://github.com/NetApp/pace/issues/new?template=bug_report.yml)
 - **Feature requests** - [open an issue](https://github.com/NetApp/pace/issues/new?template=feature_request.yml)
 - **Questions and discussion** - [GitHub Discussions](https://github.com/NetApp/pace/discussions)
-- **Private contact** - <ng-pace@netapp.com> (for security disclosures,
-  conduct concerns, or anything else that should not be discussed in
-  public. For everyday questions, please use Discussions instead - the
-  team will respond faster and the answer benefits the next person.)
+- **Security vulnerabilities** - do not open a public issue. See
+  [SECURITY.md](SECURITY.md) for the private reporting channels.
+- **Private contact** - <ng-pace@netapp.com> (for conduct concerns or
+  anything else that should not be discussed in public. For everyday
+  questions, please use Discussions instead - the team will respond faster
+  and the answer benefits the next person.)
 
 ## Documentation
 
