@@ -352,7 +352,10 @@ def self_test() -> int:
     rewritten = rewrite_links(body, "../../")
     checks = [
         ("../../python/ontap/ontap_client.py" in rewritten, "root-relative link rewritten"),
-        ("https://x.dev" in rewritten and "../../https" not in rewritten, "url untouched"),
+        # Checks the *whole* original markdown link is byte-for-byte intact, not just
+        # that the URL substring appears somewhere - a bare substring check here would
+        # also match a wrongly-prefixed URL (e.g. "../../https://x.dev").
+        ("[web](https://x.dev)" in rewritten, "url untouched"),
         ("[not a link](python/ontap/skip.py)" in rewritten, "fenced block untouched"),
         ("../../NOTICE" in rewritten, "bare filename rewritten"),
     ]
