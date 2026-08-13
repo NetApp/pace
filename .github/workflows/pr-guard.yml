@@ -58,7 +58,7 @@ jobs:
             exit 0
           fi
 
-          pip install -q pyyaml
+          pip install -q -r requirements-dev.txt
 
           ERRORS=0
           while IFS= read -r f; do

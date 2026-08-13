@@ -13,7 +13,7 @@ $(VENV)/bin/activate:
 
 .PHONY: install
 install: $(VENV)/bin/activate ## Create venv and install dev deps
-	$(PIP) install -q ruff pyyaml
+	$(PIP) install -q -r requirements-dev.txt
 
 # ── Mirrors ci.yml ─────────────────────────────────────────────
 

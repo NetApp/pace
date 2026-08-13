@@ -357,18 +357,25 @@ PRs are validated by GitHub Actions workflows:
 | **Go vet** | `ci.yml` | Every push & PR | `go vet ./...` + build-check on every `main.go` found under `go/` |
 | **Python lint + format** | `ci.yml` | Every push & PR | `ruff check` + `ruff format --check` on `python/` |
 | **Catalog validation** | `ci.yml` | Every push & PR | `scripts/validate_catalog.py` — catalog completeness, field checks, and product/path agreement |
+| **AI assets check** | `ci.yml` | Every push & PR | Verifies the generated Copilot/Cursor files still match their sources in [`ai/`](ai/) |
 | **README check** | `ci.yml` | Every push & PR | Verifies every tool root and product directory has a `README.md` |
+| **Dependency review** | `dependency-review.yml` | PRs only | Flags newly introduced vulnerable or copyleft-licensed dependencies |
 | **Commit lint** | `pr-guard.yml` | PRs only | Conventional commit messages via commitlint |
 | **Secret scan** | `pr-guard.yml` | PRs only | TruffleHog scans PR diff for leaked credentials |
 | **YAML syntax** | `pr-guard.yml` | PRs only | Parse-checks changed YAML files |
 | **Ansible lint** | `validate-examples.yml` | `ansible/**` changes | `ansible-playbook --syntax-check`, `ansible-lint` |
 | **Terraform lint** | `validate-examples.yml` | `terraform/**` changes | `terraform fmt -check`, `terraform validate`, `tflint` |
 | **Go vet** | `validate-examples.yml` | `go/**` changes | `go vet ./...` on the `go/` module |
-| **Test Report check** | `test-report-check.yml` | PRs only | Soft gate: labels PR `needs-test-report` if the body's Test Report section is unfilled (see [TESTING.md](TESTING.md)) |
+| **Test Report check** | `test-report-check.yml` | PRs only | Soft gate: labels PR `needs-test-report` if the body's Test Report section is unfilled — applies to `python/`, `ansible/`, `terraform/`, and `go/` changes (see [TESTING.md](TESTING.md)) |
 
 All checks except the Test Report check are **hard gates** - PRs must
 pass them before merge. The Test Report check is informational and
 reviewer-enforced.
+
+The lint toolchain is pinned in [requirements-dev.txt](requirements-dev.txt), and
+both CI and `make install` read that file. This is deliberate: an unpinned linter
+lets a new upstream release fail `main` with no change to this repo. Dependabot
+bumps the pins weekly, so new findings show up in a reviewable PR instead.
 
 ---
 
