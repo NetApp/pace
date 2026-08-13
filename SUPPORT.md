@@ -1,10 +1,10 @@
 # Pace Support and Getting Help
 
 Pace is an open-source project developed and published by NetApp providing
-NetApp storage automation examples, implemented in Python, Ansible, and Terraform.
-Pace is not an officially supported NetApp product. NetApp
-maintains and updates Pace with bug fixes, security updates, and feature
-development. For assistance, refer to [Getting Help](#getting-help).
+NetApp storage automation examples, implemented in Python, Ansible, Terraform,
+and Go. Pace is not an officially supported NetApp product. NetApp maintains
+and updates Pace with bug fixes, security updates, and feature development.
+For assistance, refer to [Getting Help](#getting-help).
 
 ## Release and Support Lifecycle
 

@@ -29,7 +29,7 @@
 ---
 
 Pace is an open-source library of ready-to-run **NetApp storage automation**
-examples, implemented three ways - side by side - so you can pick the
+examples, implemented four ways - side by side - so you can pick the
 style your team already uses.
 
 | Style                     | Tool      | In a sentence                       |

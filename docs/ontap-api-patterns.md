@@ -1,7 +1,7 @@
 # ONTAP REST API Patterns
 
 Canonical reference for ONTAP REST API conventions used across all automation
-examples in this repository (Python, Ansible, and Terraform).
+examples in this repository (Python, Ansible, Terraform, and Go).
 For the full API specification, see the
 [ONTAP REST API documentation](https://docs.netapp.com/us-en/ontap-restapi/swagger-ui/index.html).
 

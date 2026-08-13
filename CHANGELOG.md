@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `product` field in `catalog.yaml` (and optional `deployment`), enforced by
   `scripts/validate_catalog.py` to agree with each variant's path
 - `ontap` and `console` PR labels
-- Initial NetApp storage automation examples for Python, Ansible, and Terraform
+- Initial NetApp storage automation examples for Python, Ansible, Terraform, and Go
 - CI workflows for linting, syntax validation, and secret scanning
 - Platform API patterns documentation
 - Dockerfile and docker-compose.yml for reproducible dev environment
