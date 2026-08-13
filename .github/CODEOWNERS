@@ -1,10 +1,11 @@
 # Default — catches anything not matched below
 *                                @hvinn
 
-# Primary: automation examples
+# Primary: automation examples (all products under each tool)
 /python/                         @hvinn
 /ansible/                        @hvinn
 /terraform/                      @hvinn
+/go/                             @hvinn
 
 # Documentation
 /docs/                           @hvinn

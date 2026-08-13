@@ -14,13 +14,13 @@ and Go implementations so users can compare side-by-side.
 
 ## Reference Files
 
-- [python/ontap_client.py](../../python/ontap_client.py) - shared Python REST client
-- [python/nfs_provision.py](../../python/nfs_provision.py) - Python reference
-- [ansible/nfs_provision.yml](../../ansible/nfs_provision.yml) - Ansible reference
-- [ansible/cifs_provision.yml](../../ansible/cifs_provision.yml) - Ansible CIFS reference
-- [terraform/nfs-provision/](../../terraform/nfs-provision/) - Terraform reference
-- [go/ontapclient/ontap_client.go](../../go/ontapclient/ontap_client.go) - shared Go REST client
-- [go/snapmirror_provision_src_managed/main.go](../../go/snapmirror_provision_src_managed/main.go) - Go reference
+- [python/ontap/ontap_client.py](../../python/ontap/ontap_client.py) - shared Python REST client
+- [python/ontap/nfs_provision.py](../../python/ontap/nfs_provision.py) - Python reference
+- [ansible/ontap/nfs_provision.yml](../../ansible/ontap/nfs_provision.yml) - Ansible reference
+- [ansible/ontap/cifs_provision.yml](../../ansible/ontap/cifs_provision.yml) - Ansible CIFS reference
+- [terraform/ontap/nfs-provision/](../../terraform/ontap/nfs-provision/) - Terraform reference
+- [go/ontap/ontapclient/ontap_client.go](../../go/ontap/ontapclient/ontap_client.go) - shared Go REST client
+- [go/ontap/snapmirror_provision_src_managed/main.go](../../go/ontap/snapmirror_provision_src_managed/main.go) - Go reference
 - [docs/ontap-api-patterns.md](../../docs/ontap-api-patterns.md) - API endpoints, auth, async jobs
 - [docs/example-template/](../../docs/example-template/) - skeleton files for all tools
 - [CONTRIBUTING.md](../../CONTRIBUTING.md) - naming, CI, quality bar
@@ -52,7 +52,7 @@ Rules:
 
 ## Phase 3 - Generate All Four Implementations
 
-### 3A. Python - `python/<use_case>.py`
+### 3A. Python - `python/<product>/<use_case>.py`
 
 - `#!/usr/bin/env python3`, `from __future__ import annotations`
 - Module docstring: steps, prerequisites, usage with CLI flags.
@@ -64,7 +64,7 @@ Rules:
 - `if __name__ == "__main__":` with try/except guard.
 - Type hints throughout. No hardcoded credentials.
 
-### 3B. Ansible - `ansible/<use_case>.yml`
+### 3B. Ansible - `ansible/<product>/<use_case>.yml`
 
 - `---` header with filename, description, usage comment.
 - `hosts: ontap`, `gather_facts: false`, `connection: local`.
@@ -74,7 +74,7 @@ Rules:
 - `vars:` for operational defaults (overridable with `-e`).
 - Final `ansible.builtin.debug` summary. No hardcoded credentials.
 
-### 3C. Terraform - `terraform/<use-case>/`
+### 3C. Terraform - `terraform/<product>/<use-case>/`
 
 - `main.tf`: `required_version >= 1.4`, provider `NetApp/netapp-ontap ~> 2.5`,
   `connection_profiles` with `cx_profile_name = "cluster1"`.
@@ -83,11 +83,11 @@ Rules:
 - `terraform.tfvars.example`: placeholder values, no real credentials.
 - `depends_on` where ordering matters.
 
-### 3D. Go - `go/<use_case>/main.go`
+### 3D. Go - `go/<product>/<use_case>/main.go`
 
 - `package main`, copyright `//` comment header.
 - Package-level doc comment: phases/steps, prerequisites, usage env vars.
-- `import ontapclient "github.com/netapp/pace/go/ontapclient"` — no new HTTP client.
+- `import ontapclient "github.com/netapp/pace/go/ontap/ontapclient"` — no new HTTP client.
 - Use `ontapclient.New(host, user, pass, false)` or `ontapclient.FromEnv()`.
 - `defer client.Close()` immediately after creating each client.
 - Required env vars via `mustEnv()`, optional via `envOrDefault()`.

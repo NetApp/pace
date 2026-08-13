@@ -16,10 +16,10 @@ provider, which calls exclusively REST APIs.
 
 Use these repository files as the authoritative source for conventions:
 
-- [terraform/nfs-provision/main.tf](../../terraform/nfs-provision/main.tf) - reference implementation
-- [terraform/nfs-provision/variables.tf](../../terraform/nfs-provision/variables.tf) - variable patterns
-- [terraform/nfs-provision/outputs.tf](../../terraform/nfs-provision/outputs.tf) - output patterns
-- [terraform/nfs-provision/terraform.tfvars.example](../../terraform/nfs-provision/terraform.tfvars.example) - tfvars template
+- [terraform/ontap/nfs-provision/main.tf](../../terraform/ontap/nfs-provision/main.tf) - reference implementation
+- [terraform/ontap/nfs-provision/variables.tf](../../terraform/ontap/nfs-provision/variables.tf) - variable patterns
+- [terraform/ontap/nfs-provision/outputs.tf](../../terraform/ontap/nfs-provision/outputs.tf) - output patterns
+- [terraform/ontap/nfs-provision/terraform.tfvars.example](../../terraform/ontap/nfs-provision/terraform.tfvars.example) - tfvars template
 - [docs/example-template/terraform/](../../docs/example-template/terraform/) - skeleton files
 - [docs/ontap-api-patterns.md](../../docs/ontap-api-patterns.md) - API endpoints and conventions
 - [CONTRIBUTING.md](../../CONTRIBUTING.md) - naming, CI, quality bar
@@ -49,7 +49,7 @@ Wait for my confirmation before generating HCL.
 
 ## Step 3 - Generate Module
 
-Directory: `terraform/<use-case>/` (kebab-case directory name)
+Directory: `terraform/<product>/<use-case>/` (kebab-case directory name)
 
 Create four files:
 

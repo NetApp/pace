@@ -39,7 +39,8 @@ on your team's existing skills and the operational requirements of your workflow
 | Cluster setup | 95 (+188 shared client) | 80 | — | ~240 (+shared client) |
 
 Notes:
-- Python and Go scripts depend on a shared client (`ontap_client.py` / `ontapclient` package).
+- Python and Go scripts depend on a shared client, one per product
+  (`python/ontap/ontap_client.py` / `go/ontap/ontapclient`).
   The Ansible collection and Terraform provider provide this layer for you.
 - Terraform counts include `variables.tf` and `outputs.tf` boilerplate.
 

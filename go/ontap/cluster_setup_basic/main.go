@@ -33,7 +33,7 @@ import (
 	"log"
 	"time"
 
-	ontapclient "github.com/netapp/pace/go/ontapclient"
+	ontapclient "github.com/netapp/pace/go/ontap/ontapclient"
 )
 
 // clusterConfig holds all cluster-creation parameters so that createCluster

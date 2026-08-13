@@ -34,7 +34,7 @@
 #   export CLUSTER_A=10.x.x.x  CLUSTER_B=10.y.y.y
 #   export DEST_USER=admin      DEST_PASS=secret
 #   export SOURCE_VOLUME=*
-#   ansible-playbook ansible/test_failover.yml
+#   ansible-playbook ansible/ontap/snapmirror_test_failover.yml
 #
 - name: "SnapMirror — Test Failover (FlexClone)"
   hosts: localhost

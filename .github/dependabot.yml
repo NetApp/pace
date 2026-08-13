@@ -8,21 +8,21 @@ updates:
       prefix: "ci(deps)"
 
   - package-ecosystem: "pip"
-    directory: "/python"
+    directory: "/python/ontap"
     schedule:
       interval: "weekly"
     commit-message:
       prefix: "chore(deps)"
 
   - package-ecosystem: "terraform"
-    directory: "/terraform/cluster-info"
+    directory: "/terraform/ontap/cluster-info"
     schedule:
       interval: "monthly"
     commit-message:
       prefix: "chore(deps)"
 
   - package-ecosystem: "terraform"
-    directory: "/terraform/nfs-provision"
+    directory: "/terraform/ontap/nfs-provision"
     schedule:
       interval: "monthly"
     commit-message:

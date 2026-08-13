@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Product-scoped directory layout: examples now live under `<tool>/<product>/`,
+  with placeholder `<tool>/console/local/` directories for NetApp Console
+- `product` field in `catalog.yaml` (and optional `deployment`), enforced by
+  `scripts/validate_catalog.py` to agree with each variant's path
+- `ontap` and `console` PR labels
 - Initial NetApp storage automation examples for Python, Ansible, and Terraform
 - CI workflows for linting, syntax validation, and secret scanning
 - Platform API patterns documentation
@@ -19,6 +24,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking (paths):** every example moved from the tool root into an `ontap/`
+  product directory — e.g. `python/cluster_info.py` is now
+  `python/ontap/cluster_info.py` and `terraform/nfs-provision/` is now
+  `terraform/ontap/nfs-provision/`. Local scripts, bookmarks, and `cd` commands
+  need updating; run commands themselves are unchanged once you are in the new
+  directory.
+- **Breaking (Go import):** the shared client package moved to
+  `github.com/netapp/pace/go/ontap/ontapclient`. The module path
+  (`github.com/netapp/pace/go`) is unchanged.
+- Each tool root README is now a short product index; the ONTAP documentation
+  lives in `<tool>/ontap/README.md`
+- CI discovers examples recursively instead of with fixed-depth globs, and fails
+  when discovery finds nothing
 - Reconciled TruffleHog versions between pre-commit and CI (both now `v3.94.2`)
 - CHANGELOG restructured with granular categories
 

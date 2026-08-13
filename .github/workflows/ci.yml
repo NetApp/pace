@@ -36,10 +36,15 @@ jobs:
       - name: Validate example catalog
         run: python scripts/validate_catalog.py
 
+      # Every tool root indexes its products, and every product directory
+      # documents its own examples — including placeholders with no examples yet.
       - name: Verify example directories have READMEs
         run: |
           ERRORS=0
-          for dir in python ansible terraform go; do
+          for dir in python ansible terraform go \
+                     python/ontap ansible/ontap terraform/ontap go/ontap \
+                     python/console/local ansible/console/local \
+                     terraform/console/local go/console/local; do
             if [ ! -f "$dir/README.md" ]; then
               echo "::error::Missing README.md in $dir/"
               ERRORS=$((ERRORS + 1))
@@ -92,13 +97,20 @@ jobs:
         working-directory: go
         run: go vet ./...
 
+      # Programs live under go/<product>/<use_case>/, so main.go is found
+      # recursively from the module root.
       - name: Build-check all programs
         working-directory: go
         run: |
           ERRORS=0
-          for dir in */; do
-            [ -f "${dir}main.go" ] || continue
+          FOUND=0
+          for dir in $(find . -name main.go -exec dirname {} \; | sort); do
+            FOUND=$((FOUND + 1))
             echo "Building ${dir} …"
             (cd "${dir}" && go build -o /dev/null .) || ERRORS=$((ERRORS + 1))
           done
+          if [ "$FOUND" -eq 0 ]; then
+            echo "::error::No Go programs found — check the directory layout"
+            exit 1
+          fi
           [ "$ERRORS" -eq 0 ] || exit 1

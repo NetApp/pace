@@ -46,7 +46,7 @@ import (
 	"log"
 	"time"
 
-	ontapclient "github.com/netapp/pace/go/ontapclient"
+	ontapclient "github.com/netapp/pace/go/ontap/ontapclient"
 )
 
 // ---------------------------------------------------------------------------

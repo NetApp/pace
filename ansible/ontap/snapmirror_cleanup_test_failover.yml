@@ -34,7 +34,7 @@
 #   export DEST_USER=admin       DEST_PASS=secret
 #   export SOURCE_VOLUME=vol_rw_01
 #   export SOURCE_SVM=vs0
-#   ansible-playbook ansible/cleanup_test_failover.yml
+#   ansible-playbook ansible/ontap/snapmirror_cleanup_test_failover.yml
 #
 - name: "SnapMirror — Cleanup Test Failover (Clone Deletion)"
   hosts: localhost

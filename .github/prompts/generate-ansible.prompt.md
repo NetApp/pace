@@ -16,11 +16,11 @@ collection, which calls exclusively REST APIs.
 
 Use these repository files as the authoritative source for conventions:
 
-- [ansible/nfs_provision.yml](../../ansible/nfs_provision.yml) - NFS reference implementation
-- [ansible/cifs_provision.yml](../../ansible/cifs_provision.yml) - CIFS reference implementation
-- [ansible/group_vars/ontap.yml.example](../../ansible/group_vars/ontap.yml.example) - variable defaults
-- [ansible/inventory/hosts.yml](../../ansible/inventory/hosts.yml) - inventory structure
-- [ansible/requirements.yml](../../ansible/requirements.yml) - collection version pin
+- [ansible/ontap/nfs_provision.yml](../../ansible/ontap/nfs_provision.yml) - NFS reference implementation
+- [ansible/ontap/cifs_provision.yml](../../ansible/ontap/cifs_provision.yml) - CIFS reference implementation
+- [ansible/ontap/group_vars/ontap.yml.example](../../ansible/ontap/group_vars/ontap.yml.example) - variable defaults
+- [ansible/ontap/inventory/hosts.yml](../../ansible/ontap/inventory/hosts.yml) - inventory structure
+- [ansible/ontap/requirements.yml](../../ansible/ontap/requirements.yml) - collection version pin
 - [docs/ontap-api-patterns.md](../../docs/ontap-api-patterns.md) - API endpoints, auth, async jobs
 - [docs/example-template/ansible/example.yml](../../docs/example-template/ansible/example.yml) - skeleton
 - [CONTRIBUTING.md](../../CONTRIBUTING.md) - naming, CI, quality bar
@@ -49,7 +49,7 @@ Wait for my confirmation before generating the playbook.
 
 ## Step 3 - Generate Playbook
 
-File: `ansible/<use_case>.yml` (snake_case filename)
+File: `ansible/<product>/<use_case>.yml` (snake_case filename)
 
 ### Mandatory conventions
 

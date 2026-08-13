@@ -74,7 +74,7 @@ endpoint, key body/query params, sync/async, one-sentence justification.
 Rules: REST only (no ZAPI, no CLI, no SSH), target ONTAP 9.8+. Wait for my
 approval.
 
-STEP 3 - GENERATE PYTHON: File `python/<use_case>.py` with:
+STEP 3 - GENERATE PYTHON: File `python/<product>/<use_case>.py` with:
   • #!/usr/bin/env python3, from __future__ import annotations
   • Module docstring with steps, prerequisites, usage
   • from ontap_client import OntapClient (shared client, do NOT create a new one)
@@ -104,7 +104,7 @@ STEP 2 - API SEQUENCE: List REST calls and map each to a netapp.ontap module.
 Rules: use_rest: always, ONTAP 9.8+, FQCNs (netapp.ontap.na_ontap_*).
 Wait for approval.
 
-STEP 3 - GENERATE PLAYBOOK: File `ansible/<use_case>.yml` with:
+STEP 3 - GENERATE PLAYBOOK: File `ansible/<product>/<use_case>.yml` with:
   • --- header comment with filename, description, usage
   • hosts: ontap, gather_facts: false, connection: local
   • vars: section for operational defaults (overridable with -e)
@@ -133,7 +133,7 @@ STEP 2 - RESOURCE MAPPING: Map REST endpoints to Terraform resources/data
 sources. Rules: provider ~> 2.5, required_version >= 1.4, depends_on for
 ordering. Wait for approval.
 
-STEP 3 - GENERATE MODULE: Directory `terraform/<use-case>/` with:
+STEP 3 - GENERATE MODULE: Directory `terraform/<product>/<use-case>/` with:
   • main.tf - provider block with connection_profiles, resources with
     cx_profile_name = "cluster1"
   • variables.tf - descriptions, types, sensitive = true for passwords
@@ -161,10 +161,10 @@ endpoint, key body/query params, sync/async, one-sentence justification.
 Rules: REST only (no ZAPI, no CLI, no SSH), target ONTAP 9.8+. Wait for my
 approval.
 
-STEP 3 - GENERATE GO: Directory `go/<use_case>/main.go` with:
+STEP 3 - GENERATE GO: Directory `go/<product>/<use_case>/main.go` with:
   • Copyright header as // lines, package main
   • Package-level doc comment with steps, prerequisites, usage env vars
-  • import ontapclient "github.com/netapp/pace/go/ontapclient" (shared client,
+  • import ontapclient "github.com/netapp/pace/go/ontap/ontapclient" (shared client,
     do NOT create a new one; do NOT create a new go.mod)
   • ontapclient.New(host, user, pass, false) or ontapclient.FromEnv()
   • defer client.Close() immediately after creating each client
@@ -195,19 +195,19 @@ method, endpoint, body/query, sync/async, justification. REST only, ONTAP
 9.8+, no ZAPI/CLI/SSH. Wait for approval.
 
 PHASE 3 - GENERATE CODE:
-  Python (python/<use_case>.py):
+  Python (python/<product>/<use_case>.py):
     • from ontap_client import OntapClient, OntapClient.from_env() (env: ONTAP_HOST,
       ONTAP_USER (default admin), ONTAP_PASS), argparse,
       logging, type hints, poll_job for async, try/except guard.
-  Ansible (ansible/<use_case>.yml):
+  Ansible (ansible/<product>/<use_case>.yml):
     • hosts: ontap, gather_facts: false, connection: local, FQCNs,
       use_rest: always, no_log: false, all 5 connection params from vars,
       wait_for_completion: true, debug summary.
-  Terraform (terraform/<use-case>/):
+  Terraform (terraform/<product>/<use-case>/):
     • main.tf + variables.tf + outputs.tf + terraform.tfvars.example,
       provider ~> 2.5, connection_profiles, sensitive passwords.
-  Go (go/<use_case>/main.go):
-    • import ontapclient "github.com/netapp/pace/go/ontapclient" (no new HTTP
+  Go (go/<product>/<use_case>/main.go):
+    • import ontapclient "github.com/netapp/pace/go/ontap/ontapclient" (no new HTTP
       client, no new go.mod), ontapclient.New or FromEnv, defer client.Close,
       mustEnv/envOrDefault/loadDotEnv helpers, PollJob for async,
       log.Printf only, context.Background() through all calls.

@@ -38,7 +38,7 @@
 #   export DEST_HOST=10.y.y.y    DEST_USER=admin   DEST_PASS=secret
 #   export DEST_SVM=vs1
 #   export SM_POLICY=Asynchronous
-#   ansible-playbook ansible/snapmirror_provision_src_managed.yml
+#   ansible-playbook ansible/ontap/snapmirror_provision_src_managed.yml
 #
 - name: "SnapMirror — Source-Managed Provisioning"
   hosts: localhost

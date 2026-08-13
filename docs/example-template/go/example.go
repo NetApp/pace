@@ -28,10 +28,10 @@ import (
 	"os"
 	"strings"
 
-	// When you copy this template into go/<use_case>/main.go the import below
+	// When you copy this template into go/<product>/<use_case>/main.go the import below
 	// resolves automatically — this file lives outside the module root so the
 	// path is shown as a comment only.
-	// ontapclient "github.com/netapp/pace/go/ontapclient"
+	// ontapclient "github.com/netapp/pace/go/ontap/ontapclient"
 )
 
 func main() {
@@ -43,7 +43,7 @@ func main() {
 	user := envOrDefault("ONTAP_USER", "admin")
 	pass := mustEnv("ONTAP_PASS")
 
-	// Uncomment after copying into go/<use_case>/main.go:
+	// Uncomment after copying into go/<product>/<use_case>/main.go:
 	// client := ontapclient.New(host, user, pass, false)
 	// defer client.Close()
 

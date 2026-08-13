@@ -412,7 +412,7 @@ func MustEnv(key string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
 	}
-	log.Fatalf("'%s' is required — set it in go/.env or as an environment variable", key)
+	log.Fatalf("'%s' is required — set it in .env or as an environment variable", key)
 	return ""
 }
 

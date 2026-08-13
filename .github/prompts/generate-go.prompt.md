@@ -15,9 +15,9 @@ The program automates a NetApp ONTAP storage task using exclusively REST APIs.
 
 Use these repository files as the authoritative source for conventions:
 
-- [go/ontapclient/ontap_client.go](../../go/ontapclient/ontap_client.go) - shared REST client (MUST import and use this)
-- [go/snapmirror_provision_src_managed/main.go](../../go/snapmirror_provision_src_managed/main.go) - reference implementation pattern
-- [go/cluster_setup_basic/main.go](../../go/cluster_setup_basic/main.go) - simpler reference example
+- [go/ontap/ontapclient/ontap_client.go](../../go/ontap/ontapclient/ontap_client.go) - shared REST client (MUST import and use this)
+- [go/ontap/snapmirror_provision_src_managed/main.go](../../go/ontap/snapmirror_provision_src_managed/main.go) - reference implementation pattern
+- [go/ontap/cluster_setup_basic/main.go](../../go/ontap/cluster_setup_basic/main.go) - simpler reference example
 - [docs/ontap-api-patterns.md](../../docs/ontap-api-patterns.md) - API endpoints, auth, async jobs
 - [docs/example-template/go/example.go](../../docs/example-template/go/example.go) - skeleton to start from
 - [CONTRIBUTING.md](../../CONTRIBUTING.md) - naming, CI, quality bar
@@ -45,7 +45,7 @@ Wait for my confirmation before generating code.
 
 ## Step 3 - Generate Go Program
 
-Directory: `go/<use_case>/main.go` (snake_case directory name)
+Directory: `go/<product>/<use_case>/main.go` (snake_case directory name)
 
 ### Mandatory conventions
 
@@ -55,7 +55,7 @@ Directory: `go/<use_case>/main.go` (snake_case directory name)
   prerequisites (numbered list), and usage with env vars.
 - Import the shared client:
   ```go
-  import ontapclient "github.com/netapp/pace/go/ontapclient"
+  import ontapclient "github.com/netapp/pace/go/ontap/ontapclient"
   ```
 - Authenticate via `ontapclient.FromEnv()` (reads `ONTAP_HOST`, `ONTAP_USER` (default `"admin"`), `ONTAP_PASS`)
   or `ontapclient.New(host, user, pass, false)` for multi-cluster cases.

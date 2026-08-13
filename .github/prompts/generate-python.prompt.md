@@ -15,8 +15,8 @@ The script automates a NetApp ONTAP storage task using exclusively REST APIs.
 
 Use these repository files as the authoritative source for conventions:
 
-- [python/ontap_client.py](../../python/ontap_client.py) - shared REST client (MUST import and use this)
-- [python/nfs_provision.py](../../python/nfs_provision.py) - reference implementation pattern
+- [python/ontap/ontap_client.py](../../python/ontap/ontap_client.py) - shared REST client (MUST import and use this)
+- [python/ontap/nfs_provision.py](../../python/ontap/nfs_provision.py) - reference implementation pattern
 - [docs/ontap-api-patterns.md](../../docs/ontap-api-patterns.md) - API endpoints, auth, async jobs
 - [docs/example-template/python/example.py](../../docs/example-template/python/example.py) - skeleton to start from
 - [CONTRIBUTING.md](../../CONTRIBUTING.md) - naming, CI, quality bar
@@ -44,7 +44,7 @@ Wait for my confirmation before generating code.
 
 ## Step 3 - Generate Python Script
 
-File: `python/<use_case>.py` (snake_case filename)
+File: `python/<product>/<use_case>.py` (snake_case filename)
 
 ### Mandatory conventions
 
