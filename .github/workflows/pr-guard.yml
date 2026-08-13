@@ -17,16 +17,12 @@ jobs:
     name: commitlint
     runs-on: ubuntu-latest
     steps:
-<<<<<<< HEAD
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1
         with:
           egress-policy: audit
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-=======
-      - uses: actions/checkout@v7
->>>>>>> origin/main
         with:
           fetch-depth: 0
 
@@ -36,25 +32,17 @@ jobs:
     name: secret-scan
     runs-on: ubuntu-latest
     steps:
-<<<<<<< HEAD
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1
         with:
           egress-policy: audit
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-=======
-      - uses: actions/checkout@v7
->>>>>>> origin/main
         with:
           fetch-depth: 0
 
       - name: TruffleHog scan
-<<<<<<< HEAD
-        uses: trufflesecurity/trufflehog@47e7b7cd74f578e1e3145d48f669f22fd1330ca6 # v3.94.3
-=======
         uses: trufflesecurity/trufflehog@v3.96.0
->>>>>>> origin/main
         with:
           extra_args: --only-verified
 
@@ -62,16 +50,12 @@ jobs:
     name: Validate YAML syntax
     runs-on: ubuntu-latest
     steps:
-<<<<<<< HEAD
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1
         with:
           egress-policy: audit
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-=======
-      - uses: actions/checkout@v7
->>>>>>> origin/main
         with:
           fetch-depth: 0
 
