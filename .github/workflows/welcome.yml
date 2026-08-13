@@ -25,8 +25,8 @@ jobs:
     steps:
       - uses: actions/first-interaction@v3
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          issue-message: |
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          issue_message: |
             Hi there, and thanks for opening your first issue on **Pace**.
 
             A maintainer will triage shortly. While you wait:
@@ -34,7 +34,7 @@ jobs:
             - For questions (vs. bug reports), [GitHub Discussions](https://github.com/${{ github.repository }}/discussions) is usually faster.
             - The [Troubleshooting guide](https://github.com/${{ github.repository }}/blob/main/docs/troubleshooting.md) covers the most common errors.
             - If you think this is a bug, the more reproduction detail you can paste (command, output, ONTAP version), the faster it can be fixed.
-          pr-message: |
+          pr_message: |
             Thanks for your first PR to **Pace** — welcome aboard.
 
             **Quick orientation:**
