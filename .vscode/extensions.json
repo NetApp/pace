@@ -4,6 +4,8 @@
     "redhat.vscode-yaml",
     "hashicorp.terraform",
     "redhat.ansible",
-    "editorconfig.editorconfig"
+    "editorconfig.editorconfig",
+    "github.copilot",
+    "github.copilot-chat"
   ]
 }

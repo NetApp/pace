@@ -1,6 +1,4 @@
----
-description: "Generate a Python script that automates a NetApp storage task using REST APIs"
----
+<!-- Generated from ai/ontap/generate-python.md by scripts/generate_ai_assets.py. Do not edit; run `make ai-assets`. -->
 
 # Generate Python Storage Workflow
 

@@ -7,15 +7,16 @@ and adapted for your environment.
 For REST API conventions used by these examples (endpoints, auth, headers,
 async jobs), see the
 [Platform API patterns guide](../../docs/ontap-api-patterns.md).
-To compare this approach with Ansible or Terraform, see
+To compare this approach with Ansible, Terraform, or Go, see
 [Choosing an approach](../../docs/choosing-an-approach.md).
 
 > **Catalog:** [`catalog.yaml`](../../catalog.yaml) lists every Python example with
 > prerequisites, inputs, and outputs. Sections below follow the same format.
 
-> **Note:** These scripts are runnable illustrations. Unit tests live in
-> `Unit_tests/` and can be run with `pytest Unit_tests/`. CI validates lint
-> and formatting via Ruff in addition to running the test suite.
+> **Note:** These scripts are runnable illustrations, not a tested library.
+> There is no automated test suite. CI validates lint and formatting via Ruff;
+> every change is verified end-to-end against a real cluster by the contributor
+> and recorded in the PR's [Test Report](../../TESTING.md).
 
 ---
 

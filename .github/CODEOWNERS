@@ -12,3 +12,7 @@
 
 # CI / GitHub config (protect the pipeline itself)
 /.github/                        @hvinn
+
+# AI instruction + prompt source, and the tooling that generates from it
+/ai/                             @hvinn
+/scripts/                        @hvinn

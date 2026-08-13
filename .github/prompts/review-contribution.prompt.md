@@ -1,6 +1,7 @@
 ---
 description: "Review generated NetApp storage code for repository conventions, CI compliance, and PR readiness"
 ---
+<!-- Generated from ai/shared/review-contribution.md by scripts/generate_ai_assets.py. Do not edit; run `make ai-assets`. -->
 
 # Review Contribution for PR Readiness
 

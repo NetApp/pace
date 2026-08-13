@@ -2,7 +2,7 @@
 
 # Pace
 
-### Storage automation, in four different styles
+### Storage automation, in three different styles
 
 [![Website](https://img.shields.io/badge/Website-netapp.github.io%2Fpace-0067C5?style=for-the-badge&logo=readthedocs&logoColor=white)](https://netapp.github.io/pace/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg?style=for-the-badge)](LICENSE)
@@ -32,12 +32,11 @@ Pace is an open-source library of ready-to-run **NetApp storage automation**
 examples, implemented three ways - side by side - so you can pick the
 style your team already uses.
 
-| Style                     | Tool      | In a sentence                       |
-| ------------------------- | --------- | ----------------------------------- |
-| **Imperative scripts**    | Python    | You write each step yourself.       |
-| **Declarative playbooks** | Ansible   | You describe the outcome.           |
-| **Stateful blueprints**   | Terraform | The tool tracks every change.       |
-| **Compiled programs**     | Go        | Strongly typed, single binary.      |
+| Style                     | Tool         | In a sentence                       |
+| ------------------------- | ------------ | ----------------------------------- |
+| **Imperative scripts**    | Python or Go | You write each step yourself.       |
+| **Declarative playbooks** | Ansible      | You describe the outcome.           |
+| **Stateful blueprints**   | Terraform    | The tool tracks every change.       |
 
 Same task, same outcome - different trade-offs in readability, idempotency,
 and lifecycle management.
@@ -103,7 +102,7 @@ terraform init && terraform apply
 </details>
 
 <details>
-<summary><strong>Compiled programs - Go</strong></summary>
+<summary><strong>Imperative scripts - Go</strong></summary>
 
 ```bash
 cd go/ontap/cluster_info
@@ -163,10 +162,12 @@ Once CA-signed certificates are in place, we recommend turning it on.
 | [Catalog spec](docs/catalog-spec.md)                                  | Field definitions for `catalog.yaml`           |
 | [Project website](https://netapp.github.io/pace/)                     | Guided tour, prompts, full contribution guide  |
 | [Choosing an approach](docs/choosing-an-approach.md)                  | Decision guide and feature matrix              |
+| [AI prompt catalog](docs/ai-prompt-catalog.md)                        | Prompts for planning, generating, reviewing    |
 | [Platform API patterns](docs/ontap-api-patterns.md)                   | REST conventions, auth, async jobs             |
 | [Troubleshooting](docs/troubleshooting.md)                            | Common errors and fixes                        |
 | [Testing](TESTING.md)                                                 | What to run and capture in the PR Test Report  |
 | [Contributing](CONTRIBUTING.md)                                       | Fork, branch, run checks, open a PR            |
+| [Security policy](SECURITY.md)                                        | How to report a vulnerability privately        |
 
 ---
 

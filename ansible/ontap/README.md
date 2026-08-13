@@ -9,7 +9,7 @@ Galaxy collection.
 For REST API conventions used by these examples (endpoints, auth, headers,
 async jobs), see the
 [Platform API patterns guide](../../docs/ontap-api-patterns.md).
-To compare this approach with Python or Terraform, see
+To compare this approach with Python, Terraform, or Go, see
 [Choosing an approach](../../docs/choosing-an-approach.md).
 
 > **Catalog:** [`catalog.yaml`](../../catalog.yaml) lists every Ansible example with

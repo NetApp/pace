@@ -46,6 +46,7 @@ ansible/              # Ansible playbook examples
 terraform/            # Terraform module examples
 go/                   # Go program examples
 catalog.yaml          # Machine-readable example index (see docs/catalog-spec.md)
+ai/                   # Source of truth for AI instructions and prompts
 docs/                 # Shared documentation
 .github/              # CI workflows, templates, review config
 TESTING.md            # What to capture in the PR Test Report
@@ -257,6 +258,12 @@ Open the repo and accept the **recommended extensions** prompt, or search
 | **Terraform** (`hashicorp.terraform`) | HCL formatting and validation |
 | **Ansible** (`redhat.ansible`) | Playbook syntax and lint |
 | **EditorConfig** (`editorconfig.editorconfig`) | Applies `.editorconfig` indent/whitespace rules |
+| **GitHub Copilot** + **Copilot Chat** (`github.copilot`, `github.copilot-chat`) | Enables the repo's `/ontap-…` prompts and auto-attached conventions |
+
+Copilot Chat is what surfaces this repo's prompt library as slash commands. In
+Cursor you need no extension for that - it reads `.cursor/commands/` and
+`.cursor/rules/` natively. Either way, see the
+[AI prompt catalog](docs/ai-prompt-catalog.md) for what is available.
 
 The workspace `.vscode/settings.json` configures:
 - **Python format-on-save** via Ruff (matches CI exactly)
@@ -274,12 +281,39 @@ make help                # Show all available targets
 make ci                  # Run lint (mirrors ci.yml)
 make lint                # Ruff lint + format check
 make validate-catalog    # Validate catalog.yaml against repo examples
+make ai-assets-check     # Verify generated AI assets match ai/
 make ansible-lint        # Ansible syntax-check + ansible-lint
 make terraform-validate  # Terraform fmt, validate, tflint
 make troubleshoot        # Print numbered troubleshooting index
 ```
 
 Run `make ci` before pushing to catch issues before they hit CI.
+
+### Editing AI instructions and prompts
+
+The AI assets in this repo are generated. Copilot and Cursor read different
+files, so both are rendered from one source tree in [`ai/`](ai/):
+
+| Generated | Read by |
+|-----------|---------|
+| `AGENTS.md` | Cursor, and most other coding agents |
+| `.github/copilot-instructions.md`, `.github/instructions/`, `.github/prompts/` | GitHub Copilot |
+| `.cursor/rules/`, `.cursor/commands/` | Cursor |
+
+Every generated file carries a "do not edit" banner. To change any of them:
+
+```bash
+# 1. edit the source, e.g. ai/ontap/conventions.md
+# 2. regenerate
+make ai-assets
+# 3. commit the source and the generated output together
+```
+
+CI runs `make ai-assets-check` and fails if a generated file was edited directly
+or if `ai/` changed without a regen. See [`ai/README.md`](ai/README.md) for the
+frontmatter schema and how product scoping works, and the
+[AI prompt catalog](docs/ai-prompt-catalog.md) for what each prompt does and how
+to invoke it.
 
 ### Using Docker
 
@@ -323,18 +357,25 @@ PRs are validated by GitHub Actions workflows:
 | **Go vet** | `ci.yml` | Every push & PR | `go vet ./...` + build-check on every `main.go` found under `go/` |
 | **Python lint + format** | `ci.yml` | Every push & PR | `ruff check` + `ruff format --check` on `python/` |
 | **Catalog validation** | `ci.yml` | Every push & PR | `scripts/validate_catalog.py` — catalog completeness, field checks, and product/path agreement |
+| **AI assets check** | `ci.yml` | Every push & PR | Verifies the generated Copilot/Cursor files still match their sources in [`ai/`](ai/) |
 | **README check** | `ci.yml` | Every push & PR | Verifies every tool root and product directory has a `README.md` |
+| **Dependency review** | `dependency-review.yml` | PRs only | Flags newly introduced vulnerable or copyleft-licensed dependencies |
 | **Commit lint** | `pr-guard.yml` | PRs only | Conventional commit messages via commitlint |
 | **Secret scan** | `pr-guard.yml` | PRs only | TruffleHog scans PR diff for leaked credentials |
 | **YAML syntax** | `pr-guard.yml` | PRs only | Parse-checks changed YAML files |
 | **Ansible lint** | `validate-examples.yml` | `ansible/**` changes | `ansible-playbook --syntax-check`, `ansible-lint` |
 | **Terraform lint** | `validate-examples.yml` | `terraform/**` changes | `terraform fmt -check`, `terraform validate`, `tflint` |
 | **Go vet** | `validate-examples.yml` | `go/**` changes | `go vet ./...` on the `go/` module |
-| **Test Report check** | `test-report-check.yml` | PRs only | Soft gate: labels PR `needs-test-report` if the body's Test Report section is unfilled (see [TESTING.md](TESTING.md)) |
+| **Test Report check** | `test-report-check.yml` | PRs only | Soft gate: labels PR `needs-test-report` if the body's Test Report section is unfilled — applies to `python/`, `ansible/`, `terraform/`, and `go/` changes (see [TESTING.md](TESTING.md)) |
 
 All checks except the Test Report check are **hard gates** - PRs must
 pass them before merge. The Test Report check is informational and
 reviewer-enforced.
+
+The lint toolchain is pinned in [requirements-dev.txt](requirements-dev.txt), and
+both CI and `make install` read that file. This is deliberate: an unpinned linter
+lets a new upstream release fail `main` with no change to this repo. Dependabot
+bumps the pins weekly, so new findings show up in a reviewable PR instead.
 
 ---
 

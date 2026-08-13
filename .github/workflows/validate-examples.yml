@@ -26,14 +26,16 @@ jobs:
     name: Ansible — syntax & lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
+      # Pinned for the same reason as requirements-dev.txt: an ansible-lint
+      # release should not be able to fail main on its own. Bumped by Dependabot.
       - name: Install Ansible toolchain
-        run: pip install ansible ansible-lint
+        run: pip install ansible==14.3.0 ansible-lint==26.8.0
 
       - name: Install collections for every product
         run: |
@@ -70,7 +72,7 @@ jobs:
     name: Terraform — fmt, validate & lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: hashicorp/setup-terraform@v4
         with:
@@ -123,12 +125,14 @@ jobs:
     name: Go — vet & build-check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      # No go.sum exists - the examples are standard-library only - so the cache
+      # is keyed on go.mod instead. See the matching note in ci.yml.
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go/go.mod
-          cache-dependency-path: go/go.sum
+          cache-dependency-path: go/go.mod
 
       - name: go vet
         working-directory: go

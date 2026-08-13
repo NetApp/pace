@@ -1,7 +1,7 @@
 # Choosing an Automation Approach
 
 This guide helps you pick the right tool for automating NetApp storage
-workflows. All four approaches in this repo do the same things - the
+workflows. All four tools in this repo do the same things - the
 difference is **how much you write**, **what you control**, and **what the
 tool manages for you**.
 

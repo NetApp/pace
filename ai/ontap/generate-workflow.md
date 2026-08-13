@@ -1,4 +1,5 @@
 ---
+kind: task
 description: "Generate a complete NetApp storage workflow - Python + Ansible + Terraform + Go - for a storage task"
 ---
 
@@ -14,16 +15,16 @@ and Go implementations so users can compare side-by-side.
 
 ## Reference Files
 
-- [python/ontap/ontap_client.py](../../python/ontap/ontap_client.py) - shared Python REST client
-- [python/ontap/nfs_provision.py](../../python/ontap/nfs_provision.py) - Python reference
-- [ansible/ontap/nfs_provision.yml](../../ansible/ontap/nfs_provision.yml) - Ansible reference
-- [ansible/ontap/cifs_provision.yml](../../ansible/ontap/cifs_provision.yml) - Ansible CIFS reference
-- [terraform/ontap/nfs-provision/](../../terraform/ontap/nfs-provision/) - Terraform reference
-- [go/ontap/ontapclient/ontap_client.go](../../go/ontap/ontapclient/ontap_client.go) - shared Go REST client
-- [go/ontap/snapmirror_provision_src_managed/main.go](../../go/ontap/snapmirror_provision_src_managed/main.go) - Go reference
-- [docs/ontap-api-patterns.md](../../docs/ontap-api-patterns.md) - API endpoints, auth, async jobs
-- [docs/example-template/](../../docs/example-template/) - skeleton files for all tools
-- [CONTRIBUTING.md](../../CONTRIBUTING.md) - naming, CI, quality bar
+- [python/ontap/ontap_client.py](python/ontap/ontap_client.py) - shared Python REST client
+- [python/ontap/nfs_provision.py](python/ontap/nfs_provision.py) - Python reference
+- [ansible/ontap/nfs_provision.yml](ansible/ontap/nfs_provision.yml) - Ansible reference
+- [ansible/ontap/cifs_provision.yml](ansible/ontap/cifs_provision.yml) - Ansible CIFS reference
+- [terraform/ontap/nfs-provision/](terraform/ontap/nfs-provision/) - Terraform reference
+- [go/ontap/ontapclient/ontap_client.go](go/ontap/ontapclient/ontap_client.go) - shared Go REST client
+- [go/ontap/snapmirror_provision_src_managed/main.go](go/ontap/snapmirror_provision_src_managed/main.go) - Go reference
+- [docs/ontap-api-patterns.md](docs/ontap-api-patterns.md) - API endpoints, auth, async jobs
+- [docs/example-template/](docs/example-template/) - skeleton files for all tools
+- [CONTRIBUTING.md](CONTRIBUTING.md) - naming, CI, quality bar
 
 ## Phase 1 - Clarify Inputs
 
@@ -119,4 +120,4 @@ See the NOTICE file in the repo root for trademark and attribution details.
 
 Place after any shebang (`#!/usr/bin/env python3`), YAML directive (`---`),
 or `<!DOCTYPE html>` line. Do **not** duplicate the full trademark text in
-source files - it lives in [NOTICE](../../NOTICE) and the LICENSE appendix.
+source files - it lives in [NOTICE](NOTICE) and the LICENSE appendix.
