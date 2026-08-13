@@ -26,7 +26,7 @@ jobs:
       contents: read
       pull-requests: write # post the summary comment
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/dependency-review-action@v4
         with:
