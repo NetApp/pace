@@ -32,8 +32,8 @@ body:
       label: Exact files to change
       description: List file paths and (where useful) line ranges. Be specific — no "explore the codebase".
       placeholder: |
-        - python/cluster_info.py (around lines 40-55)
-        - python/README.md (the "Examples" section)
+        - python/ontap/cluster_info.py (around lines 40-55)
+        - python/ontap/README.md (the "Examples" section)
     validations:
       required: true
 
@@ -56,7 +56,7 @@ body:
       render: markdown
       placeholder: |
         ```bash
-        cd python
+        cd python/ontap
         python cluster_info.py
         ```
         Output should now include:

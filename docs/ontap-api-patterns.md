@@ -1,7 +1,7 @@
 # ONTAP REST API Patterns
 
 Canonical reference for ONTAP REST API conventions used across all automation
-examples in this repository (Python, Ansible, and Terraform).
+examples in this repository (Python, Ansible, Terraform, and Go).
 For the full API specification, see the
 [ONTAP REST API documentation](https://docs.netapp.com/us-en/ontap-restapi/swagger-ui/index.html).
 
@@ -168,10 +168,10 @@ Additional variables depend on the operation (e.g. `VOLUME_NAME`, `AGGR_NAME`, `
 
 | Operation | Recommended `timeout` | Notes |
 |-----------|----------------------|-------|
-| Simple GET | 30s | Default |
-| POST/PATCH (sync) | 60s | Volume create, snapshot |
-| Discovery (many fields) | 150s | Node discovery with all fields |
-| `return_timeout` query param | 30–120s | Server-side wait before async return |
+| Simple GET | 180s (client default) | Client default covers all operations |
+| POST/PATCH (sync) | 180s (client default) | Volume create, snapshot |
+| Discovery (many fields) | 180s (client default) | Node discovery with all fields |
+| `return_timeout` query param | 120s | Server-side wait before async return — client timeout must exceed this |
 
 ## Retry Guidance
 

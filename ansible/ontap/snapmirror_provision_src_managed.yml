@@ -1,0 +1,410 @@
+# © 2026 NetApp, Inc. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# See the NOTICE file in the repo root for trademark and attribution details.
+
+---
+# snapmirror_provision_src_managed.yaml — Provision SnapMirror (source-managed view).
+#
+# Connects to BOTH clusters for pre-flight verification, then drives all
+# relationship/volume API calls from the DESTINATION cluster (ONTAP requirement).
+#
+# Phases:
+#   A  Source pre-flight  — verify source cluster + volume
+#   B  Dest pre-flight    — verify dest cluster + aggregate (auto-selected)
+#   C  Dest volume        — auto-create DP volume if missing
+#   D  Relationship       — create + initialize SnapMirror
+#   E  Convergence        — poll until state=snapmirrored
+#   F  Validation         — health check + final report
+#
+# Prerequisites:
+#   1. ONTAP 9.8+ on both clusters
+#   2. SnapMirror licence installed on both clusters
+#   3. At least one intercluster LIF on each cluster
+#   4. Cluster peer relationship already exists
+#   5. SVM peer relationship already exists (source SVM <-> dest SVM)
+#   6. Source RW volume already exists on SOURCE_SVM
+#   7. At least one online aggregate on the destination cluster
+#   8. Admin credentials for both clusters
+#
+# Credentials are injected via environment variables:
+#   SOURCE_HOST, SOURCE_USER, SOURCE_PASS
+#   DEST_HOST,   DEST_USER,   DEST_PASS
+#   SOURCE_SVM, SOURCE_VOLUME, DEST_SVM
+#   SM_POLICY (optional, default: Asynchronous)
+#
+# Usage:
+#   export SOURCE_HOST=10.x.x.x SOURCE_USER=admin SOURCE_PASS=secret
+#   export SOURCE_SVM=vs0        SOURCE_VOLUME=vol_rw_01
+#   export DEST_HOST=10.y.y.y    DEST_USER=admin   DEST_PASS=secret
+#   export DEST_SVM=vs1
+#   export SM_POLICY=Asynchronous
+#   ansible-playbook ansible/ontap/snapmirror_provision_src_managed.yml
+#
+- name: "SnapMirror — Source-Managed Provisioning"
+  hosts: localhost
+  gather_facts: false
+  connection: local
+
+  vars:
+    source_host: "{{ lookup('env', 'SOURCE_HOST') }}"
+    source_user: "{{ lookup('env', 'SOURCE_USER') | default('admin', true) }}"
+    source_pass: "{{ lookup('env', 'SOURCE_PASS') }}"
+    dest_host: "{{ lookup('env', 'DEST_HOST') }}"
+    dest_user: "{{ lookup('env', 'DEST_USER') | default('admin', true) }}"
+    dest_pass: "{{ lookup('env', 'DEST_PASS') }}"
+    source_svm: "{{ lookup('env', 'SOURCE_SVM') }}"
+    source_volume: "{{ lookup('env', 'SOURCE_VOLUME') }}"
+    dest_svm: "{{ lookup('env', 'DEST_SVM') }}"
+    dest_volume: "{{ source_volume }}_dest"
+    sm_policy: "{{ lookup('env', 'SM_POLICY') | default('Asynchronous', true) }}"
+    validate_certs: false
+    source_api: "https://{{ source_host }}/api"
+    dest_api: "https://{{ dest_host }}/api"
+
+  module_defaults:
+    ansible.builtin.uri:
+      force_basic_auth: true
+      validate_certs: "{{ validate_certs }}"
+      headers:
+        Accept: "application/json"
+        Content-Type: "application/json"
+        X-Dot-Client-App: "orchestrio"
+      timeout: 30
+      status_code: [200, 201, 202]
+
+  tasks:
+    # ================================================================
+    # Phase A: Source pre-flight
+    # ================================================================
+
+    - name: "Phase A — Validate required environment variables"
+      ansible.builtin.assert:
+        that:
+          - source_host | length > 0
+          - source_pass | length > 0
+          - dest_host | length > 0
+          - dest_pass | length > 0
+          - source_svm | length > 0
+          - source_volume | length > 0
+          - dest_svm | length > 0
+        fail_msg: >-
+          Missing env vars. Export SOURCE_HOST, SOURCE_PASS, DEST_HOST,
+          DEST_PASS, SOURCE_SVM, SOURCE_VOLUME, DEST_SVM.
+      no_log: false
+
+    - name: "Phase A — Get source cluster info"
+      ansible.builtin.uri:
+        url: "{{ source_api }}/cluster?fields=name,version"
+        url_username: "{{ source_user }}"
+        url_password: "{{ source_pass }}"
+        method: GET
+      register: src_cluster
+      no_log: false
+
+    - name: "Phase A — Log source cluster"
+      ansible.builtin.debug:
+        msg: >-
+          SOURCE CLUSTER | name={{ src_cluster.json.name }}
+          | ontap={{ src_cluster.json.version.full }}
+
+    - name: "Phase A — Get source volume info"
+      ansible.builtin.uri:
+        url: "{{ source_api }}/storage/volumes?name={{ source_volume }}&svm.name={{ source_svm }}&fields=name,uuid,state,type,space.size&max_records=1"
+        url_username: "{{ source_user }}"
+        url_password: "{{ source_pass }}"
+        method: GET
+      register: src_vol_resp
+      no_log: false
+
+    - name: "Phase A — Validate source volume exists"
+      ansible.builtin.assert:
+        that:
+          - src_vol_resp.json.num_records | int > 0
+        fail_msg: >-
+          ABORTED — source volume '{{ source_volume }}' not found on {{ source_host }}.
+      no_log: false
+
+    - name: "Phase A — Store source volume record"
+      ansible.builtin.set_fact:
+        src_vol: "{{ src_vol_resp.json.records[0] }}"
+
+    - name: "Phase A — Validate source volume is RW (not DP)"
+      ansible.builtin.assert:
+        that:
+          - src_vol.type != 'dp'
+        fail_msg: "ABORTED — source volume is type=dp; specify the RW volume."
+      no_log: false
+
+    - name: "Phase A — Log source volume"
+      ansible.builtin.debug:
+        msg: >-
+          SOURCE VOLUME | name={{ src_vol.name }}
+          | uuid={{ src_vol.uuid }}
+          | state={{ src_vol.state }}
+          | type={{ src_vol.type }}
+          | size={{ src_vol.space.size | default('unknown') }}
+
+    # ================================================================
+    # Phase B: Dest pre-flight
+    # ================================================================
+
+    - name: "Phase B — Get destination cluster info"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/cluster?fields=name,version"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      register: dst_cluster
+      no_log: false
+
+    - name: "Phase B — Log destination cluster"
+      ansible.builtin.debug:
+        msg: >-
+          DEST CLUSTER | name={{ dst_cluster.json.name }}
+          | ontap={{ dst_cluster.json.version.full }}
+
+    - name: "Phase B — Get cluster peer name from destination"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/cluster/peers?fields=name,status.state&max_records=1"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      register: peer_resp
+      no_log: false
+
+    - name: "Phase B — Store cluster peer name"
+      ansible.builtin.set_fact:
+        peer_name: "{{ peer_resp.json.records[0].name | default('') }}"
+
+    - name: "Phase B — Log cluster peer"
+      ansible.builtin.debug:
+        msg: "CLUSTER PEER | name={{ peer_name }}"
+
+    - name: "Phase B — Auto-select largest online aggregate on destination"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/storage/aggregates?state=online&fields=name,space.block_storage.available&order_by=space.block_storage.available+desc&max_records=1"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      register: aggr_resp
+      no_log: false
+
+    - name: "Phase B — Store aggregate name"
+      ansible.builtin.set_fact:
+        aggr_name: "{{ aggr_resp.json.records[0].name | default('') }}"
+
+    - name: "Phase B — Validate an online aggregate was found"
+      ansible.builtin.assert:
+        that:
+          - aggr_name | length > 0
+        fail_msg: "ABORTED — no online aggregate found on destination cluster."
+      no_log: false
+
+    - name: "Phase B — Log destination aggregate"
+      ansible.builtin.debug:
+        msg: "DEST AGGREGATE | name={{ aggr_name }}"
+
+    # ================================================================
+    # Phase C: Dest volume setup (auto-create DP if missing)
+    # ================================================================
+
+    - name: "Phase C — Check if destination DP volume already exists"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/storage/volumes?name={{ dest_volume }}&svm.name={{ dest_svm }}&fields=name,uuid,state,type&max_records=1"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      register: check_dest
+      no_log: false
+
+    - name: "Phase C — Create dest DP volume"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/storage/volumes"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: POST
+        body_format: json
+        body:
+          name: "{{ dest_volume }}"
+          type: dp
+          svm:
+            name: "{{ dest_svm }}"
+          aggregates:
+            - name: "{{ aggr_name }}"
+          size: "{{ src_vol.space.size }}"
+      register: create_vol
+      when: check_dest.json.num_records | int == 0
+      no_log: false
+
+    - name: "Phase C — Poll volume creation job"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/cluster/jobs/{{ create_vol.json.job.uuid }}"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      register: vol_job
+      until: vol_job.json.state in ['success', 'failure']
+      retries: 30
+      delay: 10
+      failed_when: vol_job.json.state == 'failure'
+      when: create_vol is not skipped and create_vol.json.job is defined
+      no_log: false
+
+    - name: "Phase C — Log skip when volume already exists"
+      ansible.builtin.debug:
+        msg: "Dest volume '{{ dest_volume }}' already exists — skipping create."
+      when: check_dest.json.num_records | int > 0
+
+    - name: "Phase C — Verify destination volume"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/storage/volumes?name={{ dest_volume }}&svm.name={{ dest_svm }}&fields=name,uuid,state,type&max_records=1"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      register: dst_vol_resp
+      failed_when: dst_vol_resp.json.num_records | int == 0
+      no_log: false
+
+    - name: "Phase C — Store destination volume record"
+      ansible.builtin.set_fact:
+        dst_vol: "{{ dst_vol_resp.json.records[0] }}"
+
+    - name: "Phase C — Log destination volume"
+      ansible.builtin.debug:
+        msg: >-
+          DEST VOLUME | name={{ dst_vol.name }}
+          | uuid={{ dst_vol.uuid }}
+          | state={{ dst_vol.state }}
+          | type={{ dst_vol.type }}
+
+    # ================================================================
+    # Phase D: Relationship setup (create + initialize)
+    # ================================================================
+
+    - name: "Phase D — Check if SnapMirror relationship already exists"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/snapmirror/relationships?destination.path={{ dest_svm }}:{{ dest_volume }}&fields=uuid,state,healthy&max_records=1"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      register: existing_rel
+      no_log: false
+
+    - name: "Phase D — Log relationship check"
+      ansible.builtin.debug:
+        msg: "RELATIONSHIP CHECK | existing={{ existing_rel.json.num_records }}"
+
+    - name: "Phase D — Create SnapMirror relationship"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/snapmirror/relationships?return_timeout=120"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: POST
+        body_format: json
+        body:
+          source:
+            path: "{{ source_svm }}:{{ source_volume }}"
+            cluster:
+              name: "{{ peer_name }}"
+          destination:
+            path: "{{ dest_svm }}:{{ dest_volume }}"
+          policy:
+            name: "{{ sm_policy }}"
+      register: sm_create
+      when: existing_rel.json.num_records | int == 0
+      no_log: false
+
+    - name: "Phase D — Poll relationship creation job"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/cluster/jobs/{{ sm_create.json.job.uuid }}"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      register: sm_job
+      until: sm_job.json.state in ['success', 'failure']
+      retries: 30
+      delay: 10
+      failed_when: sm_job.json.state == 'failure'
+      when: sm_create is not skipped and sm_create.json.job is defined
+      no_log: false
+
+    # ================================================================
+    # Phase E: Convergence polling
+    # ================================================================
+
+    - name: "Phase E — Look up SnapMirror relationship UUID"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/snapmirror/relationships?destination.path={{ dest_svm }}:{{ dest_volume }}&fields=uuid,source.path,destination.path,state,lag_time,healthy,policy.name&max_records=1"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      register: rel_resp
+      failed_when: rel_resp.json.num_records | int == 0
+      no_log: false
+
+    - name: "Phase E — Store relationship UUID"
+      ansible.builtin.set_fact:
+        rel_uuid: "{{ rel_resp.json.records[0].uuid }}"
+
+    - name: "Phase E — Log relationship found"
+      ansible.builtin.debug:
+        msg: >-
+          RELATIONSHIP FOUND | uuid={{ rel_uuid }}
+          | state={{ rel_resp.json.records[0].state }}
+          | healthy={{ rel_resp.json.records[0].healthy | default('unknown') }}
+
+    - name: "Phase E — Trigger baseline transfer"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/snapmirror/relationships/{{ rel_uuid }}/transfers?return_timeout=120"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: POST
+        body_format: json
+        body: {}
+      register: sm_transfer
+      failed_when: false
+      no_log: false
+
+    - name: "Phase E — Log transfer result"
+      ansible.builtin.debug:
+        msg: >-
+          Baseline transfer {{ 'triggered' if sm_transfer.status in [200, 201, 202]
+          else 'skipped (may already be initialized)' }}.
+
+    - name: "Phase E — Poll until relationship is snapmirrored"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/snapmirror/relationships/{{ rel_uuid }}?fields=state,lag_time,healthy"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      register: sm_status
+      until: sm_status.json.state == 'snapmirrored'
+      retries: 120
+      delay: 15
+      no_log: false
+
+    # ================================================================
+    # Phase F: Final validation
+    # ================================================================
+
+    - name: "Phase F — Get final relationship state"
+      ansible.builtin.uri:
+        url: "{{ dest_api }}/snapmirror/relationships/{{ rel_uuid }}?fields=uuid,source.path,destination.path,state,lag_time,healthy,policy.name"
+        url_username: "{{ dest_user }}"
+        url_password: "{{ dest_pass }}"
+        method: GET
+      register: final
+      no_log: false
+
+    - name: "Phase F — Print provisioning summary"
+      ansible.builtin.debug:
+        msg: |
+          === SNAPMIRROR PROVISION COMPLETE ===
+
+            Source:      {{ source_svm }}:{{ source_volume }} @ {{ source_host }} ({{ src_cluster.json.version.full }})
+            Destination: {{ dest_svm }}:{{ dest_volume }} @ {{ dest_host }} ({{ dst_cluster.json.version.full }})
+            Aggregate:   {{ aggr_name }}
+            Policy:      {{ final.json.policy.name | default(sm_policy) }}
+            State:       {{ final.json.state }}
+            Healthy:     {{ final.json.healthy }}
+            Lag time:    {{ final.json.lag_time | default('N/A') }}

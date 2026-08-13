@@ -32,7 +32,7 @@ jobs:
           fetch-depth: 0
 
       - name: TruffleHog scan
-        uses: trufflesecurity/trufflehog@v3.95.3
+        uses: trufflesecurity/trufflehog@v3.96.0
         with:
           extra_args: --only-verified
 
@@ -58,7 +58,7 @@ jobs:
             exit 0
           fi
 
-          pip install -q pyyaml
+          pip install -q -r requirements-dev.txt
 
           ERRORS=0
           while IFS= read -r f; do

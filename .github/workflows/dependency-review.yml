@@ -1,0 +1,39 @@
+# © 2026 NetApp, Inc. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# See the NOTICE file in the repo root for trademark and attribution details.
+
+name: Dependency Review
+
+# Flags known-vulnerable or incompatibly licensed dependencies as they are
+# introduced, rather than after they land. Covers the pip requirements files,
+# go.mod, Terraform providers, and GitHub Actions.
+#
+# Runs on pull_request only - the action diffs the PR against its base, so it
+# has nothing to compare on a push.
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    name: Review dependency changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # post the summary comment
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/dependency-review-action@v4
+        with:
+          # Block only what a contributor can act on. Advisories below high are
+          # reported in the summary without failing the build.
+          fail-on-severity: high
+          # This repo is Apache-2.0; copyleft dependencies would create a
+          # licensing problem for downstream users of the examples.
+          deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0, LGPL-2.1, LGPL-3.0
+          comment-summary-in-pr: on-failure

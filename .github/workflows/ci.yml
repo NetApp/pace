@@ -25,7 +25,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dev deps
-        run: pip install ruff pyyaml
+        run: pip install -r requirements-dev.txt
 
       - name: Ruff lint — Python examples
         run: ruff check python/
@@ -36,10 +36,22 @@ jobs:
       - name: Validate example catalog
         run: python scripts/validate_catalog.py
 
+      # Copilot and Cursor assets are generated from ai/. Fail the build when a
+      # generated copy is edited directly, or when ai/ changes without a regen.
+      - name: Verify AI assets match ai/
+        run: |
+          python scripts/generate_ai_assets.py --self-test
+          python scripts/generate_ai_assets.py --check
+
+      # Every tool root indexes its products, and every product directory
+      # documents its own examples — including placeholders with no examples yet.
       - name: Verify example directories have READMEs
         run: |
           ERRORS=0
-          for dir in python ansible terraform; do
+          for dir in python ansible terraform go \
+                     python/ontap ansible/ontap terraform/ontap go/ontap \
+                     python/console/local ansible/console/local \
+                     terraform/console/local go/console/local; do
             if [ ! -f "$dir/README.md" ]; then
               echo "::error::Missing README.md in $dir/"
               ERRORS=$((ERRORS + 1))
@@ -57,13 +69,13 @@ jobs:
             'python/*.py' \
             'ansible/*.yml' \
             'terraform/**/*.tf' \
+            'go/**/*.go' \
             'docs/example-template/**/*.py' \
             'docs/example-template/**/*.yml' \
             'docs/example-template/**/*.tf' \
             '.github/scripts/*.sh' \
             'docs/*.html' \
-            'poc/*.html' \
-            | grep -Ev '(\.example$|requirements\.|inventory/|group_vars/)')
+            | grep -Ev '(\.example$|requirements\.|inventory/|group_vars/|example-template/go/)')
           for f in "${FILES[@]}"; do
             if ! head -10 "$f" | grep -q "$MARKER"; then
               echo "::error file=$f::Missing NetApp copyright header"
@@ -75,3 +87,39 @@ jobs:
             exit 1
           fi
           echo "All checked files carry the NetApp copyright header."
+
+  go-vet:
+    name: go-vet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # The examples use only the standard library, so there is no go.sum to
+      # hash. Keying the cache on go.mod keeps setup-go's cache step valid; it
+      # silently skipped caching while this pointed at a file that never existed.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.mod
+
+      - name: go vet
+        working-directory: go
+        run: go vet ./...
+
+      # Programs live under go/<product>/<use_case>/, so main.go is found
+      # recursively from the module root.
+      - name: Build-check all programs
+        working-directory: go
+        run: |
+          ERRORS=0
+          FOUND=0
+          for dir in $(find . -name main.go -exec dirname {} \; | sort); do
+            FOUND=$((FOUND + 1))
+            echo "Building ${dir} …"
+            (cd "${dir}" && go build -o /dev/null .) || ERRORS=$((ERRORS + 1))
+          done
+          if [ "$FOUND" -eq 0 ]; then
+            echo "::error::No Go programs found — check the directory layout"
+            exit 1
+          fi
+          [ "$ERRORS" -eq 0 ] || exit 1
