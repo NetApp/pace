@@ -1,0 +1,81 @@
+# © 2026 NetApp, Inc. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# See the NOTICE file in the repo root for trademark and attribution details.
+
+---
+# cifs_provision.yml — Create a CIFS (SMB) share with volume and ACL.
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml cifs_provision.yml
+#
+# Override variables on the command line:
+#   ansible-playbook -i inventory/hosts.yml cifs_provision.yml \
+#       -e volume_name=cifs_demo -e share_name=demo_share -e aggregate_name=aggr1
+#
+- name: Provision CIFS share
+  hosts: ontap
+  gather_facts: false
+  connection: local
+  module_defaults:
+    group/netapp.ontap.netapp_ontap:
+      hostname: "{{ ontap_hostname }}"
+      username: "{{ ontap_username }}"
+      password: "{{ ontap_password }}"
+      https: "{{ ontap_https }}"
+      validate_certs: "{{ ontap_validate_certs }}"
+      use_rest: always
+
+  tasks:
+    # -- Step 1: Create FlexVol with NTFS security style ----------------
+    - name: Create volume '{{ volume_name }}' with NTFS security style
+      netapp.ontap.na_ontap_volume:
+        state: present
+        name: "{{ volume_name }}"
+        vserver: "{{ svm_name }}"
+        aggregate_name: "{{ aggregate_name }}"
+        size: "{{ volume_size }}"
+        size_unit: "{{ volume_size_unit }}"
+        junction_path: "/{{ volume_name }}"
+        volume_security_style: ntfs
+        wait_for_completion: true
+      no_log: false
+
+    # -- Step 2: Create CIFS share on the volume ------------------------
+    - name: Create CIFS share '{{ share_name }}'
+      netapp.ontap.na_ontap_cifs:
+        state: present
+        share_name: "{{ share_name }}"
+        path: "/{{ volume_name }}"
+        vserver: "{{ svm_name }}"
+        comment: "{{ share_comment }}"
+      no_log: false
+
+    # -- Step 3: Set share ACL ------------------------------------------
+    - name: Set ACL — '{{ acl_user }}' → {{ acl_permission }}
+      netapp.ontap.na_ontap_cifs_acl:
+        state: present
+        share_name: "{{ share_name }}"
+        vserver: "{{ svm_name }}"
+        user_or_group: "{{ acl_user }}"
+        permission: "{{ acl_permission }}"
+      no_log: false
+
+    # -- Step 4: Verify share exists ------------------------------------
+    - name: Verify CIFS share '{{ share_name }}'
+      netapp.ontap.na_ontap_rest_info:
+        gather_subset:
+          - protocols/cifs/shares
+        parameters:
+          name: "{{ share_name }}"
+          svm.name: "{{ svm_name }}"
+          fields: "name,path,acls"
+      register: share_info
+      no_log: false
+
+    # -- Summary --------------------------------------------------------
+    - name: Print summary
+      ansible.builtin.debug:
+        msg: >-
+          Done — CIFS share '{{ share_name }}' created on volume '{{ volume_name }}'
+          ({{ volume_size }}{{ volume_size_unit }}) on SVM '{{ svm_name }}',
+          path: /{{ volume_name }}, ACL: {{ acl_user }} → {{ acl_permission }}

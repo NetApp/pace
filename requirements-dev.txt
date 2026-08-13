@@ -1,0 +1,12 @@
+# Tooling for the checks in ci.yml and the Makefile.
+#
+# Pinned exactly, and deliberately: these versions decide whether CI passes.
+# An unpinned linter means a new upstream release can turn main red with no
+# change to this repository - which is exactly what happened when ruff 0.16
+# widened its default rule set. Dependabot bumps these weekly so the pins stay
+# fresh and any new findings arrive in a reviewable PR instead of on main.
+#
+# Local and CI install from this same file, so `make ci` and the CI run cannot
+# disagree about which rules apply.
+ruff==0.16.2
+PyYAML==6.0.3

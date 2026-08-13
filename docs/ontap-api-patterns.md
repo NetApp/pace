@@ -1,7 +1,7 @@
 # ONTAP REST API Patterns
 
 Canonical reference for ONTAP REST API conventions used across all automation
-examples in this repository (Python, Ansible, and Terraform).
+examples in this repository (Python, Ansible, Terraform, and Go).
 For the full API specification, see the
 [ONTAP REST API documentation](https://docs.netapp.com/us-en/ontap-restapi/swagger-ui/index.html).
 
@@ -17,7 +17,7 @@ https://<cluster-management-ip-or-hostname>/api/<category>/<resource>
 
 | Field | Value | Notes |
 |-------|-------|-------|
-| `username` | Admin user | Basic auth — typically `admin` |
+| `username` | Admin user | Basic auth - typically `admin` |
 | `password` | Admin password | Never hardcode; use env vars or vault |
 | `verify_ssl` | `false` | Supports self-signed certs; set `true` once CA-signed certs are in place |
 
@@ -87,7 +87,7 @@ instead of completing synchronously.
 }
 ```
 
-Key field: `job.uuid` — used to construct the poll URL.
+Key field: `job.uuid` - used to construct the poll URL.
 
 ### Job Poll Result
 
@@ -109,9 +109,9 @@ Job states: `queued`, `running`, `success`, `failure`.
 Any POST or PATCH that triggers a long-running operation returns a `job` object.
 The standard pattern is:
 
-1. **Trigger** — POST/PATCH returns `{ "job": { "uuid": "..." } }`
-2. **Poll** — GET `/api/cluster/jobs/{uuid}?fields=state,message&return_timeout=120` until `state != running`
-3. **Continue** — use the poll result's `state` and `message` in downstream logic
+1. **Trigger** - POST/PATCH returns `{ "job": { "uuid": "..." } }`
+2. **Poll** - GET `/api/cluster/jobs/{uuid}?fields=state,message&return_timeout=120` until `state != running`
+3. **Continue** - use the poll result's `state` and `message` in downstream logic
 
 ## Common API Categories
 
@@ -168,15 +168,15 @@ Additional variables depend on the operation (e.g. `VOLUME_NAME`, `AGGR_NAME`, `
 
 | Operation | Recommended `timeout` | Notes |
 |-----------|----------------------|-------|
-| Simple GET | 30s | Default |
-| POST/PATCH (sync) | 60s | Volume create, snapshot |
-| Discovery (many fields) | 150s | Node discovery with all fields |
-| `return_timeout` query param | 30–120s | Server-side wait before async return |
+| Simple GET | 180s (client default) | Client default covers all operations |
+| POST/PATCH (sync) | 180s (client default) | Volume create, snapshot |
+| Discovery (many fields) | 180s (client default) | Node discovery with all fields |
+| `return_timeout` query param | 120s | Server-side wait before async return — client timeout must exceed this |
 
 ## Retry Guidance
 
 | Scenario | `attempts` | `delay_seconds` |
 |----------|-----------|-----------------|
-| Standard GET | 1 (no retry) | — |
+| Standard GET | 1 (no retry) | - |
 | Network-dependent discovery | 3 | 30 |
 | Flaky endpoints | 3 | 5 |

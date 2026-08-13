@@ -1,16 +1,23 @@
 <!DOCTYPE html>
+<!--
+   © 2026 NetApp, Inc. All Rights Reserved.
+   SPDX-License-Identifier: Apache-2.0
+   See the NOTICE file in the repo root for trademark and attribution details.
+-->
+
 <html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pace — Storage automation, in three different styles.</title>
-<meta name="description" content="Pace is an open-source library of ready-to-run NetApp ONTAP storage automation examples written across three styles — imperative scripts, declarative playbooks, and stateful blueprints — to make the trade-offs visible and the right approach easier to pick." />
+<title>Pace - Storage automation, in three different styles.</title>
+<meta name="description" content="Pace is an open-source library of ready-to-run NetApp storage automation examples written across three styles - imperative scripts, declarative playbooks, and stateful blueprints - to make the trade-offs visible and the right approach easier to pick." />
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
 /* =========================================================================
-   PACE PORTFOLIO — single-file, modular sections
+   PACE PORTFOLIO - single-file, modular sections
    1. Reset & Tokens (with light/dark themes)
    2. Layout primitives & typography
    3. Ambient background (orbs, grid, stars)
@@ -560,6 +567,16 @@ html[data-theme="light"] .theme-toggle .sun  { display: block; }
 .prompt-card-head .icon svg { width: 18px; height: 18px; }
 .prompt-card-head h3 { font-family: var(--font-sans); font-size: 16px; font-weight: 600; margin: 0; line-height: 1.2; }
 .prompt-card p { color: var(--text-muted); font-size: 13px; line-height: 1.55; flex: 1; margin: 0; }
+.prompt-card .prompt-cmd {
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--pace);
+  background: rgba(99,102,241,0.10);
+  border: 1px solid rgba(99,102,241,0.22);
+  border-radius: 8px;
+  padding: 5px 10px;
+}
 
 .prompt-note {
   padding: 16px 20px;
@@ -571,6 +588,8 @@ html[data-theme="light"] .theme-toggle .sun  { display: block; }
   line-height: 1.6;
 }
 .prompt-note strong { color: var(--text); font-weight: 600; }
+.prompt-note a { color: var(--pace); transition: color var(--transition); }
+.prompt-note a:hover { color: var(--pace-2); text-decoration: underline; text-underline-offset: 2px; }
 
 /* ---------- 8. Contribute workflow ---------- */
 .flow-frame {
@@ -678,6 +697,160 @@ html[data-theme="light"] .theme-toggle .sun  { display: block; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
   [data-reveal] { opacity: 1; transform: none; }
 }
+
+/* ---------------- First-time contributor section ---------------- */
+.journey-frame {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  padding: 32px;
+  backdrop-filter: blur(14px);
+  margin-bottom: 32px;
+  display: flex;
+  justify-content: center;
+}
+.journey-svg { width: 100%; max-width: 720px; height: auto; display: block; }
+
+.scene-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+@media (max-width: 760px) {
+  .scene-grid { grid-template-columns: 1fr; }
+}
+.scene-card {
+  padding: 24px;
+  border-radius: 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  transition: border-color var(--transition), transform var(--transition);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.scene-card:hover { border-color: var(--pace); transform: translateY(-2px); }
+.scene-card .icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(59,130,246,0.16), rgba(168,85,247,0.16));
+  border: 1px solid rgba(99,102,241,0.30);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--transition);
+}
+.scene-card .icon svg { width: 30px; height: 30px; }
+.scene-card:hover .icon { transform: scale(1.06); }
+.scene-card h3 { margin: 0; }
+.scene-card p { color: var(--text-muted); font-size: 14px; line-height: 1.6; margin: 0; }
+.scene-card code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+}
+.scene-card .card-link {
+  margin-top: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--pace);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: color var(--transition);
+}
+.scene-card .card-link:hover { color: var(--pace-2); }
+
+/* Mystery surprise card */
+.surprise-card {
+  margin-top: 28px;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 18px 22px;
+  border-radius: 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  transition: border-color var(--transition);
+}
+.surprise-card:hover { border-color: var(--pace-2); }
+.surprise-toggle {
+  flex: 0 0 auto;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.surprise-toggle:focus-visible {
+  outline: 2px solid var(--pace);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+.envelope {
+  width: 64px;
+  height: 48px;
+  display: block;
+  animation: ftEnvelopeBreath 4s ease-in-out infinite;
+  transform-origin: center;
+}
+.env-flap {
+  transform-origin: 32px 14px;
+  transition: transform 600ms cubic-bezier(.16,.84,.3,1);
+}
+.surprise-toggle:hover .env-flap { transform: rotate(8deg); }
+.env-letter {
+  transition: opacity 400ms ease 200ms, transform 400ms ease 200ms;
+}
+.surprise-card[data-open="true"] .env-flap { transform: rotate(180deg); }
+.surprise-card[data-open="true"] .env-letter { opacity: 1; transform: translate(0, -4px); }
+.surprise-card[data-open="true"] .envelope { animation: none; }
+.surprise-copy { flex: 1 1 auto; min-width: 0; }
+.surprise-copy h4 {
+  font-family: var(--font-display);
+  margin: 0 0 4px 0;
+  color: var(--hi);
+  font-size: 16px;
+}
+.surprise-teaser {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.surprise-disclaimer {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity 400ms ease, max-height 400ms ease, padding-top 400ms ease;
+}
+.surprise-card[data-open="true"] .surprise-disclaimer {
+  opacity: 1;
+  max-height: 240px;
+  padding-top: 8px;
+}
+@keyframes ftEnvelopeBreath {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.025); }
+}
+@media (max-width: 640px) {
+  .surprise-card { flex-direction: column; align-items: flex-start; }
+  .envelope { width: 56px; height: 42px; }
+}
 </style>
 </head>
 <body>
@@ -715,6 +888,7 @@ html[data-theme="light"] .theme-toggle .sun  { display: block; }
     <a href="#overview">Overview</a>
     <a href="#tools">Styles</a>
     <a href="#prompts">Prompts</a>
+    <a href="#first-time">First time</a>
     <a href="#contribute">Contribute</a>
   </div>
   <div class="nav-actions">
@@ -757,12 +931,12 @@ html[data-theme="light"] .theme-toggle .sun  { display: block; }
           Storage automation, in <span class="gradient">three different styles</span>.
         </h1>
         <p class="hero-lead" data-reveal data-reveal-delay="2">
-          <b>Pace</b> is an open-source library of ready-to-run automation
-          examples for <b>NetApp</b>, starting with <b>ONTAP</b>. Workflows
-          are written across three styles — as imperative <b>scripts</b> that
-          execute step by step, declarative <b>playbooks</b> that describe
-          the desired outcome, or stateful <b>blueprints</b> that track and
-          enforce infrastructure over time — making it easier to pick the
+          <b>Pace</b> is an open-source library of ready-to-run
+          <b>NetApp storage automation</b> examples. Workflows are written
+          across three styles - as imperative <b>scripts</b> that execute
+          step by step, declarative <b>playbooks</b> that describe the
+          desired outcome, or stateful <b>blueprints</b> that track and
+          enforce infrastructure over time - making it easier to pick the
           right approach for each job.
         </p>
         <div class="hero-cta" data-reveal data-reveal-delay="3">
@@ -822,14 +996,14 @@ html[data-theme="light"] .theme-toggle .sun  { display: block; }
         </h3>
         <p style="color:var(--text-muted)">
           Tasks are built in three styles, side by side. Underneath, they all talk
-          to the same storage system — so the real differences are obvious: how
+          to the same storage system - so the real differences are obvious: how
           much code you write, how safe it is to re-run, how easy it is to undo,
           and how much the tool handles for you versus how much you handle yourself.
         </p>
         <p style="color:var(--text-muted); margin-top:14px;">
           Some styles give you full control over every step. Others let you
           describe what you want and figure out the rest. The same task, the same
-          outcome — just different trade-offs in readability, flexibility, and
+          outcome - just different trade-offs in readability, flexibility, and
           maintenance. Seeing them next to each other makes those trade-offs
           concrete instead of theoretical.
         </p>
@@ -918,9 +1092,9 @@ html[data-theme="light"] .theme-toggle .sun  { display: block; }
       <div class="eyebrow" data-reveal>PICK YOUR STYLE</div>
       <h2 data-reveal data-reveal-delay="1">One task, three styles.</h2>
       <p class="lead" data-reveal data-reveal-delay="2">
-        Here's one task — printing cluster info — written in all three styles.
+        Here's one task - printing cluster info - written in all three styles.
         The tool used in each example is one representative of its style.
-        Across the wider library, coverage varies — not every example exists
+        Across the wider library, coverage varies - not every example exists
         in every style.
       </p>
     </div>
@@ -941,19 +1115,19 @@ html[data-theme="light"] .theme-toggle .sun  { display: block; }
         </button>
       </div>
 
-      <!-- SCRIPTS (today: Python) -->
+      <!-- SCRIPTS (today: Python and Go) -->
       <div class="tool-pane active" data-tool="python" role="tabpanel">
         <div class="tool-meta">
-          <h3>Imperative scripts — you write each step yourself.</h3>
-          <p class="summary">You spell out every step in order: call this, then call that, retry if it fails. A natural fit when a job needs custom logic, data transforms, or has to talk to other systems. Today shown in <code>Python</code>; the same idea fits other general-purpose languages.</p>
+          <h3>Imperative scripts - you write each step yourself.</h3>
+          <p class="summary">You spell out every step in order: call this, then call that, retry if it fails. A natural fit when a job needs custom logic, data transforms, or has to talk to other systems. Shown here in <code>Python</code>; the library ships <code>Go</code> programs in this same style, and the idea fits other general-purpose languages too.</p>
           <div class="specs">
             <div class="spec"><div class="k">Style</div><div class="vv">Imperative scripts</div></div>
-            <div class="spec"><div class="k">Tracks state</div><div class="vv">No — you handle it</div></div>
+            <div class="spec"><div class="k">Tracks state</div><div class="vv">No - you handle it</div></div>
             <div class="spec"><div class="k">Safe to re-run</div><div class="vv">You write that in</div></div>
             <div class="spec"><div class="k">Lines of code</div><div class="vv">145 + 188 helpers<small>NAS provisioning example</small></div></div>
           </div>
           <div class="when">
-            <div class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-9"/></svg> See every API call — easy to debug</div>
+            <div class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-9"/></svg> See every API call - easy to debug</div>
             <div class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-9"/></svg> Fits one-off jobs and gluing systems together</div>
             <div class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-9"/></svg> When you need branching, retries, or custom integrations</div>
           </div>
@@ -979,17 +1153,17 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
       <!-- RECIPES (today: Ansible) -->
       <div class="tool-pane" data-tool="ansible" role="tabpanel">
         <div class="tool-meta">
-          <h3>Declarative playbooks — say what you want, not how.</h3>
-          <p class="summary">You write a playbook — "the volume should exist with these settings" — and the tool figures out what to change. Safe to run over and over, and easy to apply to many clusters at once. Today shown in <code>Ansible</code>; the same idea fits other configuration-management tools.</p>
+          <h3>Declarative playbooks - say what you want, not how.</h3>
+          <p class="summary">You write a playbook - "the volume should exist with these settings" - and the tool figures out what to change. Safe to run over and over, and easy to apply to many clusters at once. Today shown in <code>Ansible</code>; the same idea fits other configuration-management tools.</p>
           <div class="specs">
             <div class="spec"><div class="k">Style</div><div class="vv">Declarative playbooks</div></div>
-            <div class="spec"><div class="k">Tracks state</div><div class="vv">No — checks each run</div></div>
+            <div class="spec"><div class="k">Tracks state</div><div class="vv">No - checks each run</div></div>
             <div class="spec"><div class="k">Safe to re-run</div><div class="vv">Built in</div></div>
             <div class="spec"><div class="k">Lines of code</div><div class="vv">96<small>NAS provisioning example</small></div></div>
           </div>
           <div class="when">
             <div class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-9"/></svg> Run the same playbook across many clusters at once</div>
-            <div class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-9"/></svg> Safe to re-run any time — won't double up</div>
+            <div class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-9"/></svg> Safe to re-run any time - won't double up</div>
             <div class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-9"/></svg> Fits when you need to keep many clusters in a known good state</div>
           </div>
         </div>
@@ -1021,11 +1195,11 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
       <!-- BLUEPRINTS (today: Terraform) -->
       <div class="tool-pane" data-tool="terraform" role="tabpanel">
         <div class="tool-meta">
-          <h3>Stateful blueprints — track everything, see every change.</h3>
+          <h3>Stateful blueprints - track everything, see every change.</h3>
           <p class="summary">You declare the resources you want, and the tool keeps a record of what it built. Before any change, you get a preview of exactly what will happen. Cleanup is one command. Today shown in <code>Terraform</code>; the same idea fits other declarative IaC tools.</p>
           <div class="specs">
             <div class="spec"><div class="k">Style</div><div class="vv">Stateful blueprints</div></div>
-            <div class="spec"><div class="k">Tracks state</div><div class="vv">Yes — full record</div></div>
+            <div class="spec"><div class="k">Tracks state</div><div class="vv">Yes - full record</div></div>
             <div class="spec"><div class="k">Safe to re-run</div><div class="vv">Preview, then apply</div></div>
             <div class="spec"><div class="k">Lines of code</div><div class="vv">155<small>NAS provisioning example</small></div></div>
           </div>
@@ -1071,10 +1245,11 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
       <div class="eyebrow" data-reveal>PROMPT TEMPLATES</div>
       <h2 data-reveal data-reveal-delay="1">Reusable prompts: plan, generate, review.</h2>
       <p class="lead" data-reveal data-reveal-delay="2">
-        The repo includes reusable prompts that cover the full loop — planning
+        The repo includes reusable prompts that cover the full loop - planning
         a new use case, generating a first draft, and reviewing the result.
-        Paste them into your AI assistant of choice; the output is a starting
-        point that still needs human review and testing.
+        They appear as slash commands in GitHub Copilot and Cursor, and paste
+        into any other assistant; the output is a starting point that still
+        needs human review and testing.
       </p>
     </div>
 
@@ -1089,7 +1264,8 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
           </span>
           <h3>Plan</h3>
         </div>
-        <p>Break a use case into the resources, dependencies, and edge cases worth handling — before any code is written.</p>
+        <p>Break a use case into the resources, dependencies, and edge cases worth handling - before any code is written.</p>
+        <code class="prompt-cmd">/ontap-plan-api-sequence</code>
       </div>
       <div class="prompt-card">
         <div class="prompt-card-head">
@@ -1102,6 +1278,7 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
           <h3>Generate</h3>
         </div>
         <p>Scaffold a first draft in the style you choose, following the project's structure, helpers, and conventions.</p>
+        <code class="prompt-cmd">/ontap-generate-workflow</code>
       </div>
       <div class="prompt-card">
         <div class="prompt-card-head">
@@ -1114,14 +1291,186 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
           </span>
           <h3>Review</h3>
         </div>
-        <p>Surface idempotency, error handling, naming, and convention drift — a second pair of eyes before opening a PR.</p>
+        <p>Surface idempotency, error handling, naming, and convention drift - a second pair of eyes before opening a PR.</p>
+        <code class="prompt-cmd">/review-contribution</code>
       </div>
     </div>
 
     <div class="prompt-note" data-reveal>
       <strong>AI output is a draft, not a merge.</strong> Run the project's
       checks, validate against a real cluster, and have a maintainer review
-      before opening a PR — the same as any human-written change.
+      before opening a PR - the same as any human-written change.
+      See the
+      <a href="https://github.com/NetApp/pace/blob/main/docs/ai-prompt-catalog.md" target="_blank" rel="noopener">AI prompt catalog</a>
+      for the full list and how to invoke them in each tool.
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     FIRST-TIME CONTRIBUTOR
+============================================================ -->
+<section class="section" id="first-time" style="padding-top:40px">
+  <div class="container">
+    <div class="section-head">
+      <div class="eyebrow" data-reveal>NEW HERE?</div>
+      <h2 data-reveal data-reveal-delay="1">Your first PR, visualised.</h2>
+      <p class="lead" data-reveal data-reveal-delay="2">
+        A handful of curated <em>good first issues</em> tells you which files
+        to change, the expected outcome, how to test, and which ONTAP
+        concepts you'll touch. No invented scope. No guessing.
+      </p>
+    </div>
+
+    <!-- Visual journey: laptop → curved path with 4 stops → celebration -->
+    <div class="journey-frame" data-reveal>
+      <svg class="journey-svg" viewBox="0 0 720 220" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <linearGradient id="ftJourneyPath" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#3b82f6"/>
+            <stop offset="100%" stop-color="#a855f7"/>
+          </linearGradient>
+          <linearGradient id="ftJourneyDot" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#6366f1"/>
+            <stop offset="100%" stop-color="#a855f7"/>
+          </linearGradient>
+        </defs>
+
+        <!-- Laptop on the left -->
+        <g transform="translate(20 70)" stroke="rgba(255,255,255,0.35)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="6" y="6" width="92" height="62" rx="6"/>
+          <path d="M0 72 h104 a4 4 0 0 1 -4 4 H4 a4 4 0 0 1 -4 -4z" fill="rgba(99,102,241,0.10)"/>
+          <path d="M28 28 l8 8 -8 8" stroke="#3b82f6" stroke-width="2.5"/>
+          <path d="M40 44 h22" stroke="#6366f1" stroke-width="2.5"/>
+        </g>
+
+        <!-- Curved dashed path connecting the four stops -->
+        <path id="ftJourneyTrack" d="M 130 110 Q 240 30 350 110 T 580 110"
+              stroke="url(#ftJourneyPath)" stroke-width="2.5" fill="none"
+              stroke-dasharray="4 6" opacity="0.55"/>
+
+        <!-- Stops -->
+        <g transform="translate(170 92)">
+          <circle r="14" fill="rgba(99,102,241,0.18)" stroke="#6366f1" stroke-width="1.5"/>
+          <text y="5" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#cbd5f5">1</text>
+          <text y="42" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="0.08em" fill="#94a3b8">FORK</text>
+        </g>
+        <g transform="translate(295 78)">
+          <circle r="14" fill="rgba(99,102,241,0.18)" stroke="#6366f1" stroke-width="1.5"/>
+          <text y="5" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#cbd5f5">2</text>
+          <text y="42" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="0.08em" fill="#94a3b8">EDIT</text>
+        </g>
+        <g transform="translate(420 92)">
+          <circle r="14" fill="rgba(99,102,247,0.18)" stroke="#a855f7" stroke-width="1.5"/>
+          <text y="5" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#cbd5f5">3</text>
+          <text y="42" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="0.08em" fill="#94a3b8">PUSH</text>
+        </g>
+        <g transform="translate(560 110)">
+          <circle r="16" fill="rgba(168,85,247,0.22)" stroke="#a855f7" stroke-width="1.8"/>
+          <text y="5" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#e6edf3">4</text>
+          <text y="42" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="0.08em" fill="#cbd5f5">MERGE</text>
+        </g>
+
+        <!-- Travelling dot -->
+        <circle r="6" fill="url(#ftJourneyDot)">
+          <animateMotion dur="6s" repeatCount="indefinite" rotate="auto">
+            <mpath href="#ftJourneyTrack"/>
+          </animateMotion>
+        </circle>
+
+        <!-- Celebration burst at the end -->
+        <g transform="translate(620 60)" stroke="#a855f7" stroke-width="2" fill="none" stroke-linecap="round">
+          <line x1="0" y1="-12" x2="0" y2="-22"/>
+          <line x1="10" y1="-8" x2="18" y2="-14"/>
+          <line x1="14" y1="2" x2="24" y2="2"/>
+          <line x1="-10" y1="-8" x2="-18" y2="-14"/>
+          <line x1="-14" y1="2" x2="-24" y2="2"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- Three scene cards -->
+    <div class="scene-grid">
+      <article class="scene-card" data-reveal data-reveal-delay="1">
+        <div class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="url(#ftSceneGrad1)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <defs><linearGradient id="ftSceneGrad1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#6366f1"/></linearGradient></defs>
+            <circle cx="11" cy="11" r="6"/>
+            <path d="M21 21l-4.35-4.35"/>
+            <path d="M11 8v6M8 11h6"/>
+          </svg>
+        </div>
+        <h3>Find your spot</h3>
+        <p>Browse the <strong>good first issue</strong> label. Each one tells you the exact file to change, the expected outcome, and how to verify it.</p>
+        <a class="card-link" href="https://github.com/NetApp/pace/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22" target="_blank" rel="noopener">See the curated list →</a>
+      </article>
+
+      <article class="scene-card" data-reveal data-reveal-delay="2">
+        <div class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="url(#ftSceneGrad2)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <defs><linearGradient id="ftSceneGrad2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#a855f7"/></linearGradient></defs>
+            <path d="M12 20h9"/>
+            <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+          </svg>
+        </div>
+        <h3>Make it yours</h3>
+        <p>Edit a Python script, an Ansible playbook, or a Terraform module. The local <code>make ci</code> mirrors what CI checks - no surprises on push.</p>
+        <a class="card-link" href="https://github.com/NetApp/pace/blob/main/docs/first-contribution.md" target="_blank" rel="noopener">7-step walkthrough →</a>
+      </article>
+
+      <article class="scene-card" data-reveal data-reveal-delay="3">
+        <div class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="url(#ftSceneGrad3)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <defs><linearGradient id="ftSceneGrad3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#a855f7"/><stop offset="100%" stop-color="#f472b6"/></linearGradient></defs>
+            <path d="M4.5 16.5L3 21l4.5-1.5"/>
+            <path d="M14.5 4.5l5 5L9 20l-5 1 1-5L14.5 4.5z"/>
+            <path d="M13 6l5 5"/>
+          </svg>
+        </div>
+        <h3>Ship it</h3>
+        <p>Open a PR. If a check fails, a bot replies with the <em>exact fix command</em>. CODEOWNERS auto-assigns a reviewer. Squash and merge.</p>
+        <a class="card-link" href="https://github.com/NetApp/pace/pulls" target="_blank" rel="noopener">Browse open PRs →</a>
+      </article>
+    </div>
+
+    <!-- CTA strip -->
+    <div class="cta-band" data-reveal style="margin-top:28px">
+      <div class="copy">
+        <h4>Ready when you are.</h4>
+        <p>The walkthrough is seven numbered steps; budget about 45 minutes for your first one.</p>
+      </div>
+      <div class="actions">
+        <a class="btn btn-primary" href="https://github.com/NetApp/pace/blob/main/docs/first-contribution.md" target="_blank" rel="noopener">Read the 7-step walkthrough</a>
+        <a class="btn btn-ghost" href="https://github.com/NetApp/pace/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22" target="_blank" rel="noopener">Browse good first issues</a>
+      </div>
+    </div>
+
+    <!-- Mystery surprise card -->
+    <div class="surprise-card" data-reveal>
+      <button type="button" class="surprise-toggle" aria-expanded="false" aria-controls="surpriseDisclaimer" aria-label="Reveal details for early contributors">
+        <svg class="envelope" viewBox="0 0 64 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect class="env-body" x="2" y="10" width="60" height="36" rx="4"
+                fill="rgba(99,102,241,0.18)" stroke="#6366f1" stroke-width="1.6"/>
+          <path class="env-back" d="M2 14 L32 34 L62 14" fill="none" stroke="#a855f7" stroke-width="1.6"/>
+          <path class="env-flap" d="M2 14 L32 34 L62 14 L62 8 L2 8 Z"
+                fill="rgba(168,85,247,0.32)" stroke="#a855f7" stroke-width="1.6"/>
+          <g class="env-letter" transform="translate(14 18)" opacity="0">
+            <rect width="36" height="20" rx="2" fill="rgba(255,255,255,0.10)" stroke="#cbd5f5" stroke-width="1"/>
+            <line x1="6" y1="8" x2="30" y2="8" stroke="#cbd5f5" stroke-width="1"/>
+            <line x1="6" y1="13" x2="22" y2="13" stroke="#cbd5f5" stroke-width="1"/>
+          </g>
+        </svg>
+      </button>
+      <div class="surprise-copy">
+        <h4>Something for early contributors.</h4>
+        <p class="surprise-teaser">Open this when no one is watching.</p>
+        <p id="surpriseDisclaimer" class="surprise-disclaimer">
+          Selected at maintainer discretion based on contribution quality,
+          originality, and timing. Not guaranteed. Subject to internal criteria
+          that may change without notice. Nothing here creates an entitlement
+          or obligation on either side.
+        </p>
+      </div>
     </div>
   </div>
 </section>
@@ -1136,7 +1485,7 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
       <h2 data-reveal data-reveal-delay="1">From your first edit to a merged PR in 5 steps.</h2>
       <p class="lead" data-reveal data-reveal-delay="2">
         Use clear commit messages, get one approving review, make sure the checks
-        pass. That's the whole protocol — no matter which style you contribute to.
+        pass. That's the whole protocol - no matter which style you contribute to.
       </p>
     </div>
 
@@ -1150,17 +1499,17 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
         <div class="flow-step">
           <div class="num">2</div>
           <h4>Set up locally</h4>
-          <p>Install the tools for the style you'll touch — the contribution guide walks through it.</p>
+          <p>Install the tools for the style you'll touch - the contribution guide walks through it.</p>
         </div>
         <div class="flow-step">
           <div class="num">3</div>
           <h4>Add a use case</h4>
-          <p>One style is enough — script, playbook, or blueprint. Add more if you'd like.</p>
+          <p>One style is enough - script, playbook, or blueprint. Add more if you'd like.</p>
         </div>
         <div class="flow-step">
           <div class="num">4</div>
           <h4>Run the checks</h4>
-          <p>Run the same checks locally that CI runs on every PR — lint, tests, formatting.</p>
+          <p>Run the same checks locally that CI runs on every PR - lint, tests, formatting.</p>
         </div>
         <div class="flow-step">
           <div class="num">5</div>
@@ -1171,7 +1520,7 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
 
       <div class="cta-band">
         <div class="copy">
-          <h4>Got a use case — or a new tool to add?</h4>
+          <h4>Got a use case - or a new tool to add?</h4>
           <p>Adding examples in another tool, or a use case we haven't covered yet? Welcome here.</p>
         </div>
         <div class="actions">
@@ -1205,7 +1554,7 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
           </span>
           <span class="nav-brand-name">Pace</span>
         </a>
-        <p>NetApp ONTAP storage automation, in three different styles — imperative scripts, declarative playbooks, stateful blueprints. Apache 2.0.</p>
+        <p>NetApp storage automation, in three different styles - imperative scripts, declarative playbooks, stateful blueprints. Apache 2.0.</p>
       </div>
       <div class="footer-col">
         <h5>Project</h5>
@@ -1217,7 +1566,7 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
       <div class="footer-col">
         <h5>Docs</h5>
         <a href="https://github.com/NetApp/pace/blob/main/docs/choosing-an-approach.md" target="_blank" rel="noopener">Choosing an approach</a>
-        <a href="https://github.com/NetApp/pace/blob/main/docs/ontap-api-patterns.md" target="_blank" rel="noopener">ONTAP API patterns</a>
+        <a href="https://github.com/NetApp/pace/blob/main/docs/ontap-api-patterns.md" target="_blank" rel="noopener">Platform API patterns</a>
         <a href="https://github.com/NetApp/pace/blob/main/docs/troubleshooting.md" target="_blank" rel="noopener">Troubleshooting</a>
       </div>
       <div class="footer-col">
@@ -1229,7 +1578,14 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
       </div>
     </div>
     <div class="footer-bottom">
-      <span>Copyright © NetApp · Apache-2.0</span>
+      <span>
+        © 2026 NetApp, Inc. All Rights Reserved.
+        NETAPP, the NETAPP logo, and the marks listed at
+        <a href="http://www.netapp.com/TM" target="_blank" rel="noopener">netapp.com/TM</a>
+        are trademarks of NetApp, Inc. in the U.S. and/or other countries.
+        Other company and product names may be trademarks of their respective owners.
+        Licensed under Apache-2.0.
+      </span>
     </div>
   </div>
 </footer>
@@ -1320,7 +1676,7 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
   const termTabs = document.querySelectorAll('.terminal-bar .tab');
   const scripts = {
     python: [
-      { t: '<span class="cmt"># imperative scripts — explicit step-by-step</span>' },
+      { t: '<span class="cmt"># imperative scripts - explicit step-by-step</span>' },
       { t: '<span class="prompt">$ </span><span class="kw">export</span> ONTAP_HOST=<span class="str">10.0.0.1</span> ONTAP_USER=admin' },
       { t: '<span class="prompt">$ </span>./run cluster-info', delay: 600 },
       { t: '<span class="out">Cluster: lab-cluster (ONTAP 9.15.1)</span>' },
@@ -1329,7 +1685,7 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
       { t: '<span class="prompt">$ </span><span class="cursor-blink"></span>' },
     ],
     ansible: [
-      { t: '<span class="cmt"># declarative playbooks — describe the outcome, safe to re-run</span>' },
+      { t: '<span class="cmt"># declarative playbooks - describe the outcome, safe to re-run</span>' },
       { t: '<span class="prompt">$ </span>ansible-playbook cluster-info', delay: 600 },
       { t: '<span class="out">PLAY [ontap] *********</span>' },
       { t: '<span class="out">TASK [Get cluster info] ok: [primary]</span>' },
@@ -1338,7 +1694,7 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
       { t: '<span class="prompt">$ </span><span class="cursor-blink"></span>' },
     ],
     terraform: [
-      { t: '<span class="cmt"># stateful blueprints — preview, then apply, track every change</span>' },
+      { t: '<span class="cmt"># stateful blueprints - preview, then apply, track every change</span>' },
       { t: '<span class="prompt">$ </span>terraform init', delay: 400 },
       { t: '<span class="out">Initializing provider plugins... ontap v1.1</span>' },
       { t: '<span class="prompt">$ </span>terraform apply -auto-approve', delay: 600 },
@@ -1392,6 +1748,38 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
   // Initial terminal content
   playScript('python');
 
+})();
+</script>
+
+<script>
+/* First-time contributor — surprise card interactions */
+(() => {
+  const card = document.querySelector('.surprise-card');
+  if (!card) return;
+  const btn = card.querySelector('.surprise-toggle');
+  if (!btn) return;
+
+  const toggle = () => {
+    const isOpen = card.getAttribute('data-open') === 'true';
+    card.setAttribute('data-open', String(!isOpen));
+    btn.setAttribute('aria-expanded', String(!isOpen));
+  };
+
+  btn.addEventListener('click', toggle);
+  btn.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      toggle();
+    }
+  });
+
+  // Reduced-motion: stop SVG SMIL animations that CSS cannot reach.
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.querySelectorAll('#first-time animateMotion, #first-time animate').forEach(node => {
+      node.setAttribute('dur', '0.001s');
+      node.setAttribute('repeatCount', '1');
+    });
+  }
 })();
 </script>
 </body>

@@ -1,10 +1,10 @@
 # Pace Support and Getting Help
 
 Pace is an open-source project developed and published by NetApp providing
-automation examples for ONTAP, implemented in Python, Ansible, and Terraform.
-Pace is not an officially supported NetApp product. NetApp
-maintains and updates Pace with bug fixes, security updates, and feature
-development. For assistance, refer to [Getting Help](#getting-help).
+NetApp storage automation examples, implemented in Python, Ansible, Terraform,
+and Go. Pace is not an officially supported NetApp product. NetApp maintains
+and updates Pace with bug fixes, security updates, and feature development.
+For assistance, refer to [Getting Help](#getting-help).
 
 ## Release and Support Lifecycle
 
@@ -20,13 +20,19 @@ We recommend always running the latest version.
 
 We use GitHub for tracking bugs and feature requests.
 
-- **Bug reports** — [open an issue](https://github.com/NetApp/pace/issues/new?template=bug_report.md)
-- **Feature requests** — [open an issue](https://github.com/NetApp/pace/issues/new?template=feature_request.md)
-- **Questions and discussion** — [GitHub Discussions](https://github.com/NetApp/pace/discussions)
+- **Bug reports** - [open an issue](https://github.com/NetApp/pace/issues/new?template=bug_report.yml)
+- **Feature requests** - [open an issue](https://github.com/NetApp/pace/issues/new?template=feature_request.yml)
+- **Questions and discussion** - [GitHub Discussions](https://github.com/NetApp/pace/discussions)
+- **Security vulnerabilities** - do not open a public issue. See
+  [SECURITY.md](SECURITY.md) for the private reporting channels.
+- **Private contact** - <ng-pace@netapp.com> (for conduct concerns or
+  anything else that should not be discussed in public. For everyday
+  questions, please use Discussions instead - the team will respond faster
+  and the answer benefits the next person.)
 
 ## Documentation
 
-* [README](README.md) — project overview and quick start
-* [Contributing](CONTRIBUTING.md) — how to add examples and what CI expects
-* [ONTAP API Patterns](docs/ontap-api-patterns.md) — REST endpoint conventions
-* [Troubleshooting](docs/troubleshooting.md) — common errors and how to fix them
+* [README](README.md) - project overview and quick start
+* [Contributing](CONTRIBUTING.md) - how to add examples and what CI expects
+* [Platform API Patterns](docs/ontap-api-patterns.md) - REST endpoint conventions
+* [Troubleshooting](docs/troubleshooting.md) - common errors and how to fix them

@@ -1,0 +1,61 @@
+# © 2026 NetApp, Inc. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# See the NOTICE file in the repo root for trademark and attribution details.
+
+---
+# cluster_info.yml — Retrieve storage cluster version and list all nodes.
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml cluster_info.yml
+#
+- name: Gather storage cluster information
+  hosts: ontap
+  gather_facts: false
+  connection: local
+
+  tasks:
+    # -- Step 1: Get cluster identity ------------------------------------
+    - name: Get cluster identity
+      netapp.ontap.na_ontap_rest_info:
+        hostname: "{{ ontap_hostname }}"
+        username: "{{ ontap_username }}"
+        password: "{{ ontap_password }}"
+        https: "{{ ontap_https }}"
+        validate_certs: "{{ ontap_validate_certs }}"
+        use_rest: always
+        gather_subset:
+          - cluster
+        fields:
+          - "name"
+          - "version"
+      register: cluster_result
+
+    - name: Display cluster version
+      ansible.builtin.debug:
+        msg: >-
+          Cluster: {{ cluster_result.ontap_info.cluster.name | default('unknown') }}
+          — ONTAP {{ cluster_result.ontap_info.cluster.version.full | default('unknown') }}
+
+    # -- Step 2: List nodes with serial numbers -------------------------
+    - name: Get node details
+      netapp.ontap.na_ontap_rest_info:
+        hostname: "{{ ontap_hostname }}"
+        username: "{{ ontap_username }}"
+        password: "{{ ontap_password }}"
+        https: "{{ ontap_https }}"
+        validate_certs: "{{ ontap_validate_certs }}"
+        use_rest: always
+        gather_subset:
+          - cluster/nodes
+        fields:
+          - "name"
+          - "serial_number"
+      register: nodes_result
+      no_log: false
+
+    - name: Display node list
+      ansible.builtin.debug:
+        msg: "Node: {{ item.name }} — serial: {{ item.serial_number | default('N/A') }}"
+      loop: "{{ nodes_result.ontap_info['cluster/nodes']['records'] }}"
+      loop_control:
+        label: "{{ item.name }}"

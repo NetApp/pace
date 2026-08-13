@@ -1,7 +1,7 @@
 # Troubleshooting
 
 Common issues and their solutions. If your problem is not listed here,
-[open an issue](https://github.com/NetApp/pace/issues/new?template=bug_report.md)
+[open an issue](https://github.com/NetApp/pace/issues/new?template=bug_report.yml)
 or start a [discussion](https://github.com/NetApp/pace/discussions).
 
 ---
@@ -31,13 +31,13 @@ nslookup <ONTAP_HOST>
 
 ## Authentication Failures
 
-### HTTP 401 — Unauthorized
+### HTTP 401 - Unauthorized
 
 - Double-check `ONTAP_USER` and `ONTAP_PASS` (or the Ansible/Terraform equivalents).
 - Ensure the user account is not locked (`security login show -vserver <svm>`).
 - Verify the user has REST API access (`security login role show`).
 
-### HTTP 403 — Forbidden
+### HTTP 403 - Forbidden
 
 The credentials are valid but the user lacks the required RBAC permissions
 for the endpoint being called. Check the ONTAP documentation for the
@@ -70,11 +70,11 @@ any `requests` calls.
 
 ### `ModuleNotFoundError: No module named 'ontap_client'`
 
-Scripts must be run from the `python/` directory so that `ontap_client.py`
-is on the Python path:
+Scripts must be run from their product directory so that the sibling client
+module (`ontap_client.py`) is on the Python path:
 
 ```bash
-cd python
+cd python/ontap
 python cluster_info.py
 ```
 
@@ -98,7 +98,7 @@ set -a && source cluster.env && set +a
 Install dependencies first:
 
 ```bash
-pip install -r python/requirements.txt
+pip install -r python/ontap/requirements.txt
 ```
 
 ---
@@ -110,7 +110,7 @@ pip install -r python/requirements.txt
 Install the NetApp ONTAP Ansible collection:
 
 ```bash
-ansible-galaxy collection install -r ansible/requirements.yml
+ansible-galaxy collection install -r ansible/ontap/requirements.yml
 ```
 
 ### Vault decrypt error
@@ -119,12 +119,13 @@ If `group_vars/ontap.yml` is encrypted with Ansible Vault, pass the
 vault password:
 
 ```bash
+cd ansible/ontap
 ansible-playbook -i inventory/hosts.yml cluster_info.yml --ask-vault-pass
 ```
 
 ### Inventory host mismatch
 
-Ensure `ansible/inventory/hosts.yml` contains the correct hostname or IP
+Ensure `ansible/ontap/inventory/hosts.yml` contains the correct hostname or IP
 for your cluster. The default `10.0.0.1` is a placeholder.
 
 ---
@@ -136,7 +137,7 @@ for your cluster. The default `10.0.0.1` is a placeholder.
 Run `terraform init` before `terraform apply`:
 
 ```bash
-cd terraform/cluster-info
+cd terraform/ontap/cluster-info
 terraform init
 ```
 
@@ -163,11 +164,11 @@ backend or separate workspaces to avoid state collisions.
 
 ### Volume already exists
 
-The Python `nfs_provision.py` script is not idempotent — running it twice
+The Python `nfs_provision.py` script is not idempotent - running it twice
 with the same volume name will fail. Either:
 
 - Choose a different volume name, or
-- Add an existence check before creating (see `python/README.md` →
+- Add an existence check before creating (see `python/ontap/README.md` →
   "Adapting for Your Environment").
 
 ### Aggregate not found

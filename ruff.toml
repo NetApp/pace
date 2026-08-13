@@ -1,0 +1,18 @@
+target-version = "py311"
+line-length = 99
+
+[lint]
+# Stated explicitly rather than relying on ruff's defaults, because those
+# defaults change between releases: ruff 0.16 widened them and turned main red
+# without a code change here. This set is ruff's historic default - pyflakes
+# plus the pycodestyle errors that catch real bugs.
+#
+# Widening it is a deliberate choice, not something a version bump should do
+# for us. Rules considered and not adopted:
+#   BLE001 - the SnapMirror examples intentionally catch broad exceptions to log
+#            and continue through best-effort cleanup steps.
+#   PIE804 - ONTAP query params are passed uniformly as `**{"svm.name": svm}`
+#            because many of them are dotted and cannot be Python keywords.
+#   EXE001 - examples carry a shebang for readability but are documented to run
+#            as `python python/ontap/<script>.py`, so they are not executable.
+select = ["E4", "E7", "E9", "F"]

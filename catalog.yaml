@@ -1,0 +1,479 @@
+# © 2026 NetApp, Inc. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# See the NOTICE file in the repo root for trademark and attribution details.
+
+# Machine-readable index of Pace automation examples.
+# Field definitions: docs/catalog-spec.md
+#
+# Examples are organized by product: `product` is the folder slug and must match
+# the variant paths, which live under <tool>/<product>/ (plus /<deployment>/ for
+# products that have deployment variants).
+
+use_cases:
+  - id: cluster-info
+    description: Retrieve cluster version and list nodes with serial numbers
+    products: [ONTAP]
+    product: ontap
+    ontap_min: "9.8"
+    owners: [57388sp, kxvya-git, mahatvagarg]
+    status: verified
+    tags: [cluster, read-only]
+    verification:
+      verified_by: 57388sp
+      tested_at: "2026-05-29"
+      ontap_version: "9.8"
+      environment: other
+      notes: "Python: 57388sp, Ansible: kxvya-git, Terraform: mahatvagarg"
+    variants:
+      python:
+        path: python/ontap/cluster_info.py
+        command: "python cluster_info.py"
+        cwd: python/ontap
+        prerequisites:
+          env: [ONTAP_HOST, ONTAP_PASS, ONTAP_USER]
+          setup: "pip install -r requirements.txt"
+        inputs: []
+        outputs: [cluster_version, nodes]
+      ansible:
+        path: ansible/ontap/cluster_info.yml
+        command: "ansible-playbook -i inventory/hosts.yml cluster_info.yml"
+        cwd: ansible/ontap
+        prerequisites:
+          env: [ontap_hostname, ontap_username, ontap_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: []
+        outputs: [cluster_version, nodes]
+      terraform:
+        path: terraform/ontap/cluster-info
+        command: "terraform init && terraform apply"
+        cwd: terraform/ontap/cluster-info
+        prerequisites:
+          env: []
+          setup: "cp terraform.tfvars.example terraform.tfvars && terraform init"
+        inputs: [ontap_host, ontap_username, ontap_password, validate_certs]
+        outputs: [cluster_name, cluster_version, nodes]
+
+  - id: nfs-provision
+    description: Create an NFS volume with a dedicated export policy and client rule
+    products: [ONTAP]
+    product: ontap
+    ontap_min: "9.8"
+    owners: [57388sp, kxvya-git, mahatvagarg]
+    status: verified
+    tags: [nfs, provisioning]
+    verification:
+      verified_by: 57388sp
+      tested_at: "2026-05-29"
+      ontap_version: "9.8"
+      environment: other
+      notes: "Python: 57388sp, Ansible: kxvya-git, Terraform: mahatvagarg"
+    variants:
+      python:
+        path: python/ontap/nfs_provision.py
+        command: >-
+          python nfs_provision.py --svm vs0 --volume vol_nfs_test_01
+          --size 100MB --aggregate aggr1 --client-match 10.0.0.0/8
+        cwd: python/ontap
+        prerequisites:
+          env: [ONTAP_HOST, ONTAP_PASS, ONTAP_USER]
+          setup: "pip install -r requirements.txt"
+        inputs: [svm, volume, size, aggregate, client_match]
+        outputs: [volume_name, mount_path, export_policy]
+      ansible:
+        path: ansible/ontap/nfs_provision.yml
+        command: "ansible-playbook -i inventory/hosts.yml nfs_provision.yml"
+        cwd: ansible/ontap
+        prerequisites:
+          env: [ontap_hostname, ontap_username, ontap_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [svm_name, volume_name, volume_size, volume_size_unit, aggregate_name, client_match]
+        outputs: [volume_name, mount_path, export_policy]
+      terraform:
+        path: terraform/ontap/nfs-provision
+        command: "terraform init && terraform apply"
+        cwd: terraform/ontap/nfs-provision
+        prerequisites:
+          env: []
+          setup: "cp terraform.tfvars.example terraform.tfvars && terraform init"
+        inputs:
+          - ontap_host
+          - ontap_username
+          - ontap_password
+          - validate_certs
+          - svm_name
+          - volume_name
+          - volume_size
+          - volume_size_unit
+          - aggregate_name
+          - client_match
+        outputs: [volume_name, mount_path, export_policy, client_match]
+
+  - id: cifs-provision
+    description: Create a CIFS share with FlexVol volume and share ACL
+    products: [ONTAP]
+    product: ontap
+    ontap_min: "9.8"
+    owners: [57388sp, kxvya-git, mahatvagarg]
+    status: verified
+    tags: [cifs, smb, provisioning]
+    verification:
+      verified_by: 57388sp
+      tested_at: "2026-05-29"
+      ontap_version: "9.8"
+      environment: other
+      notes: "Python: 57388sp, Ansible: kxvya-git, Terraform: mahatvagarg"
+    variants:
+      python:
+        path: python/ontap/cifs_provision.py
+        command: "python cifs_provision.py"
+        cwd: python/ontap
+        prerequisites:
+          env: [ONTAP_HOST, ONTAP_PASS, ONTAP_USER]
+          setup: "pip install -r requirements.txt"
+        inputs: [svm, volume, size, aggregate, share_name, acl_user, acl_permission]
+        outputs: [volume_name, share_name, mount_path]
+      ansible:
+        path: ansible/ontap/cifs_provision.yml
+        command: "ansible-playbook -i inventory/hosts.yml cifs_provision.yml"
+        cwd: ansible/ontap
+        prerequisites:
+          env: [ontap_hostname, ontap_username, ontap_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs:
+          - svm_name
+          - volume_name
+          - volume_size
+          - volume_size_unit
+          - aggregate_name
+          - share_name
+          - share_comment
+          - acl_user
+          - acl_permission
+        outputs: [volume_name, share_name, mount_path]
+      terraform:
+        path: terraform/ontap/cifs-provision
+        command: "terraform init && terraform apply"
+        cwd: terraform/ontap/cifs-provision
+        prerequisites:
+          env: []
+          setup: "cp terraform.tfvars.example terraform.tfvars && terraform init"
+        inputs:
+          - ontap_host
+          - ontap_username
+          - ontap_password
+          - validate_certs
+          - svm_name
+          - volume_name
+          - volume_size
+          - volume_size_unit
+          - aggregate_name
+          - share_name
+          - share_comment
+          - acl_user
+          - acl_permission
+        outputs: [volume_name, mount_path, share_name, share_path]
+
+  - id: cluster-setup
+    description: Create a storage cluster from two pre-cluster nodes
+    products: [ONTAP]
+    product: ontap
+    ontap_min: "9.8"
+    owners: [57388sp, kxvya-git]
+    status: verified
+    tags: [cluster, setup]
+    verification:
+      verified_by: 57388sp
+      tested_at: "2026-05-29"
+      ontap_version: "9.8"
+      environment: other
+      notes: "Python: 57388sp, Ansible: kxvya-git"
+    variants:
+      python:
+        path: python/ontap/cluster_setup_basic.py
+        command: "python cluster_setup_basic.py"
+        cwd: python/ontap
+        prerequisites:
+          env:
+            - ONTAP_HOST
+            - ONTAP_USER
+            - ONTAP_PASS
+            - CLUSTER_NAME
+            - CLUSTER_PASS
+            - CLUSTER_MGMT_IP
+            - CLUSTER_NETMASK
+            - CLUSTER_GATEWAY
+            - PARTNER_MGMT_IP
+          setup: "pip install -r requirements.txt"
+        inputs:
+          - cluster_name
+          - cluster_pass
+          - cluster_mgmt_ip
+          - cluster_netmask
+          - cluster_gateway
+          - partner_mgmt_ip
+        outputs: [cluster_name, job_status]
+      go:
+        path: go/ontap/cluster_setup_basic/main.go
+        command: "go run ."
+        cwd: go/ontap/cluster_setup_basic
+        prerequisites:
+          env:
+            - ONTAP_HOST
+            - ONTAP_USER
+            - ONTAP_PASS
+            - CLUSTER_NAME
+            - CLUSTER_PASS
+            - CLUSTER_MGMT_IP
+            - CLUSTER_NETMASK
+            - CLUSTER_GATEWAY
+            - PARTNER_MGMT_IP
+          setup: "cd go && go mod download"
+        inputs:
+          - cluster_name
+          - cluster_pass
+          - cluster_mgmt_ip
+          - cluster_netmask
+          - cluster_gateway
+          - partner_mgmt_ip
+        outputs: [cluster_name, job_status]
+      ansible:
+        path: ansible/ontap/cluster_setup.yml
+        command: "ansible-playbook -i inventory/hosts.yml cluster_setup.yml"
+        cwd: ansible/ontap
+        prerequisites:
+          env: [ontap_hostname, ontap_username, ontap_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs:
+          - cluster_name
+          - cluster_pass
+          - cluster_mgmt_ip
+          - cluster_netmask
+          - cluster_gateway
+          - partner_mgmt_ip
+        outputs: [cluster_name, job_status]
+
+  - id: snapmirror-provision-src
+    description: Provision a SnapMirror relationship from the source-managed view
+    products: [ONTAP]
+    product: ontap
+    ontap_min: "9.8"
+    owners: [57388sp, kxvya-git]
+    status: verified
+    tags: [snapmirror, replication, provisioning]
+    verification:
+      verified_by: 57388sp
+      tested_at: "2026-05-29"
+      ontap_version: "9.8"
+      environment: other
+      notes: "Python: 57388sp, Ansible: kxvya-git"
+    variants:
+      python:
+        path: python/ontap/snapmirror_provision_src_managed.py
+        command: "python snapmirror_provision_src_managed.py"
+        cwd: python/ontap
+        prerequisites:
+          env:
+            - SOURCE_HOST
+            - SOURCE_USER
+            - SOURCE_PASS
+            - SOURCE_SVM
+            - SOURCE_VOLUME
+            - DEST_HOST
+            - DEST_USER
+            - DEST_PASS
+            - DEST_SVM
+          setup: "pip install -r requirements.txt"
+        inputs: [source_svm, source_volume, dest_svm, sm_policy]
+        outputs: [relationship_uuid, relationship_state, relationship_healthy]
+      go:
+        path: go/ontap/snapmirror_provision_src_managed/main.go
+        command: "go run ."
+        cwd: go/ontap/snapmirror_provision_src_managed
+        prerequisites:
+          env:
+            - SOURCE_HOST
+            - SOURCE_USER
+            - SOURCE_PASS
+            - SOURCE_SVM
+            - SOURCE_VOLUME
+            - DEST_HOST
+            - DEST_USER
+            - DEST_PASS
+            - DEST_SVM
+          setup: "cd go && go mod download"
+        inputs: [source_svm, source_volume, dest_svm, sm_policy]
+        outputs: [relationship_uuid, relationship_state, relationship_healthy]
+      ansible:
+        path: ansible/ontap/snapmirror_provision_src_managed.yml
+        command: "ansible-playbook snapmirror_provision_src_managed.yml"
+        cwd: ansible/ontap
+        prerequisites:
+          env:
+            - SOURCE_HOST
+            - SOURCE_USER
+            - SOURCE_PASS
+            - SOURCE_SVM
+            - SOURCE_VOLUME
+            - DEST_HOST
+            - DEST_USER
+            - DEST_PASS
+            - DEST_SVM
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [source_svm, source_volume, dest_svm, sm_policy]
+        outputs: [relationship_uuid, relationship_state, relationship_healthy]
+
+  - id: snapmirror-provision-dest
+    description: Provision a SnapMirror relationship from the destination-managed view
+    products: [ONTAP]
+    product: ontap
+    ontap_min: "9.8"
+    owners: [57388sp, kxvya-git]
+    status: verified
+    tags: [snapmirror, replication, provisioning]
+    verification:
+      verified_by: 57388sp
+      tested_at: "2026-05-29"
+      ontap_version: "9.8"
+      environment: other
+      notes: "Python: 57388sp, Ansible: kxvya-git"
+    variants:
+      python:
+        path: python/ontap/snapmirror_provision_dest_managed.py
+        command: "python snapmirror_provision_dest_managed.py"
+        cwd: python/ontap
+        prerequisites:
+          env:
+            - SOURCE_HOST
+            - SOURCE_USER
+            - SOURCE_PASS
+            - SOURCE_SVM
+            - SOURCE_VOLUME
+            - DEST_HOST
+            - DEST_USER
+            - DEST_PASS
+            - DEST_SVM
+          setup: "pip install -r requirements.txt"
+        inputs: [source_svm, source_volume, dest_svm, sm_policy]
+        outputs: [relationship_uuid, relationship_state, relationship_healthy]
+      go:
+        path: go/ontap/snapmirror_provision_dest_managed/main.go
+        command: "go run ."
+        cwd: go/ontap/snapmirror_provision_dest_managed
+        prerequisites:
+          env:
+            - SOURCE_HOST
+            - SOURCE_USER
+            - SOURCE_PASS
+            - SOURCE_SVM
+            - SOURCE_VOLUME
+            - DEST_HOST
+            - DEST_USER
+            - DEST_PASS
+            - DEST_SVM
+          setup: "cd go && go mod download"
+        inputs: [source_svm, source_volume, dest_svm, sm_policy]
+        outputs: [relationship_uuid, relationship_state, relationship_healthy]
+      ansible:
+        path: ansible/ontap/snapmirror_provision_dest_managed.yml
+        command: "ansible-playbook snapmirror_provision_dest_managed.yml"
+        cwd: ansible/ontap
+        prerequisites:
+          env:
+            - SOURCE_HOST
+            - SOURCE_USER
+            - SOURCE_PASS
+            - SOURCE_SVM
+            - SOURCE_VOLUME
+            - DEST_HOST
+            - DEST_USER
+            - DEST_PASS
+            - DEST_SVM
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [source_svm, source_volume, dest_svm, sm_policy]
+        outputs: [relationship_uuid, relationship_state, relationship_healthy]
+
+  - id: snapmirror-test-failover
+    description: Create a writable FlexClone of a SnapMirror destination volume for test failover
+    products: [ONTAP]
+    product: ontap
+    ontap_min: "9.8"
+    owners: [57388sp, kxvya-git]
+    status: verified
+    tags: [snapmirror, failover, disaster-recovery]
+    verification:
+      verified_by: 57388sp
+      tested_at: "2026-05-29"
+      ontap_version: "9.8"
+      environment: other
+      notes: "Python: 57388sp, Ansible: kxvya-git"
+    variants:
+      python:
+        path: python/ontap/snapmirror_test_failover.py
+        command: "python snapmirror_test_failover.py"
+        cwd: python/ontap
+        prerequisites:
+          env: [CLUSTER_A, CLUSTER_B, DEST_USER, DEST_PASS]
+          setup: "pip install -r requirements.txt"
+        inputs: [source_volume]
+        outputs: [clone_volume, relationship_uuid, relationship_state]
+      go:
+        path: go/ontap/snapmirror_test_failover/main.go
+        command: "go run ."
+        cwd: go/ontap/snapmirror_test_failover
+        prerequisites:
+          env: [CLUSTER_A, CLUSTER_B, DEST_USER, DEST_PASS]
+          setup: "cd go && go mod download"
+        inputs: [source_volume]
+        outputs: [clone_volume, relationship_uuid, relationship_state]
+      ansible:
+        path: ansible/ontap/snapmirror_test_failover.yml
+        command: "ansible-playbook snapmirror_test_failover.yml"
+        cwd: ansible/ontap
+        prerequisites:
+          env: [CLUSTER_A, CLUSTER_B, DEST_USER, DEST_PASS]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [source_volume]
+        outputs: [clone_volume, relationship_uuid, relationship_state]
+
+  - id: snapmirror-cleanup-failover
+    description: Delete the FlexClone created by snapmirror test failover
+    products: [ONTAP]
+    product: ontap
+    ontap_min: "9.8"
+    owners: [57388sp, kxvya-git]
+    status: verified
+    tags: [snapmirror, failover, cleanup]
+    verification:
+      verified_by: 57388sp
+      tested_at: "2026-05-29"
+      ontap_version: "9.8"
+      environment: other
+      notes: "Python: 57388sp, Ansible: kxvya-git"
+    variants:
+      python:
+        path: python/ontap/snapmirror_cleanup_test_failover.py
+        command: "python snapmirror_cleanup_test_failover.py"
+        cwd: python/ontap
+        prerequisites:
+          env: [CLUSTER_A, CLUSTER_B, DEST_USER, DEST_PASS, SOURCE_VOLUME, SOURCE_SVM]
+          setup: "pip install -r requirements.txt"
+        inputs: [source_volume, source_svm]
+        outputs: [clone_deleted]
+      go:
+        path: go/ontap/snapmirror_cleanup_test_failover/main.go
+        command: "go run ."
+        cwd: go/ontap/snapmirror_cleanup_test_failover
+        prerequisites:
+          env: [CLUSTER_A, CLUSTER_B, DEST_USER, DEST_PASS, SOURCE_VOLUME, SOURCE_SVM]
+          setup: "cd go && go mod download"
+        inputs: [source_volume, source_svm]
+        outputs: [clone_deleted]
+      ansible:
+        path: ansible/ontap/snapmirror_cleanup_test_failover.yml
+        command: "ansible-playbook snapmirror_cleanup_test_failover.yml"
+        cwd: ansible/ontap
+        prerequisites:
+          env: [CLUSTER_A, CLUSTER_B, DEST_USER, DEST_PASS, SOURCE_VOLUME, SOURCE_SVM]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [source_volume, source_svm]
+        outputs: [clone_deleted]

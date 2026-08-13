@@ -1,13 +1,18 @@
 # Default — catches anything not matched below
 *                                @hvinn
 
-# Primary: automation examples
+# Primary: automation examples (all products under each tool)
 /python/                         @hvinn
 /ansible/                        @hvinn
 /terraform/                      @hvinn
+/go/                             @hvinn
 
 # Documentation
 /docs/                           @hvinn
 
 # CI / GitHub config (protect the pipeline itself)
 /.github/                        @hvinn
+
+# AI instruction + prompt source, and the tooling that generates from it
+/ai/                             @hvinn
+/scripts/                        @hvinn

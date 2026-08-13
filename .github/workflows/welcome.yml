@@ -1,0 +1,47 @@
+# © 2026 NetApp, Inc. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# See the NOTICE file in the repo root for trademark and attribution details.
+
+name: Welcome new contributors
+
+# Posts a one-time greeting on a contributor's first issue or first PR.
+# Uses pull_request_target so it works on PRs from forks. Safe because the
+# workflow does no checkout and only calls REST APIs against PR/issue metadata.
+
+on:
+  pull_request_target:
+    types: [opened]
+  issues:
+    types: [opened]
+
+permissions:
+  pull-requests: write
+  issues: write
+
+jobs:
+  welcome:
+    name: Greet first-time contributor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/first-interaction@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: |
+            Hi there, and thanks for opening your first issue on **Pace**.
+
+            A maintainer will triage shortly. While you wait:
+
+            - For questions (vs. bug reports), [GitHub Discussions](https://github.com/${{ github.repository }}/discussions) is usually faster.
+            - The [Troubleshooting guide](https://github.com/${{ github.repository }}/blob/main/docs/troubleshooting.md) covers the most common errors.
+            - If you think this is a bug, the more reproduction detail you can paste (command, output, ONTAP version), the faster it can be fixed.
+          pr-message: |
+            Thanks for your first PR to **Pace** — welcome aboard.
+
+            **Quick orientation:**
+
+            1. CI runs in ~2 minutes. If anything fails, check the Actions tab — most failures have a one-line fix in [`docs/troubleshooting.md`](https://github.com/${{ github.repository }}/blob/main/docs/troubleshooting.md#pre-commit-and-ci).
+            2. If your PR touches `python/`, `ansible/`, or `terraform/`, you'll be asked for a [Test Report](https://github.com/${{ github.repository }}/blob/main/TESTING.md). It's worth the effort — reviewers rely on it.
+            3. Make sure the [NetApp CCLA](https://github.com/${{ github.repository }}/blob/main/CONTRIBUTING.md#contributor-license-agreement) is on file before review.
+            4. Stuck? Comment on this PR and a maintainer will jump in. We aim to respond as soon as possible.
+
+            For background, see [CONTRIBUTING.md](https://github.com/${{ github.repository }}/blob/main/CONTRIBUTING.md).

@@ -1,0 +1,28 @@
+# © 2026 NetApp, Inc. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# See the NOTICE file in the repo root for trademark and attribution details.
+
+name: PR Labeler
+
+# Applies path-based labels from .github/labeler.yml so reviewers can see
+# at a glance what a PR touches. Uses pull_request_target so it works on
+# fork PRs (we never check out untrusted code; the action only reads PR
+# metadata via the REST API).
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  label:
+    name: Apply path labels
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@v6
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          sync-labels: true
