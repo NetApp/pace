@@ -1,7 +1,7 @@
 # Choosing an Automation Approach
 
 This guide helps you pick the right tool for automating NetApp storage
-workflows. All four approaches in this repo do the same things - the
+workflows. All four tools in this repo do the same things - the
 difference is **how much you write**, **what you control**, and **what the
 tool manages for you**.
 
@@ -39,7 +39,8 @@ on your team's existing skills and the operational requirements of your workflow
 | Cluster setup | 95 (+188 shared client) | 80 | — | ~240 (+shared client) |
 
 Notes:
-- Python and Go scripts depend on a shared client (`ontap_client.py` / `ontapclient` package).
+- Python and Go scripts depend on a shared client, one per product
+  (`python/ontap/ontap_client.py` / `go/ontap/ontapclient`).
   The Ansible collection and Terraform provider provide this layer for you.
 - Terraform counts include `variables.tf` and `outputs.tf` boilerplate.
 

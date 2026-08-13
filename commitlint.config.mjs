@@ -10,9 +10,11 @@ export default {
       [
         'ansible',
         'ci',
+        'console',
         'deps',
         'docs',
         'go',
+        'ontap',
         'python',
         'terraform',
       ],

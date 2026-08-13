@@ -53,8 +53,8 @@ repos:
         files: '\.(py|yml|yaml|tf|sh)$'
         exclude: |
           (?x)^(
-            ansible/inventory/.*|
-            ansible/group_vars/.*|
+            ansible/.*/inventory/.*|
+            ansible/.*/group_vars/.*|
             .*\.example|
             .*\.example\..*|
             \.github/dependabot\.yml|
