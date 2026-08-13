@@ -36,6 +36,13 @@ jobs:
       - name: Validate example catalog
         run: python scripts/validate_catalog.py
 
+      # Copilot and Cursor assets are generated from ai/. Fail the build when a
+      # generated copy is edited directly, or when ai/ changes without a regen.
+      - name: Verify AI assets match ai/
+        run: |
+          python scripts/generate_ai_assets.py --self-test
+          python scripts/generate_ai_assets.py --check
+
       # Every tool root indexes its products, and every product directory
       # documents its own examples — including placeholders with no examples yet.
       - name: Verify example directories have READMEs

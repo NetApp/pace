@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `product` field in `catalog.yaml` (and optional `deployment`), enforced by
   `scripts/validate_catalog.py` to agree with each variant's path
 - `ontap` and `console` PR labels
+- `ai/` source tree as the single place to author AI instructions and prompts,
+  with `scripts/generate_ai_assets.py` rendering the Copilot and Cursor formats
+  (`make ai-assets`); CI fails when a generated copy drifts from its source
+- Cursor support for the prompt library: `.cursor/commands/` slash commands and
+  `.cursor/rules/` product rules, previously Copilot-only
+- `AGENTS.md` — repo-wide agent instructions, read by Cursor and most other agents
+- Product-scoped AI conventions attached automatically by path
+  (`.github/instructions/`, `.cursor/rules/`) for `ontap` and `console/local`
 - Initial NetApp storage automation examples for Python, Ansible, Terraform, and Go
 - CI workflows for linting, syntax validation, and secret scanning
 - Platform API patterns documentation
@@ -33,6 +41,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking (Go import):** the shared client package moved to
   `github.com/netapp/pace/go/ontap/ontapclient`. The module path
   (`github.com/netapp/pace/go`) is unchanged.
+- **Breaking (prompt names):** prompts are now product-scoped, so
+  `/generate-python` is `/ontap-generate-python` (likewise `-ansible`,
+  `-terraform`, `-go`, `-workflow`, and `/plan-api-sequence` →
+  `/ontap-plan-api-sequence`). `/review-contribution` is unchanged because it
+  applies to every product.
+- Prompt and instruction files are generated. Edit the source under `ai/` and
+  run `make ai-assets`; do not edit `.github/prompts/`,
+  `.github/copilot-instructions.md`, `.cursor/`, or `AGENTS.md` directly.
 - Each tool root README is now a short product index; the ONTAP documentation
   lives in `<tool>/ontap/README.md`
 - CI discovers examples recursively instead of with fixed-depth globs, and fails

@@ -26,8 +26,17 @@ lint: ## Ruff lint + format check (python examples)
 	$(PYTHON) -m ruff check python/
 	$(PYTHON) -m ruff format --check python/
 
+.PHONY: ai-assets
+ai-assets: ## Regenerate Copilot + Cursor assets from ai/
+	$(PYTHON) scripts/generate_ai_assets.py
+
+.PHONY: ai-assets-check
+ai-assets-check: ## Fail if generated AI assets drift from ai/
+	$(PYTHON) scripts/generate_ai_assets.py --self-test
+	$(PYTHON) scripts/generate_ai_assets.py --check
+
 .PHONY: ci
-ci: lint validate-catalog go-vet ## Run all core CI checks locally
+ci: lint validate-catalog ai-assets-check go-vet ## Run all core CI checks locally
 
 # ── Mirrors validate-examples.yml ──────────────────────────────
 

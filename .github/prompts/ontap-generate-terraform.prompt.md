@@ -1,6 +1,7 @@
 ---
 description: "Generate a Terraform module that automates a NetApp storage task using REST APIs"
 ---
+<!-- Generated from ai/ontap/generate-terraform.md by scripts/generate_ai_assets.py. Do not edit; run `make ai-assets`. -->
 
 # Generate Terraform Storage Module
 

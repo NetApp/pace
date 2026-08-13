@@ -77,4 +77,4 @@ Exempt files: Markdown, `requirements.*`, `ansible/*/inventory/*`,
 `AGENTS.md`, `.github/copilot-instructions.md`, `.github/prompts/`,
 `.github/instructions/`, and `.cursor/` are all generated. Edit the matching
 file under `ai/` and run `make ai-assets`; CI fails if the two drift apart.
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for the full flow.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full flow.

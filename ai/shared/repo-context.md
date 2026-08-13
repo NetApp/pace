@@ -1,4 +1,7 @@
-<!-- Generated from ai/shared/repo-context.md by scripts/generate_ai_assets.py. Do not edit; run `make ai-assets`. -->
+---
+kind: shared
+description: "Repo-wide context, layout, and conventions for the pace repository"
+---
 
 # Working in the Pace repository
 
@@ -37,15 +40,7 @@ Task prompts are available as slash commands in both GitHub Copilot and Cursor.
 They are named `<product>-<task>`, so typing `/ontap-` lists everything scoped
 to ONTAP.
 
-| Prompt | What it does |
-|--------|--------------|
-| `/ontap-generate-ansible` | Generate an Ansible playbook that automates a NetApp storage task using REST APIs |
-| `/ontap-generate-go` | Generate a Go program that automates a NetApp storage task using REST APIs |
-| `/ontap-generate-python` | Generate a Python script that automates a NetApp storage task using REST APIs |
-| `/ontap-generate-terraform` | Generate a Terraform module that automates a NetApp storage task using REST APIs |
-| `/ontap-generate-workflow` | Generate a complete NetApp storage workflow - Python + Ansible + Terraform + Go - for a storage task |
-| `/ontap-plan-api-sequence` | Design the REST API call sequence for a NetApp storage operation before writing code |
-| `/review-contribution` | Review generated NetApp storage code for repository conventions, CI compliance, and PR readiness |
+{{PROMPT_INDEX}}
 
 ## Coding conventions
 
@@ -77,4 +72,4 @@ Exempt files: Markdown, `requirements.*`, `ansible/*/inventory/*`,
 `AGENTS.md`, `.github/copilot-instructions.md`, `.github/prompts/`,
 `.github/instructions/`, and `.cursor/` are all generated. Edit the matching
 file under `ai/` and run `make ai-assets`; CI fails if the two drift apart.
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for the full flow.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full flow.

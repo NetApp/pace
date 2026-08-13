@@ -3,50 +3,61 @@
 This repository ships **reusable AI prompts** for generating NetApp storage
 automation in two forms:
 
-1. **Copilot-native prompt files** in `.github/prompts/` - usable directly
-   from GitHub Copilot Chat, VS Code Copilot, and Cursor.
+1. **Slash commands** - the same prompts, available natively in GitHub Copilot
+   and in Cursor.
 2. **Copy-paste prompts** (below) - for any AI assistant (ChatGPT, Gemini,
    Claude, etc.).
 
 ---
 
-## Using Copilot Prompt Files (Recommended)
+## Using the Slash Commands (Recommended)
 
-The `.github/prompts/` directory contains `.prompt.md` files that Copilot
-discovers automatically.
+Prompts are authored once in [`ai/`](../ai/) and generated into each tool's
+native format, so the same prompt is available whichever editor you use:
 
-### In VS Code / Cursor (Copilot Chat)
+| Tool | Reads | Command |
+|------|-------|---------|
+| GitHub Copilot (VS Code, github.com) | `.github/prompts/*.prompt.md` | `/ontap-generate-python` |
+| Cursor | `.cursor/commands/*.md` | `/ontap-generate-python` |
 
-1. Open Copilot Chat.
-2. Type `/` and select the prompt from the picker, or type its name directly.
-3. Replace `{task description}` with your storage task.
-4. Copilot automatically has access to the referenced repository files.
+Commands are named `<product>-<task>`, so typing `/ontap-` lists everything
+scoped to ONTAP.
 
-### In GitHub.com (Copilot in PR / Issue)
+### How to use one
 
-The prompt files are part of the repo, so Copilot has repo-context when
-generating suggestions in PRs and issues.
+1. Open the chat panel and type `/`, then pick the command from the list.
+2. Replace `{task description}` with your storage task.
+3. The assistant already has access to the repository files each prompt cites.
 
-### Available Prompts
+Alongside the commands, product conventions are attached automatically when you
+edit files in that product's directories - via `.github/instructions/` for
+Copilot and `.cursor/rules/` for Cursor. You do not need to invoke those.
 
-| Prompt File | Copilot Name | Use When |
-|-------------|-------------|----------|
-| `generate-python.prompt.md` | `generate-python` | You need a Python script only |
-| `generate-ansible.prompt.md` | `generate-ansible` | You need an Ansible playbook only |
-| `generate-terraform.prompt.md` | `generate-terraform` | You need a Terraform module only |
-| `generate-go.prompt.md` | `generate-go` | You need a Go program only |
-| `generate-workflow.prompt.md` | `generate-workflow` | You need all four implementations |
-| `plan-api-sequence.prompt.md` | `plan-api-sequence` | Design the API call sequence before coding |
-| `review-contribution.prompt.md` | `review-contribution` | Check code against conventions before a PR |
+### Available commands
+
+| Command | Use When |
+|---------|----------|
+| `/ontap-generate-python` | You need a Python script only |
+| `/ontap-generate-ansible` | You need an Ansible playbook only |
+| `/ontap-generate-terraform` | You need a Terraform module only |
+| `/ontap-generate-go` | You need a Go program only |
+| `/ontap-generate-workflow` | You need all four implementations |
+| `/ontap-plan-api-sequence` | Design the API call sequence before coding |
+| `/review-contribution` | Check code against conventions before a PR |
 
 ### Recommended Workflow
 
 ```
-1.  plan-api-sequence       →  Design and validate the REST API sequence
-2.  generate-workflow        →  Generate Python + Ansible + Terraform + Go
-    (or generate-python / generate-ansible / generate-terraform / generate-go individually)
-3.  review-contribution      →  Verify conventions, CI compliance, README updates
+1.  /ontap-plan-api-sequence   →  Design and validate the REST API sequence
+2.  /ontap-generate-workflow   →  Generate Python + Ansible + Terraform + Go
+    (or /ontap-generate-python, -ansible, -terraform, -go individually)
+3.  /review-contribution       →  Verify conventions, CI compliance, README updates
 ```
+
+> **Editing these prompts:** everything under `.github/prompts/`,
+> `.github/instructions/`, `.cursor/`, plus `AGENTS.md` and
+> `.github/copilot-instructions.md`, is generated. Edit the source in
+> [`ai/`](../ai/) and run `make ai-assets`. CI fails if the two drift apart.
 
 ---
 

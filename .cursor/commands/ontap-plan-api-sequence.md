@@ -1,6 +1,4 @@
----
-description: "Design the REST API call sequence for a NetApp storage operation before writing code"
----
+<!-- Generated from ai/ontap/plan-api-sequence.md by scripts/generate_ai_assets.py. Do not edit; run `make ai-assets`. -->
 
 # Plan Storage REST API Sequence
 

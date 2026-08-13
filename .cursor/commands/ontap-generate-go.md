@@ -1,6 +1,4 @@
----
-description: "Generate a Go program that automates a NetApp storage task using REST APIs"
----
+<!-- Generated from ai/ontap/generate-go.md by scripts/generate_ai_assets.py. Do not edit; run `make ai-assets`. -->
 
 # Generate Go Storage Workflow
 

@@ -1,7 +1,7 @@
 ---
+kind: task
 description: "Review generated NetApp storage code for repository conventions, CI compliance, and PR readiness"
 ---
-<!-- Generated from ai/shared/review-contribution.md by scripts/generate_ai_assets.py. Do not edit; run `make ai-assets`. -->
 
 # Review Contribution for PR Readiness
 
@@ -15,14 +15,14 @@ I provide and prepare it for a pull request.
 
 ## Reference Files
 
-- [CONTRIBUTING.md](../../CONTRIBUTING.md) - full contribution guide
-- [docs/ontap-api-patterns.md](../../docs/ontap-api-patterns.md) - API conventions
-- [python/ontap/ontap_client.py](../../python/ontap/ontap_client.py) - shared Python client
-- [python/ontap/nfs_provision.py](../../python/ontap/nfs_provision.py) - Python reference
-- [ansible/ontap/nfs_provision.yml](../../ansible/ontap/nfs_provision.yml) - Ansible reference
-- [terraform/ontap/nfs-provision/](../../terraform/ontap/nfs-provision/) - Terraform reference
-- [go/ontap/ontapclient/ontap_client.go](../../go/ontap/ontapclient/ontap_client.go) - shared Go client
-- [go/ontap/snapmirror_provision_src_managed/main.go](../../go/ontap/snapmirror_provision_src_managed/main.go) - Go reference
+- [CONTRIBUTING.md](CONTRIBUTING.md) - full contribution guide
+- [docs/ontap-api-patterns.md](docs/ontap-api-patterns.md) - API conventions
+- [python/ontap/ontap_client.py](python/ontap/ontap_client.py) - shared Python client
+- [python/ontap/nfs_provision.py](python/ontap/nfs_provision.py) - Python reference
+- [ansible/ontap/nfs_provision.yml](ansible/ontap/nfs_provision.yml) - Ansible reference
+- [terraform/ontap/nfs-provision/](terraform/ontap/nfs-provision/) - Terraform reference
+- [go/ontap/ontapclient/ontap_client.go](go/ontap/ontapclient/ontap_client.go) - shared Go client
+- [go/ontap/snapmirror_provision_src_managed/main.go](go/ontap/snapmirror_provision_src_managed/main.go) - Go reference
 
 ## 1. Naming & File Structure
 

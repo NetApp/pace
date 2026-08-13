@@ -46,6 +46,7 @@ ansible/              # Ansible playbook examples
 terraform/            # Terraform module examples
 go/                   # Go program examples
 catalog.yaml          # Machine-readable example index (see docs/catalog-spec.md)
+ai/                   # Source of truth for AI instructions and prompts
 docs/                 # Shared documentation
 .github/              # CI workflows, templates, review config
 TESTING.md            # What to capture in the PR Test Report
@@ -274,12 +275,37 @@ make help                # Show all available targets
 make ci                  # Run lint (mirrors ci.yml)
 make lint                # Ruff lint + format check
 make validate-catalog    # Validate catalog.yaml against repo examples
+make ai-assets-check     # Verify generated AI assets match ai/
 make ansible-lint        # Ansible syntax-check + ansible-lint
 make terraform-validate  # Terraform fmt, validate, tflint
 make troubleshoot        # Print numbered troubleshooting index
 ```
 
 Run `make ci` before pushing to catch issues before they hit CI.
+
+### Editing AI instructions and prompts
+
+The AI assets in this repo are generated. Copilot and Cursor read different
+files, so both are rendered from one source tree in [`ai/`](ai/):
+
+| Generated | Read by |
+|-----------|---------|
+| `AGENTS.md` | Cursor, and most other coding agents |
+| `.github/copilot-instructions.md`, `.github/instructions/`, `.github/prompts/` | GitHub Copilot |
+| `.cursor/rules/`, `.cursor/commands/` | Cursor |
+
+Every generated file carries a "do not edit" banner. To change any of them:
+
+```bash
+# 1. edit the source, e.g. ai/ontap/conventions.md
+# 2. regenerate
+make ai-assets
+# 3. commit the source and the generated output together
+```
+
+CI runs `make ai-assets-check` and fails if a generated file was edited directly
+or if `ai/` changed without a regen. See [`ai/README.md`](ai/README.md) for the
+frontmatter schema and how product scoping works.
 
 ### Using Docker
 
