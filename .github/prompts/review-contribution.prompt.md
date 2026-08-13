@@ -1,6 +1,7 @@
 ---
 description: "Review generated NetApp storage code for repository conventions, CI compliance, and PR readiness"
 ---
+<!-- Generated from ai/shared/review-contribution.md by scripts/generate_ai_assets.py. Do not edit; run `make ai-assets`. -->
 
 # Review Contribution for PR Readiness
 
@@ -10,24 +11,27 @@ I provide and prepare it for a pull request.
 ## Context
 
 - Use case: {describe the use case}
-- Tool(s) implemented: {Python / Ansible / Terraform / All}
+- Tool(s) implemented: {Python / Ansible / Terraform / Go / All}
 
 ## Reference Files
 
 - [CONTRIBUTING.md](../../CONTRIBUTING.md) - full contribution guide
 - [docs/ontap-api-patterns.md](../../docs/ontap-api-patterns.md) - API conventions
-- [python/ontap_client.py](../../python/ontap_client.py) - shared client
-- [python/nfs_provision.py](../../python/nfs_provision.py) - Python reference
-- [ansible/nfs_provision.yml](../../ansible/nfs_provision.yml) - Ansible reference
-- [terraform/nfs-provision/](../../terraform/nfs-provision/) - Terraform reference
+- [python/ontap/ontap_client.py](../../python/ontap/ontap_client.py) - shared Python client
+- [python/ontap/nfs_provision.py](../../python/ontap/nfs_provision.py) - Python reference
+- [ansible/ontap/nfs_provision.yml](../../ansible/ontap/nfs_provision.yml) - Ansible reference
+- [terraform/ontap/nfs-provision/](../../terraform/ontap/nfs-provision/) - Terraform reference
+- [go/ontap/ontapclient/ontap_client.go](../../go/ontap/ontapclient/ontap_client.go) - shared Go client
+- [go/ontap/snapmirror_provision_src_managed/main.go](../../go/ontap/snapmirror_provision_src_managed/main.go) - Go reference
 
 ## 1. Naming & File Structure
 
 | Tool | Expected Location |
 |------|-------------------|
-| Python | `python/<snake_case>.py` |
-| Ansible | `ansible/<snake_case>.yml` |
-| Terraform | `terraform/<kebab-case>/main.tf`, `variables.tf`, `outputs.tf`, `terraform.tfvars.example` |
+| Python | `python/<product>/<snake_case>.py` |
+| Ansible | `ansible/<product>/<snake_case>.yml` |
+| Terraform | `terraform/<product>/<kebab-case>/main.tf`, `variables.tf`, `outputs.tf`, `terraform.tfvars.example` |
+| Go | `go/<product>/<snake_case>/main.go` (inside existing module `github.com/netapp/pace/go`) |
 
 ## 2. Conventions Checklist
 
@@ -63,20 +67,37 @@ I provide and prepare it for a pull request.
 - [ ] `depends_on` where ordering matters
 - [ ] No hardcoded credentials
 
+### Go
+- [ ] Copyright `//` comment header (3 lines)
+- [ ] Package-level doc comment with phases/steps, prerequisites, usage env vars
+- [ ] `import ontapclient "github.com/netapp/pace/go/ontap/ontapclient"` (no new HTTP client)
+- [ ] No new `go.mod` — uses existing module `github.com/netapp/pace/go`
+- [ ] `ontapclient.New(host, user, pass, false)` or `ontapclient.FromEnv()`
+- [ ] `defer client.Close()` right after each client creation
+- [ ] `mustEnv()` for required env vars, `envOrDefault()` for optional
+- [ ] `loadDotEnv()` called at start of `main()`
+- [ ] `client.PollJob(ctx, uuid)` for async jobs
+- [ ] `log.Printf(...)` only — no `fmt.Print()`
+- [ ] `context.Background()` passed through all API calls
+- [ ] Phase banner log lines: `log.Println("=== Phase A: ... ===")`
+- [ ] No hardcoded credentials
+
 ## 3. CI Readiness
 
 - [ ] Python: passes `ruff check` + `ruff format --check` (line length 99, py311)
 - [ ] Ansible: passes `ansible-playbook --syntax-check` + `ansible-lint`
 - [ ] Terraform: passes `terraform fmt -check`, `terraform validate`, `tflint`
+- [ ] Go: passes `go vet ./...` and `go build -o /dev/null .` from the program directory
 - [ ] No secrets in code (TruffleHog check)
 - [ ] Valid YAML syntax (pre-commit check-yaml)
 
 ## 4. Documentation Updates
 
 Generate README update snippets for each tool's README:
-- `python/README.md` - new section with description + run instructions
-- `ansible/README.md` - new section with description + run instructions
-- `terraform/README.md` - new section with description + run instructions
+- `python/<product>/README.md` - new section with description + run instructions
+- `ansible/<product>/README.md` - new section with description + run instructions
+- `terraform/<product>/README.md` - new section with description + run instructions
+- `go/<product>/README.md` - new section with description + run instructions
 
 ## 5. Commit Message
 
@@ -87,7 +108,7 @@ Draft a Conventional Commit:
 ```
 
 - Types: `feat`, `fix`, `doc`, `refactor`, `chore`, `ci`, `test`, `perf`, `build`, `style`, `revert`
-- Scopes: `python`, `ansible`, `terraform`, `docs`, `ci`, `deps`
+- Scopes: `python`, `ansible`, `terraform`, `go`, `docs`, `ci`, `deps`
 
 ## 6. Output
 

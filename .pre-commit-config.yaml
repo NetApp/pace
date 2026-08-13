@@ -53,12 +53,22 @@ repos:
         files: '\.(py|yml|yaml|tf|sh)$'
         exclude: |
           (?x)^(
-            ansible/inventory/.*|
-            ansible/group_vars/.*|
+            ansible/.*/inventory/.*|
+            ansible/.*/group_vars/.*|
             .*\.example|
             .*\.example\..*|
             \.github/dependabot\.yml|
             .*requirements\.ya?ml
+          )$
+      - id: insert-license
+        name: insert-license (Go)
+        args:
+          - --license-filepath=.github/license-headers/header.txt
+          - --comment-style=//
+        files: '\.go$'
+        exclude: |
+          (?x)^(
+            docs/example-template/.*
           )$
       - id: insert-license
         name: insert-license (HTML)

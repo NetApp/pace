@@ -10,11 +10,13 @@ on:
     paths:
       - "ansible/**"
       - "terraform/**"
+      - "go/**"
   pull_request:
     branches: [main]
     paths:
       - "ansible/**"
       - "terraform/**"
+      - "go/**"
 
 permissions:
   contents: read
@@ -30,22 +32,41 @@ jobs:
         with:
           python-version: "3.11"
 
+      # Pinned for the same reason as requirements-dev.txt: an ansible-lint
+      # release should not be able to fail main on its own. Bumped by Dependabot.
       - name: Install Ansible toolchain
-        run: pip install ansible ansible-lint
+        run: pip install ansible==14.3.0 ansible-lint==26.8.0
 
-      - name: Install NetApp ONTAP collection
-        run: ansible-galaxy collection install -r ansible/requirements.yml
-
-      - name: Syntax check playbooks
+      - name: Install collections for every product
         run: |
-          for f in ansible/*.yml; do
-            [ "$(basename "$f")" = "requirements.yml" ] && continue
-            echo "Checking $f …"
-            ansible-playbook --syntax-check "$f" -i ansible/inventory/hosts.yml
+          for req in $(find ansible -name requirements.yml | sort); do
+            echo "Installing from $req …"
+            ansible-galaxy collection install -r "$req"
           done
 
+      # Playbooks live under ansible/<product>/ (and ansible/<product>/<deployment>/),
+      # so each playbook is checked against the inventory of its own product.
+      - name: Syntax check playbooks
+        run: |
+          FOUND=0
+          for inv in $(find ansible -path '*/inventory/hosts.yml' | sort); do
+            root=$(dirname "$(dirname "$inv")")
+            echo "=== $root ==="
+            for f in $(find "$root" -maxdepth 1 -name '*.yml' ! -name requirements.yml | sort); do
+              FOUND=$((FOUND + 1))
+              echo "Checking $f …"
+              ansible-playbook --syntax-check "$f" -i "$inv"
+            done
+          done
+          if [ "$FOUND" -eq 0 ]; then
+            echo "::error::No playbooks found under ansible/ — check the directory layout"
+            exit 1
+          fi
+
       - name: Run ansible-lint
-        run: ansible-lint ansible/*.yml --exclude ansible/requirements.yml
+        run: |
+          ansible-lint --profile min $(find ansible -name '*.yml' ! -name requirements.yml \
+            ! -path '*/inventory/*' ! -path '*/group_vars/*' | sort)
 
   terraform-validate:
     name: Terraform — fmt, validate & lint
@@ -61,11 +82,15 @@ jobs:
         run: |
           curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
 
+      # Modules are discovered by looking for .tf files, so product folders
+      # without modules yet are skipped rather than failing init/validate.
       - name: Validate Terraform modules
         run: |
           ERRORS=0
-          for dir in terraform/*/; do
-            echo "=== $(basename "$dir") ==="
+          FOUND=0
+          for dir in $(find terraform -name '*.tf' -exec dirname {} \; | sort -u); do
+            FOUND=$((FOUND + 1))
+            echo "=== $dir ==="
 
             echo "  fmt check …"
             if ! terraform -chdir="$dir" fmt -check; then
@@ -90,4 +115,43 @@ jobs:
             echo ""
           done
 
+          if [ "$FOUND" -eq 0 ]; then
+            echo "::error::No Terraform modules found — check the directory layout"
+            exit 1
+          fi
+          [ "$ERRORS" -eq 0 ] || exit 1
+
+  go-vet:
+    name: Go — vet & build-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # No go.sum exists - the examples are standard-library only - so the cache
+      # is keyed on go.mod instead. See the matching note in ci.yml.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.mod
+
+      - name: go vet
+        working-directory: go
+        run: go vet ./...
+
+      # Programs live under go/<product>/<use_case>/, so main.go is found
+      # recursively from the module root.
+      - name: Build-check all programs
+        working-directory: go
+        run: |
+          ERRORS=0
+          FOUND=0
+          for dir in $(find . -name main.go -exec dirname {} \; | sort); do
+            FOUND=$((FOUND + 1))
+            echo "Building ${dir} …"
+            (cd "${dir}" && go build -o /dev/null .) || ERRORS=$((ERRORS + 1))
+          done
+          if [ "$FOUND" -eq 0 ]; then
+            echo "::error::No Go programs found — check the directory layout"
+            exit 1
+          fi
           [ "$ERRORS" -eq 0 ] || exit 1

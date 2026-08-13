@@ -5,7 +5,7 @@
 name: Test Report Check
 
 # Soft gate: nudges contributors to fill in the PR body's Test Report section
-# whenever a PR touches example code under python/, ansible/, or terraform/.
+# whenever a PR touches example code under python/, ansible/, terraform/, or go/.
 # Applies a 'needs-test-report' label and a sticky comment when the section
 # is empty; clears them once it's filled. Does NOT fail the build.
 #
@@ -39,10 +39,11 @@ jobs:
               pull_number: context.issue.number,
               per_page: 100,
             });
+            // Must stay in step with TESTING.md and the PR template, which both
+            // require a Test Report for Go changes too.
+            const EXAMPLE_DIRS = ['python/', 'ansible/', 'terraform/', 'go/'];
             const touched = files.some(f =>
-              f.filename.startsWith('python/') ||
-              f.filename.startsWith('ansible/') ||
-              f.filename.startsWith('terraform/')
+              EXAMPLE_DIRS.some(d => f.filename.startsWith(d))
             );
             core.setOutput('touched', String(touched));
 
@@ -98,7 +99,7 @@ jobs:
             if (!touched) {
               await removeLabel();
               core.info(
-                'PR does not touch python/ansible/terraform - skipping.'
+                'PR does not touch python/ansible/terraform/go - skipping.'
               );
               return;
             }
@@ -122,8 +123,8 @@ jobs:
               await upsertSticky(
                 `Test Report skipped — this PR is labelled \`${skipReason}\`. ` +
                 'Re-evaluation will run automatically if that label is removed ' +
-                'or the PR scope expands to touch `python/`, `ansible/`, or ' +
-                '`terraform/`.'
+                'or the PR scope expands to touch `python/`, `ansible/`, ' +
+                '`terraform/`, or `go/`.'
               );
               core.info(`Skipped due to label: ${skipReason}`);
               return;
@@ -145,8 +146,8 @@ jobs:
               await addLabel();
               await upsertSticky(
                 '**Test Report missing or unfilled.**\n\n' +
-                'This PR touches `python/`, `ansible/`, or `terraform/`, so ' +
-                'a populated **Test Report** section is required in the PR ' +
+                'This PR touches `python/`, `ansible/`, `terraform/`, or ' +
+                '`go/`, so a populated **Test Report** section is required in the PR ' +
                 `body. See [TESTING.md](${TESTING_URL}) for what to capture ` +
                 '(environment, platform version, first-run output, idempotency ' +
                 'check, teardown).\n\n' +

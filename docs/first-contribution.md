@@ -57,7 +57,7 @@ git merge upstream/main
 
 You need **Python 3.11+** and **make**. That's it for typo fixes and
 docs changes. For example-code changes you'll also want **Ansible**
-and/or **Terraform** (only the one your change touches).
+and/or **Terraform** and/or **Go 1.22+** (only the one your change touches).
 
 ```bash
 make install        # creates .venv/ and installs ruff
@@ -123,9 +123,10 @@ comment at the top of the example file before editing.
 Before committing, run the same lint your PR will face:
 
 ```bash
-make ci                  # Python lint + format + copyright headers
+make ci                  # Python lint + format + copyright headers + go vet
 make ansible-lint        # only if you touched ansible/
 make terraform-validate  # only if you touched terraform/
+make go-vet              # only if you touched go/
 ```
 
 The pre-commit hooks installed in Step 3 also run automatically on
@@ -143,7 +144,7 @@ Format: `<type>(<scope>): <description>`.
 
 | Valid types | Valid scopes |
 |---|---|
-| `build, chore, ci, doc, feat, fix, perf, refactor, revert, style, test` | `python, ansible, terraform, docs, ci, deps` |
+| `build, chore, ci, doc, feat, fix, perf, refactor, revert, style, test` | `python, ansible, terraform, go, docs, ci, deps` |
 
 If commitlint rejects your message:
 
@@ -163,7 +164,7 @@ git push -u origin feature/<short-description>
 
 GitHub will print a link. Click it. The PR template appears — fill in
 the **Summary**, **Changes**, and (if you touched `python/`, `ansible/`,
-or `terraform/`) the **Test Report** section.
+`terraform/`, or `go/`) the **Test Report** section.
 
 ### About the Test Report
 
@@ -194,8 +195,8 @@ Within ~2 minutes of opening the PR you'll see:
 |---|---|
 | **CI** | Lint, format, README check, copyright headers |
 | **PR Guard** | Commitlint, secret scan, YAML syntax |
-| **Validate Examples** | Only if you touched `ansible/` or `terraform/` |
-| **PR Labeler** | Path-based labels (`python`, `ansible`, `terraform`, `docs`, `ci`) appear within 30s |
+| **Validate Examples** | Only if you touched `ansible/`, `terraform/`, or `go/` |
+| **PR Labeler** | Path-based labels (`python`, `ansible`, `terraform`, `go`, `docs`, `ci`) appear within 30s |
 | **Welcome bot** | Greets first-time contributors with orientation links |
 | **Test Report Check** | Soft gate, applies `needs-test-report` label if your PR needs evidence |
 | **Explain CI failure** | If anything fails, posts a comment with the **exact fix command** so you don't read raw logs |

@@ -6,6 +6,8 @@
 #
 # - Scope labels (python / ansible / terraform / docs / ci) describe what
 #   the PR touches and apply whenever ANY changed file matches.
+# - Product labels (ontap / console) describe which product's examples the PR
+#   touches, independent of the tool.
 # - "-only" labels apply when EVERY changed file matches the glob set.
 #   Used by the Test Report soft gate (Chunk 2) to skip the report on
 #   docs-only / ci-only PRs.
@@ -29,6 +31,29 @@ terraform:
       - any-glob-to-any-file:
           - terraform/**
 
+go:
+  - changed-files:
+      - any-glob-to-any-file:
+          - go/**
+
+# ── Product labels (any-glob-to-any-file) ──────────────────────────────
+
+ontap:
+  - changed-files:
+      - any-glob-to-any-file:
+          - python/ontap/**
+          - ansible/ontap/**
+          - terraform/ontap/**
+          - go/ontap/**
+
+console:
+  - changed-files:
+      - any-glob-to-any-file:
+          - python/console/**
+          - ansible/console/**
+          - terraform/console/**
+          - go/console/**
+
 docs:
   - changed-files:
       - any-glob-to-any-file:
@@ -48,9 +73,10 @@ ci:
 dependencies:
   - changed-files:
       - any-glob-to-any-file:
-          - python/requirements.txt
-          - ansible/requirements.yml
+          - python/**/requirements.txt
+          - ansible/**/requirements.yml
           - terraform/**/*.tf
+          - go/go.mod
           - .github/dependabot.yml
 
 # ── "-only" labels (any-glob-to-all-files) ─────────────────────────────
