@@ -5,8 +5,14 @@
 
 """Validate catalog.yaml against repo examples.
 
-Checks structural fields, path existence, and bidirectional coverage between
-catalog entries and python/, ansible/, and terraform/ artifacts.
+Checks structural fields, path existence, product/path agreement, and
+bidirectional coverage between catalog entries and the python/, ansible/,
+terraform/, and go/ artifacts.
+
+Examples are organized by product — `<tool>/<product>/…`, plus an extra
+`/<deployment>/` level for products that have deployment variants. Discovery is
+therefore recursive rather than fixed-depth, so a new product folder needs no
+change here.
 """
 
 from __future__ import annotations
@@ -29,6 +35,11 @@ CATALOG_PATH = ROOT / "catalog.yaml"
 
 VALID_STATUS = frozenset({"draft", "verified", "deprecated"})
 VALID_TOOLS = frozenset({"python", "ansible", "terraform", "go"})
+VALID_PRODUCTS = frozenset({"ontap", "console"})
+
+# Products whose examples carry an extra deployment level under the product
+# folder. A product absent here must not set 'deployment'.
+VALID_DEPLOYMENTS: dict[str, frozenset[str]] = {"console": frozenset({"local"})}
 VALID_ENVIRONMENT = frozenset(
     {
         "ontap-simulator",
@@ -46,6 +57,7 @@ USE_CASE_REQUIRED = (
     "id",
     "description",
     "products",
+    "product",
     "ontap_min",
     "owners",
     "status",
@@ -82,6 +94,43 @@ def _validate_owners(errors: list[str], prefix: str, owners: object) -> list[str
         _err(errors, f"{prefix}: 'owners' must not contain duplicates (case-insensitive)")
 
     return normalized
+
+
+def _validate_product(errors: list[str], prefix: str, use_case: dict) -> str | None:
+    """Validate 'product'/'deployment' and return the path segment they imply.
+
+    Returns None when the fields are unusable, so callers skip the path check
+    rather than pile on redundant errors.
+    """
+    product = use_case.get("product")
+    deployment = use_case.get("deployment")
+
+    if product not in VALID_PRODUCTS:
+        _err(errors, f"{prefix}: 'product' must be one of {sorted(VALID_PRODUCTS)}")
+        return None
+
+    allowed = VALID_DEPLOYMENTS.get(product)
+    if deployment is None:
+        if allowed:
+            _err(
+                errors,
+                f"{prefix}: 'deployment' is required for product '{product}' "
+                f"(one of {sorted(allowed)})",
+            )
+            return None
+        return product
+
+    if not allowed:
+        _err(errors, f"{prefix}: product '{product}' has no deployment variants")
+        return None
+    if deployment not in allowed:
+        _err(
+            errors,
+            f"{prefix}: 'deployment' must be one of {sorted(allowed)} for '{product}'",
+        )
+        return None
+
+    return f"{product}/{deployment}"
 
 
 def _validate_verification(
@@ -151,27 +200,31 @@ def _validate_verification(
 
 
 def _discover_python() -> set[str]:
+    """Scripts under python/, excluding the per-product shared REST clients."""
     return {
         str(p.relative_to(ROOT))
-        for p in (ROOT / "python").glob("*.py")
-        if p.name != "ontap_client.py"
+        for p in (ROOT / "python").rglob("*.py")
+        if not p.name.endswith("_client.py")
     }
 
 
 def _discover_ansible() -> set[str]:
+    """Playbooks under ansible/, excluding collection and connection config."""
     return {
         str(p.relative_to(ROOT))
-        for p in (ROOT / "ansible").glob("*.yml")
+        for p in (ROOT / "ansible").rglob("*.yml")
         if p.name != "requirements.yml"
+        and not {"inventory", "group_vars"} & set(p.relative_to(ROOT).parts)
     }
 
 
 def _discover_terraform() -> set[str]:
-    return {str(p.relative_to(ROOT)) for p in (ROOT / "terraform").iterdir() if p.is_dir()}
+    """Root module directories — any directory holding at least one .tf file."""
+    return {str(p.parent.relative_to(ROOT)) for p in (ROOT / "terraform").rglob("*.tf")}
 
 
 def _discover_go() -> set[str]:
-    return {str(p.relative_to(ROOT)) for p in (ROOT / "go").glob("*/main.go")}
+    return {str(p.relative_to(ROOT)) for p in (ROOT / "go").rglob("main.go")}
 
 
 def validate_catalog(data: object) -> list[str]:
@@ -228,6 +281,8 @@ def validate_catalog(data: object) -> list[str]:
         if not isinstance(products, list) or not products:
             _err(errors, f"{prefix}: 'products' must be a non-empty list")
 
+        path_prefix = _validate_product(errors, prefix, use_case)
+
         ontap_min = use_case.get("ontap_min")
         if not isinstance(ontap_min, str) or not ontap_min.strip():
             _err(errors, f"{prefix}: 'ontap_min' must be a non-empty string")
@@ -240,7 +295,7 @@ def validate_catalog(data: object) -> list[str]:
         for tool, variant in variants.items():
             vprefix = f"{prefix}.variants.{tool}"
             if tool not in VALID_TOOLS:
-                _err(errors, f"{vprefix}: unknown tool (expected python, ansible, terraform)")
+                _err(errors, f"{vprefix}: unknown tool (expected one of {sorted(VALID_TOOLS)})")
                 continue
             if not isinstance(variant, dict):
                 _err(errors, f"{vprefix}: must be a mapping")
@@ -258,6 +313,11 @@ def validate_catalog(data: object) -> list[str]:
                 full_path = ROOT / path
                 if not full_path.exists():
                     _err(errors, f"{vprefix}: path does not exist: {path}")
+                if path_prefix and not path.startswith(f"{tool}/{path_prefix}/"):
+                    _err(
+                        errors,
+                        f"{vprefix}: 'path' must start with '{tool}/{path_prefix}/', got: {path}",
+                    )
 
             for field in ("command", "cwd"):
                 value = variant.get(field)

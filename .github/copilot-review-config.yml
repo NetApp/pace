@@ -9,7 +9,8 @@ review:
     - "Python code must follow ruff conventions (line-length 99, target py311)."
     - "Never commit secrets, passwords, or API tokens."
     - "All new Python code should have type hints."
-    - "Go code must import ontapclient from github.com/netapp/pace/go/ontapclient — never build a new HTTP client."
+    - "Examples must live under <tool>/<product>/ (e.g. python/ontap/), never at the tool root, and catalog.yaml must record a matching product."
+    - "Go code must import ontapclient from github.com/netapp/pace/go/ontap/ontapclient — never build a new HTTP client."
     - "Go programs must use log.Printf, never fmt.Print, and pass context.Background() through all API calls."
 
   path_instructions:

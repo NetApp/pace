@@ -567,6 +567,16 @@ html[data-theme="light"] .theme-toggle .sun  { display: block; }
 .prompt-card-head .icon svg { width: 18px; height: 18px; }
 .prompt-card-head h3 { font-family: var(--font-sans); font-size: 16px; font-weight: 600; margin: 0; line-height: 1.2; }
 .prompt-card p { color: var(--text-muted); font-size: 13px; line-height: 1.55; flex: 1; margin: 0; }
+.prompt-card .prompt-cmd {
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--pace);
+  background: rgba(99,102,241,0.10);
+  border: 1px solid rgba(99,102,241,0.22);
+  border-radius: 8px;
+  padding: 5px 10px;
+}
 
 .prompt-note {
   padding: 16px 20px;
@@ -578,6 +588,8 @@ html[data-theme="light"] .theme-toggle .sun  { display: block; }
   line-height: 1.6;
 }
 .prompt-note strong { color: var(--text); font-weight: 600; }
+.prompt-note a { color: var(--pace); transition: color var(--transition); }
+.prompt-note a:hover { color: var(--pace-2); text-decoration: underline; text-underline-offset: 2px; }
 
 /* ---------- 8. Contribute workflow ---------- */
 .flow-frame {
@@ -1103,11 +1115,11 @@ html[data-theme="light"] .theme-toggle .sun  { display: block; }
         </button>
       </div>
 
-      <!-- SCRIPTS (today: Python) -->
+      <!-- SCRIPTS (today: Python and Go) -->
       <div class="tool-pane active" data-tool="python" role="tabpanel">
         <div class="tool-meta">
           <h3>Imperative scripts - you write each step yourself.</h3>
-          <p class="summary">You spell out every step in order: call this, then call that, retry if it fails. A natural fit when a job needs custom logic, data transforms, or has to talk to other systems. Today shown in <code>Python</code>; the same idea fits other general-purpose languages.</p>
+          <p class="summary">You spell out every step in order: call this, then call that, retry if it fails. A natural fit when a job needs custom logic, data transforms, or has to talk to other systems. Shown here in <code>Python</code>; the library ships <code>Go</code> programs in this same style, and the idea fits other general-purpose languages too.</p>
           <div class="specs">
             <div class="spec"><div class="k">Style</div><div class="vv">Imperative scripts</div></div>
             <div class="spec"><div class="k">Tracks state</div><div class="vv">No - you handle it</div></div>
@@ -1235,8 +1247,9 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
       <p class="lead" data-reveal data-reveal-delay="2">
         The repo includes reusable prompts that cover the full loop - planning
         a new use case, generating a first draft, and reviewing the result.
-        Paste them into your AI assistant of choice; the output is a starting
-        point that still needs human review and testing.
+        They appear as slash commands in GitHub Copilot and Cursor, and paste
+        into any other assistant; the output is a starting point that still
+        needs human review and testing.
       </p>
     </div>
 
@@ -1252,6 +1265,7 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
           <h3>Plan</h3>
         </div>
         <p>Break a use case into the resources, dependencies, and edge cases worth handling - before any code is written.</p>
+        <code class="prompt-cmd">/ontap-plan-api-sequence</code>
       </div>
       <div class="prompt-card">
         <div class="prompt-card-head">
@@ -1264,6 +1278,7 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
           <h3>Generate</h3>
         </div>
         <p>Scaffold a first draft in the style you choose, following the project's structure, helpers, and conventions.</p>
+        <code class="prompt-cmd">/ontap-generate-workflow</code>
       </div>
       <div class="prompt-card">
         <div class="prompt-card-head">
@@ -1277,6 +1292,7 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
           <h3>Review</h3>
         </div>
         <p>Surface idempotency, error handling, naming, and convention drift - a second pair of eyes before opening a PR.</p>
+        <code class="prompt-cmd">/review-contribution</code>
       </div>
     </div>
 
@@ -1284,6 +1300,9 @@ nodes   = client.<span class="fn">get</span>(<span class="str">"/cluster/nodes"<
       <strong>AI output is a draft, not a merge.</strong> Run the project's
       checks, validate against a real cluster, and have a maintainer review
       before opening a PR - the same as any human-written change.
+      See the
+      <a href="https://github.com/NetApp/pace/blob/main/docs/ai-prompt-catalog.md" target="_blank" rel="noopener">AI prompt catalog</a>
+      for the full list and how to invoke them in each tool.
     </div>
   </div>
 </section>

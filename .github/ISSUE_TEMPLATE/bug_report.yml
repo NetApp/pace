@@ -21,33 +21,30 @@ body:
       label: Which example?
       description: The file or module the bug shows up in.
       options:
-        - python/cluster_info.py
-        - python/cluster_setup_basic.py
-        - python/cifs_provision.py
-        - python/nfs_provision.py
-        - python/snapmirror_provision_src_managed.py
-        - python/snapmirror_provision_dest_managed.py
-        - python/snapmirror_test_failover.py
-        - python/snapmirror_cleanup_test_failover.py
-        - ansible/cluster_info.yml
-        - ansible/cluster_setup.yml
-        - ansible/cifs_provision.yml
-        - ansible/nfs_provision.yml
-        - ansible/snapmirror_provision_src_managed.yml
-        - ansible/snapmirror_provision_dest_managed.yml
-        - ansible/snapmirror_test_failover.yml
-        - ansible/snapmirror_cleanup_test_failover.yml
-        - terraform/cluster-info
-        - terraform/cifs-provision
-        - terraform/nfs-provision
-        - go/cluster_info
-        - go/nfs_provision
-        - go/cifs_provision
-        - go/cluster_setup_basic
-        - go/snapmirror_provision_src_managed
-        - go/snapmirror_provision_dest_managed
-        - go/snapmirror_test_failover
-        - go/snapmirror_cleanup_test_failover
+        - python/ontap/cluster_info.py
+        - python/ontap/cluster_setup_basic.py
+        - python/ontap/cifs_provision.py
+        - python/ontap/nfs_provision.py
+        - python/ontap/snapmirror_provision_src_managed.py
+        - python/ontap/snapmirror_provision_dest_managed.py
+        - python/ontap/snapmirror_test_failover.py
+        - python/ontap/snapmirror_cleanup_test_failover.py
+        - ansible/ontap/cluster_info.yml
+        - ansible/ontap/cluster_setup.yml
+        - ansible/ontap/cifs_provision.yml
+        - ansible/ontap/nfs_provision.yml
+        - ansible/ontap/snapmirror_provision_src_managed.yml
+        - ansible/ontap/snapmirror_provision_dest_managed.yml
+        - ansible/ontap/snapmirror_test_failover.yml
+        - ansible/ontap/snapmirror_cleanup_test_failover.yml
+        - terraform/ontap/cluster-info
+        - terraform/ontap/cifs-provision
+        - terraform/ontap/nfs-provision
+        - go/ontap/cluster_setup_basic
+        - go/ontap/snapmirror_provision_src_managed
+        - go/ontap/snapmirror_provision_dest_managed
+        - go/ontap/snapmirror_test_failover
+        - go/ontap/snapmirror_cleanup_test_failover
         - Other (describe in summary)
     validations:
       required: true

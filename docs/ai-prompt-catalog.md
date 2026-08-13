@@ -1,244 +1,87 @@
-# AI Prompt Catalog for Storage Workflow Generation
+<!-- Generated from ai/shared/prompt-catalog.md by scripts/generate_ai_assets.py. Do not edit; run `make ai-assets`. -->
 
-This repository ships **reusable AI prompts** for generating NetApp storage
-automation in two forms:
+# AI prompt catalog
 
-1. **Copilot-native prompt files** in `.github/prompts/` - usable directly
-   from GitHub Copilot Chat, VS Code Copilot, and Cursor.
-2. **Copy-paste prompts** (below) - for any AI assistant (ChatGPT, Gemini,
-   Claude, etc.).
+This repository ships reusable prompts for generating NetApp storage automation:
+one for planning an API sequence, one per tool for generating code, one that
+generates all four at once, and one for reviewing the result before a PR.
 
----
+Each prompt is authored once in [`ai/`](../ai/README.md) and generated into every
+format the supported assistants read, so the same prompt is available whichever
+editor you use.
 
-## Using Copilot Prompt Files (Recommended)
+## Where the prompts show up
 
-The `.github/prompts/` directory contains `.prompt.md` files that Copilot
-discovers automatically.
+| Tool | Reads | How to invoke |
+|------|-------|---------------|
+| GitHub Copilot (VS Code, github.com) | `.github/prompts/*.prompt.md` | Type `/` in Copilot Chat |
+| Cursor | `.cursor/commands/*.md` | Type `/` in the chat panel |
+| Any other assistant | the prompt files themselves | Paste the file contents |
 
-### In VS Code / Cursor (Copilot Chat)
+Commands are named `<product>-<task>`, so typing `/ontap-` lists everything
+scoped to ONTAP.
 
-1. Open Copilot Chat.
-2. Type `/` and select the prompt from the picker, or type its name directly.
-3. Replace `{task description}` with your storage task.
-4. Copilot automatically has access to the referenced repository files.
+## Available prompts
 
-### In GitHub.com (Copilot in PR / Issue)
+| Command | What it does | Prompt text |
+|---------|--------------|-------------|
+| `/ontap-generate-ansible` | Generate an Ansible playbook that automates a NetApp storage task using REST APIs | [ai/ontap/generate-ansible.md](../ai/ontap/generate-ansible.md) |
+| `/ontap-generate-go` | Generate a Go program that automates a NetApp storage task using REST APIs | [ai/ontap/generate-go.md](../ai/ontap/generate-go.md) |
+| `/ontap-generate-python` | Generate a Python script that automates a NetApp storage task using REST APIs | [ai/ontap/generate-python.md](../ai/ontap/generate-python.md) |
+| `/ontap-generate-terraform` | Generate a Terraform module that automates a NetApp storage task using REST APIs | [ai/ontap/generate-terraform.md](../ai/ontap/generate-terraform.md) |
+| `/ontap-generate-workflow` | Generate a complete NetApp storage workflow - Python + Ansible + Terraform + Go - for a storage task | [ai/ontap/generate-workflow.md](../ai/ontap/generate-workflow.md) |
+| `/ontap-plan-api-sequence` | Design the REST API call sequence for a NetApp storage operation before writing code | [ai/ontap/plan-api-sequence.md](../ai/ontap/plan-api-sequence.md) |
+| `/review-contribution` | Review generated NetApp storage code for repository conventions, CI compliance, and PR readiness | [ai/shared/review-contribution.md](../ai/shared/review-contribution.md) |
 
-The prompt files are part of the repo, so Copilot has repo-context when
-generating suggestions in PRs and issues.
+For an assistant with no slash-command support - ChatGPT, Gemini, Claude, and
+the like - open the prompt file in the last column and paste its contents into
+the chat, then replace `{task description}` with your task. The file is the
+prompt; there is no separate copy to keep in sync.
 
-### Available Prompts
+## Using one
 
-| Prompt File | Copilot Name | Use When |
-|-------------|-------------|----------|
-| `generate-python.prompt.md` | `generate-python` | You need a Python script only |
-| `generate-ansible.prompt.md` | `generate-ansible` | You need an Ansible playbook only |
-| `generate-terraform.prompt.md` | `generate-terraform` | You need a Terraform module only |
-| `generate-go.prompt.md` | `generate-go` | You need a Go program only |
-| `generate-workflow.prompt.md` | `generate-workflow` | You need all four implementations |
-| `plan-api-sequence.prompt.md` | `plan-api-sequence` | Design the API call sequence before coding |
-| `review-contribution.prompt.md` | `review-contribution` | Check code against conventions before a PR |
+1. Open the chat panel, type `/`, and pick the command.
+2. Replace `{task description}` with your storage task.
+3. Work through the prompt's steps. Most stop and ask you to confirm the API
+   sequence before they write any code - that checkpoint is the point.
 
-### Recommended Workflow
+A typical run through a new use case:
 
 ```
-1.  plan-api-sequence       →  Design and validate the REST API sequence
-2.  generate-workflow        →  Generate Python + Ansible + Terraform + Go
-    (or generate-python / generate-ansible / generate-terraform / generate-go individually)
-3.  review-contribution      →  Verify conventions, CI compliance, README updates
+1.  /ontap-plan-api-sequence   →  Design and validate the REST API sequence
+2.  /ontap-generate-workflow   →  Generate Python + Ansible + Terraform + Go
+    (or /ontap-generate-python, -ansible, -terraform, -go individually)
+3.  /review-contribution       →  Check conventions, CI compliance, README updates
 ```
 
----
+## Conventions attach on their own
 
-## Copy-Paste Prompts (Tool-Agnostic)
+Product conventions are not prompts you invoke. They are attached
+automatically when you edit files in that product's directories - through
+`.github/instructions/` for Copilot and `.cursor/rules/` for Cursor - so a file
+under `python/ontap/` picks up the ONTAP rules without you asking.
 
-For AI assistants without Copilot prompt file support, copy the relevant
-prompt below, paste it into the chat window, and replace the `[PLACEHOLDER]`
-values.
+Repo-wide context works the same way through `AGENTS.md`, which Cursor and most
+other agents read, and `.github/copilot-instructions.md` for Copilot.
 
----
+## AI output is a draft
 
-### Python-Only Prompt
+Every prompt produces a starting point, not a merge. Run `make ci`, validate
+against a real cluster, and record the result in the PR's
+[Test Report](../TESTING.md) - the same bar as any hand-written change.
 
-````text
-You are a NetApp ONTAP automation engineer writing a Python script that uses
-ONLY the ONTAP REST API.
+## Editing the prompts
 
-Task: [DESCRIBE THE STORAGE TASK]
+Everything under `.github/prompts/`, `.github/instructions/`, `.cursor/`, plus
+`AGENTS.md`, `.github/copilot-instructions.md`, and this page, is generated.
+Edit the source in [`ai/`](../ai/README.md) and run `make ai-assets`; CI fails if
+the two drift apart.
 
-STEP 1 - CLARIFY: Ask me for any missing information (SVM, volume, aggregate,
-protocol, cluster hostname, special options).
+## Task description cheat sheet
 
-STEP 2 - API SEQUENCE: List ONTAP REST API calls in order. For each: method,
-endpoint, key body/query params, sync/async, one-sentence justification.
-Rules: REST only (no ZAPI, no CLI, no SSH), target ONTAP 9.8+. Wait for my
-approval.
+Prompts expect a one-line task description. Examples that work well:
 
-STEP 3 - GENERATE PYTHON: File `python/<use_case>.py` with:
-  • #!/usr/bin/env python3, from __future__ import annotations
-  • Module docstring with steps, prerequisites, usage
-  • from ontap_client import OntapClient (shared client, do NOT create a new one)
-  • with OntapClient.from_env() as client: (env: ONTAP_HOST, ONTAP_USER (default admin), ONTAP_PASS)
-  • argparse with env-var fallbacks for operational params
-  • client.get/post/patch/delete + client.poll_job() for async
-  • logging module only (no print), type hints, no hardcoded credentials
-  • if __name__ == "__main__": try/except guard with sys.exit(1)
-
-STEP 4 - VALIDATE: Run commands, error scenarios, teardown instructions.
-````
-
----
-
-### Ansible-Only Prompt
-
-````text
-You are a NetApp ONTAP automation engineer writing an Ansible playbook using
-the netapp.ontap collection (REST API only).
-
-Task: [DESCRIBE THE STORAGE TASK]
-
-STEP 1 - CLARIFY: Ask for missing info (SVM, volume, aggregate, protocol,
-cluster hostname, special options).
-
-STEP 2 - API SEQUENCE: List REST calls and map each to a netapp.ontap module.
-Rules: use_rest: always, ONTAP 9.8+, FQCNs (netapp.ontap.na_ontap_*).
-Wait for approval.
-
-STEP 3 - GENERATE PLAYBOOK: File `ansible/<use_case>.yml` with:
-  • --- header comment with filename, description, usage
-  • hosts: ontap, gather_facts: false, connection: local
-  • vars: section for operational defaults (overridable with -e)
-  • Every ONTAP task: hostname/username/password/https/validate_certs from
-    variables, use_rest: always, no_log: false
-  • state: present for creates, wait_for_completion: true where supported
-  • Final ansible.builtin.debug summary. No hardcoded credentials.
-
-STEP 4 - VALIDATE: Run command, idempotency behavior, teardown playbook.
-````
-
----
-
-### Terraform-Only Prompt
-
-````text
-You are a NetApp ONTAP automation engineer writing a Terraform module using
-the NetApp/netapp-ontap provider (REST API only).
-
-Task: [DESCRIBE THE STORAGE TASK]
-
-STEP 1 - CLARIFY: Ask for missing info (SVM, volume, aggregate, protocol,
-cluster hostname, special options).
-
-STEP 2 - RESOURCE MAPPING: Map REST endpoints to Terraform resources/data
-sources. Rules: provider ~> 2.5, required_version >= 1.4, depends_on for
-ordering. Wait for approval.
-
-STEP 3 - GENERATE MODULE: Directory `terraform/<use-case>/` with:
-  • main.tf - provider block with connection_profiles, resources with
-    cx_profile_name = "cluster1"
-  • variables.tf - descriptions, types, sensitive = true for passwords
-  • outputs.tf - meaningful outputs with descriptions
-  • terraform.tfvars.example - placeholder values, no real credentials
-
-STEP 4 - VALIDATE: init/plan/apply commands, drift behavior, destroy teardown.
-````
-
----
-
-### Go-Only Prompt
-
-````text
-You are a NetApp ONTAP automation engineer writing a Go program that uses
-ONLY the ONTAP REST API.
-
-Task: [DESCRIBE THE STORAGE TASK]
-
-STEP 1 - CLARIFY: Ask me for any missing information (SVM, volume, aggregate,
-protocol, cluster hostname, special options).
-
-STEP 2 - API SEQUENCE: List ONTAP REST API calls in order. For each: method,
-endpoint, key body/query params, sync/async, one-sentence justification.
-Rules: REST only (no ZAPI, no CLI, no SSH), target ONTAP 9.8+. Wait for my
-approval.
-
-STEP 3 - GENERATE GO: Directory `go/<use_case>/main.go` with:
-  • Copyright header as // lines, package main
-  • Package-level doc comment with steps, prerequisites, usage env vars
-  • import ontapclient "github.com/netapp/pace/go/ontapclient" (shared client,
-    do NOT create a new one; do NOT create a new go.mod)
-  • ontapclient.New(host, user, pass, false) or ontapclient.FromEnv()
-  • defer client.Close() immediately after creating each client
-  • mustEnv() for required vars, envOrDefault() for optional vars
-  • loadDotEnv() called at start of main()
-  • client.PollJob(ctx, uuid) for async jobs
-  • log.Printf only (no fmt.Print), context.Background() through all calls
-  • No hardcoded credentials
-
-STEP 4 - VALIDATE: Run commands, error scenarios, teardown instructions.
-````
-
----
-
-### Master Prompt (All Four)
-
-````text
-You are a NetApp ONTAP automation engineer. Generate a COMPLETE example set
-(Python + Ansible + Terraform + Go) for this storage task:
-
-Task: [DESCRIBE THE STORAGE TASK]
-
-PHASE 1 - CLARIFY: Ask for missing info (SVM, volume, aggregate, protocol,
-hostname, auth approach, special options).
-
-PHASE 2 - API SEQUENCE: Numbered list of REST API calls in order. For each:
-method, endpoint, body/query, sync/async, justification. REST only, ONTAP
-9.8+, no ZAPI/CLI/SSH. Wait for approval.
-
-PHASE 3 - GENERATE CODE:
-  Python (python/<use_case>.py):
-    • from ontap_client import OntapClient, OntapClient.from_env() (env: ONTAP_HOST,
-      ONTAP_USER (default admin), ONTAP_PASS), argparse,
-      logging, type hints, poll_job for async, try/except guard.
-  Ansible (ansible/<use_case>.yml):
-    • hosts: ontap, gather_facts: false, connection: local, FQCNs,
-      use_rest: always, no_log: false, all 5 connection params from vars,
-      wait_for_completion: true, debug summary.
-  Terraform (terraform/<use-case>/):
-    • main.tf + variables.tf + outputs.tf + terraform.tfvars.example,
-      provider ~> 2.5, connection_profiles, sensitive passwords.
-  Go (go/<use_case>/main.go):
-    • import ontapclient "github.com/netapp/pace/go/ontapclient" (no new HTTP
-      client, no new go.mod), ontapclient.New or FromEnv, defer client.Close,
-      mustEnv/envOrDefault/loadDotEnv helpers, PollJob for async,
-      log.Printf only, context.Background() through all calls.
-
-PHASE 4 - VALIDATE: Run commands, error handling, teardown for each tool.
-````
-
----
-
-### API Sequence Discovery Prompt
-
-````text
-You are an ONTAP REST API specialist. Design the exact API call sequence for:
-
-Task: [DESCRIBE THE STORAGE TASK]
-
-Rules: ONTAP 9.8+ REST only. No ZAPI, no CLI, no SSH. Full endpoint paths.
-Include async poll steps.
-
-For each call: method, endpoint, body/query params, sync/async, idempotent?,
-one-sentence justification.
-
-Also provide: dependency graph, total calls (fresh vs re-run), failure points,
-retry strategy.
-````
-
----
-
-## Placeholder Cheat Sheet
-
-| Category | Example Task Description |
+| Category | Example task description |
 |----------|--------------------------|
 | **NFS** | Create an NFS volume with a dedicated export policy and client-match rule |
 | **CIFS** | Create a CIFS share on an existing volume with read/write ACL for a domain group |

@@ -30,6 +30,7 @@ use_cases:
   - id: cluster-info
     description: ...
     products: [ONTAP]
+    product: ontap
     ontap_min: "9.8"
     owners: [57388sp, kxvya-git, mahatvagarg]
     status: verified
@@ -46,7 +47,7 @@ use_cases:
 ```
 
 Each file contains a single `use_cases` list. Group variants (Python, Ansible,
-Terraform) under one use case when they automate the same storage task.
+Terraform, Go) under one use case when they automate the same storage task.
 
 ---
 
@@ -56,29 +57,53 @@ Terraform) under one use case when they automate the same storage task.
 |-------|----------|------|-------------|
 | `id` | yes | string | Unique kebab-case identifier (e.g. `cluster-info`, `nfs-provision`) |
 | `description` | yes | string | One sentence — what storage problem this solves |
-| `products` | yes | list | Supported NetApp products (e.g. `ONTAP`, `FSxN`) |
+| `products` | yes | list | Supported NetApp products, for display (e.g. `ONTAP`, `FSxN`) |
+| `product` | yes | string | Folder slug the example lives under — see [Products and deployments](#products-and-deployments) |
+| `deployment` | when the product has variants | string | Deployment variant slug (e.g. `local` for `console`) |
 | `ontap_min` | yes | string | Minimum ONTAP version (e.g. `"9.8"`) when `ONTAP` is listed |
 | `owners` | yes | list | GitHub handles (no `@`) accountable for this use case — see [Owners](#owners) |
 | `status` | yes | string | Lifecycle status — see [Status values](#status-values) |
 | `tags` | no | list | Classification labels (e.g. `nfs`, `provisioning`, `read-only`) |
 | `verification` | when `verified` | mapping | Owner attestation — see [Verification block](#verification-block) |
-| `variants` | yes | map | One or more of `python`, `ansible`, `terraform` — see [Variant fields](#variant-fields) |
+| `variants` | yes | map | One or more of `python`, `ansible`, `terraform`, `go` — see [Variant fields](#variant-fields) |
 
-At least one variant (`python`, `ansible`, or `terraform`) is required per use
-case. Not every use case needs all three — partial parity is recorded in the
+At least one variant (`python`, `ansible`, `terraform`, or `go`) is required per
+use case. Not every use case needs all four — partial parity is recorded in the
 catalog.
+
+---
+
+## Products and deployments
+
+Examples are grouped on disk by the NetApp product they target. `product` is the
+folder slug, and the validator requires every variant `path` to start with it:
+
+| `product` | `deployment` | Path shape |
+|-----------|--------------|------------|
+| `ontap` | not used | `<tool>/ontap/…` |
+| `console` | `local` | `<tool>/console/local/…` |
+
+`products` stays as the human-facing display list (`[ONTAP]`); `product` is the
+single slug that drives layout. A product listed in the table with a
+`deployment` column value **must** set `deployment`; a product without variants
+must **not** set it.
+
+Adding a product or deployment means updating `VALID_PRODUCTS` /
+`VALID_DEPLOYMENTS` in
+[`scripts/validate_catalog.py`](../scripts/validate_catalog.py) — example
+discovery itself is recursive and needs no change.
 
 ---
 
 ## Variant fields
 
-Each key under `variants` (`python`, `ansible`, `terraform`) maps to:
+Each key under `variants` (`python`, `ansible`, `terraform`, `go`) maps to:
 
 | Field | Required | Type | Description |
 |-------|----------|------|-------------|
-| `path` | yes | string | Path to script, playbook, or Terraform module directory (relative to repo root) |
-| `command` | yes | string | Exact command to run the example |
-| `cwd` | yes | string | Working directory relative to repo root (e.g. `python`, `ansible`, `terraform/cluster-info`) |
+| `path` | yes | string | Path to script, playbook, Terraform module directory, or `main.go` (relative to repo root); must start with `<tool>/<product>/` |
+| `command` | yes | string | Exact command to run the example, relative to `cwd` |
+| `cwd` | yes | string | Working directory relative to repo root (e.g. `python/ontap`, `ansible/ontap`, `terraform/ontap/cluster-info`) |
 | `prerequisites.setup` | yes | string | Install or init step (e.g. `pip install -r requirements.txt`) |
 | `prerequisites.env` | yes | list | Environment variables or Ansible vars required — use `[]` if none |
 | `inputs` | yes | list | Parameter names the example accepts — use `[]` if none |
@@ -144,9 +169,13 @@ promote to `verified` after review and a populated Test Report (see
 | Element | Convention | Example |
 |---------|------------|---------|
 | Use case `id` | kebab-case | `snapmirror-test-failover` |
-| Python `path` | `python/<snake_case>.py` | `python/nfs_provision.py` |
-| Ansible `path` | `ansible/<snake_case>.yml` | `ansible/nfs_provision.yml` |
-| Terraform `path` | `terraform/<kebab-case>/` | `terraform/nfs-provision/` |
+| Python `path` | `python/<product>/<snake_case>.py` | `python/ontap/nfs_provision.py` |
+| Ansible `path` | `ansible/<product>/<snake_case>.yml` | `ansible/ontap/nfs_provision.yml` |
+| Terraform `path` | `terraform/<product>/<kebab-case>/` | `terraform/ontap/nfs-provision/` |
+| Go `path` | `go/<product>/<snake_case>/main.go` | `go/ontap/cluster_setup_basic/main.go` |
+
+Products with deployment variants add that level too, e.g.
+`python/console/local/<snake_case>.py`.
 
 Paths must match existing repo naming rules in
 [`CONTRIBUTING.md`](../CONTRIBUTING.md#naming-conventions).
@@ -160,6 +189,7 @@ use_cases:
   - id: cluster-info
     description: Retrieve cluster version and list nodes with serial numbers
     products: [ONTAP]
+    product: ontap
     ontap_min: "9.8"
     owners: [57388sp, kxvya-git, mahatvagarg]
     status: verified
@@ -172,9 +202,9 @@ use_cases:
       notes: "Python: 57388sp, Ansible: kxvya-git, Terraform: mahatvagarg"
     variants:
       python:
-        path: python/cluster_info.py
+        path: python/ontap/cluster_info.py
         command: "python cluster_info.py"
-        cwd: python
+        cwd: python/ontap
         prerequisites:
           env: [ONTAP_HOST, ONTAP_PASS]
           setup: "pip install -r requirements.txt"
@@ -182,9 +212,9 @@ use_cases:
         outputs: [cluster_version, nodes]
 
       ansible:
-        path: ansible/cluster_info.yml
+        path: ansible/ontap/cluster_info.yml
         command: "ansible-playbook -i inventory/hosts.yml cluster_info.yml"
-        cwd: ansible
+        cwd: ansible/ontap
         prerequisites:
           env: [ontap_hostname, ontap_password]
           setup: "ansible-galaxy collection install -r requirements.yml"
@@ -192,9 +222,9 @@ use_cases:
         outputs: [cluster_version, nodes]
 
       terraform:
-        path: terraform/cluster-info
+        path: terraform/ontap/cluster-info
         command: "terraform apply"
-        cwd: terraform/cluster-info
+        cwd: terraform/ontap/cluster-info
         prerequisites:
           env: []
           setup: "terraform init"
@@ -206,10 +236,12 @@ use_cases:
 
 ## Adding a new use case
 
-1. Implement the example(s) in `python/`, `ansible/`, and/or `terraform/`
+1. Implement the example(s) under `<tool>/<product>/` — e.g. `python/ontap/`,
+   `ansible/ontap/`, `terraform/ontap/`, `go/ontap/`
 2. Add a `use_cases` entry (or extend an existing one with a new variant) in
-   `catalog.yaml`
-3. Add a README section in the matching tool README — see
+   `catalog.yaml`, including `product` (and `deployment` where it applies)
+3. Add a README section in the matching product README — e.g.
+   `python/ontap/README.md`; see
    [README section template](../CONTRIBUTING.md#readme-section-template)
 4. Include a one-sentence use-case justification in the pull request description
 

@@ -52,7 +52,7 @@ report so a reviewer with the right environment can run it.
 
 Pick the style(s) your PR touches and capture the matching evidence.
 
-### Python (`python/`)
+### Python (`python/<product>/`)
 
 1. **First run** - execute the script with realistic args:
 
@@ -72,7 +72,7 @@ Pick the style(s) your PR touches and capture the matching evidence.
    used to remove them (often a separate teardown script or REST `DELETE`
    calls). One-shot read-only scripts can skip this.
 
-### Ansible (`ansible/`)
+### Ansible (`ansible/<product>/`)
 
 1. **First run** - run the playbook:
 
@@ -92,7 +92,7 @@ Pick the style(s) your PR touches and capture the matching evidence.
    `state: absent` task or a teardown playbook and capture its recap.
    Read-only fact-gathering playbooks can skip this.
 
-### Terraform (`terraform/`)
+### Terraform (`terraform/<product>/`)
 
 The full lifecycle is the test. Capture each step:
 
@@ -107,12 +107,12 @@ The full lifecycle is the test. Capture each step:
 For data-source-only modules (no resources), steps 1-3 plus the
 *Apply complete!* line are enough.
 
-### Go (`go/`)
+### Go (`go/<product>/`)
 
 1. **First run** — run the program from its subdirectory:
 
    ```bash
-   cd go/<use_case>
+   cd go/<product>/<use_case>
    export ONTAP_HOST=10.0.0.1 ONTAP_USER=admin ONTAP_PASS=secret
    go run .
    ```

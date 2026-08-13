@@ -10,10 +10,11 @@
 
 **General**
 - [ ] No secrets, credentials, or API tokens in code or config
-- [ ] Updated [`catalog.yaml`](catalog.yaml) and tool README for new/changed examples (see [CONTRIBUTING.md](CONTRIBUTING.md#example-catalog))
+- [ ] New examples live under `<tool>/<product>/` (e.g. `python/ontap/`), not at the tool root
+- [ ] Updated [`catalog.yaml`](catalog.yaml) — including `product` — and the product README for new/changed examples (see [CONTRIBUTING.md](CONTRIBUTING.md#example-catalog))
 
 **If touching `python/`**
-- [ ] Scripts compile (`python -m py_compile python/*.py`)
+- [ ] Scripts compile (`python -m py_compile python/*/*.py`)
 - [ ] Lint passes (`ruff check python/`)
 
 **If touching `ansible/`**

@@ -29,8 +29,8 @@ A logical "tenant" inside a cluster. Like a VM inside a hypervisor —
 isolated namespace, own users, own volumes, own data IPs. NFS exports
 and CIFS shares always belong to an SVM. Most provisioning examples
 default to an SVM named `svm0`. → seen in:
-[`python/nfs_provision.py`](../python/nfs_provision.py),
-[`ansible/cifs_provision.yml`](../ansible/cifs_provision.yml).
+[`python/ontap/nfs_provision.py`](../python/ontap/nfs_provision.py),
+[`ansible/ontap/cifs_provision.yml`](../ansible/ontap/cifs_provision.yml).
 
 ## Aggregate
 
@@ -59,13 +59,13 @@ The ACL controlling which clients (by IP / subnet) can mount an NFS
 volume and with what permissions. The default `default` policy is
 typically too permissive for production — examples expose
 `--client-match` to override. → seen in:
-[`python/nfs_provision.py`](../python/nfs_provision.py).
+[`python/ontap/nfs_provision.py`](../python/ontap/nfs_provision.py).
 
 ## CIFS / SMB share
 
 Windows-style file share served by an SVM. Each share has a name, a
 backing volume path, and an ACL. → seen in:
-[`python/cifs_provision.py`](../python/cifs_provision.py).
+[`python/ontap/cifs_provision.py`](../python/ontap/cifs_provision.py).
 
 ## Snapshot
 
@@ -78,7 +78,7 @@ ONTAP's volume-level replication. Copies snapshots from a source volume
 on one cluster to a destination volume on another, for DR or migration.
 Pace ships full source-managed and destination-managed examples plus a
 test-failover lifecycle. → seen in:
-[`ansible/snapmirror_provision_src_managed.yml`](../ansible/snapmirror_provision_src_managed.yml).
+[`ansible/ontap/snapmirror_provision_src_managed.yml`](../ansible/ontap/snapmirror_provision_src_managed.yml).
 
 ## REST API
 
@@ -101,12 +101,12 @@ endpoint set. List with `security login role show`.
 
 | Example | Concepts used |
 |---|---|
-| [`cluster_info.py`](../python/cluster_info.py) | Cluster, Node, REST API |
-| [`cluster_setup.yml`](../ansible/cluster_setup.yml) | Cluster, Node, LIF, Aggregate, RBAC |
-| [`cluster_setup_basic/main.go`](../go/cluster_setup_basic/main.go) | Cluster, Node, REST API jobs |
-| [`nfs_provision.*`](../python/nfs_provision.py) | SVM, Aggregate, Volume, LIF, Export policy |
-| [`cifs_provision.*`](../python/cifs_provision.py) | SVM, Aggregate, Volume, LIF, CIFS share |
-| [`snapmirror_*`](../ansible/snapmirror_provision_src_managed.yml) | Volume, Snapshot, SnapMirror, REST API jobs |
+| [`cluster_info.py`](../python/ontap/cluster_info.py) | Cluster, Node, REST API |
+| [`cluster_setup.yml`](../ansible/ontap/cluster_setup.yml) | Cluster, Node, LIF, Aggregate, RBAC |
+| [`cluster_setup_basic/main.go`](../go/ontap/cluster_setup_basic/main.go) | Cluster, Node, REST API jobs |
+| [`nfs_provision.*`](../python/ontap/nfs_provision.py) | SVM, Aggregate, Volume, LIF, Export policy |
+| [`cifs_provision.*`](../python/ontap/cifs_provision.py) | SVM, Aggregate, Volume, LIF, CIFS share |
+| [`snapmirror_*`](../ansible/ontap/snapmirror_provision_src_managed.yml) | Volume, Snapshot, SnapMirror, REST API jobs |
 
 ---
 
