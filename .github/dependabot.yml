@@ -1,9 +1,14 @@
 version: 2
 updates:
+  # Grouped so a week's worth of action bumps lands as one PR instead of
+  # one PR per action (5 separate PRs landed in the same minute otherwise).
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      github-actions:
+        patterns: ["*"]
     commit-message:
       prefix: "ci(deps)"
 
@@ -13,6 +18,9 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      dev-tooling:
+        patterns: ["*"]
     commit-message:
       prefix: "ci(deps)"
 
@@ -20,6 +28,12 @@ updates:
     directory: "/python/ontap"
     schedule:
       interval: "weekly"
+    groups:
+      # Patch/minor bumps batch together; majors stay ungrouped so a
+      # breaking runtime-dependency change still gets its own reviewed PR.
+      ontap-runtime-minor:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
     commit-message:
       prefix: "chore(deps)"
 
