@@ -1,4 +1,8 @@
-<!-- Generated from ai/shared/prompt-catalog.md by scripts/generate_ai_assets.py. Do not edit; run `make ai-assets`. -->
+---
+kind: doc
+output: docs/ai-prompt-catalog.md
+description: "Index of the reusable AI prompts and how to use them in each tool"
+---
 
 # AI prompt catalog
 
@@ -6,7 +10,7 @@ This repository ships reusable prompts for generating NetApp storage automation:
 one for planning an API sequence, one per tool for generating code, one that
 generates all four at once, and one for reviewing the result before a PR.
 
-Each prompt is authored once in [`ai/`](../ai/README.md) and generated into every
+Each prompt is authored once in [`ai/`](ai/README.md) and generated into every
 format the supported assistants read, so the same prompt is available whichever
 editor you use.
 
@@ -23,15 +27,7 @@ scoped to ONTAP.
 
 ## Available prompts
 
-| Command | What it does | Prompt text |
-|---------|--------------|-------------|
-| `/ontap-generate-ansible` | Generate an Ansible playbook that automates a NetApp storage task using REST APIs | [ai/ontap/generate-ansible.md](../ai/ontap/generate-ansible.md) |
-| `/ontap-generate-go` | Generate a Go program that automates a NetApp storage task using REST APIs | [ai/ontap/generate-go.md](../ai/ontap/generate-go.md) |
-| `/ontap-generate-python` | Generate a Python script that automates a NetApp storage task using REST APIs | [ai/ontap/generate-python.md](../ai/ontap/generate-python.md) |
-| `/ontap-generate-terraform` | Generate a Terraform module that automates a NetApp storage task using REST APIs | [ai/ontap/generate-terraform.md](../ai/ontap/generate-terraform.md) |
-| `/ontap-generate-workflow` | Generate a complete NetApp storage workflow - Python + Ansible + Terraform + Go - for a storage task | [ai/ontap/generate-workflow.md](../ai/ontap/generate-workflow.md) |
-| `/ontap-plan-api-sequence` | Design the REST API call sequence for a NetApp storage operation before writing code | [ai/ontap/plan-api-sequence.md](../ai/ontap/plan-api-sequence.md) |
-| `/review-contribution` | Review generated NetApp storage code for repository conventions, CI compliance, and PR readiness | [ai/shared/review-contribution.md](../ai/shared/review-contribution.md) |
+{{PROMPT_FILES}}
 
 For an assistant with no slash-command support - ChatGPT, Gemini, Claude, and
 the like - open the prompt file in the last column and paste its contents into
@@ -68,13 +64,13 @@ other agents read, and `.github/copilot-instructions.md` for Copilot.
 
 Every prompt produces a starting point, not a merge. Run `make ci`, validate
 against a real cluster, and record the result in the PR's
-[Test Report](../TESTING.md) - the same bar as any hand-written change.
+[Test Report](TESTING.md) - the same bar as any hand-written change.
 
 ## Editing the prompts
 
 Everything under `.github/prompts/`, `.github/instructions/`, `.cursor/`, plus
 `AGENTS.md`, `.github/copilot-instructions.md`, and this page, is generated.
-Edit the source in [`ai/`](../ai/README.md) and run `make ai-assets`; CI fails if
+Edit the source in [`ai/`](ai/README.md) and run `make ai-assets`; CI fails if
 the two drift apart.
 
 ## Task description cheat sheet

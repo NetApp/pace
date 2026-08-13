@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cursor support for the prompt library: `.cursor/commands/` slash commands and
   `.cursor/rules/` product rules, previously Copilot-only
 - `AGENTS.md` — repo-wide agent instructions, read by Cursor and most other agents
+- GitHub Copilot extension recommendations in `.vscode/extensions.json`, so the
+  prompt library is offered on first open
 - Product-scoped AI conventions attached automatically by path
   (`.github/instructions/`, `.cursor/rules/`) for `ontap` and `console/local`
 - Initial NetApp storage automation examples for Python, Ansible, Terraform, and Go
@@ -48,7 +50,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   applies to every product.
 - Prompt and instruction files are generated. Edit the source under `ai/` and
   run `make ai-assets`; do not edit `.github/prompts/`,
-  `.github/copilot-instructions.md`, `.cursor/`, or `AGENTS.md` directly.
+  `.github/copilot-instructions.md`, `.cursor/`, `AGENTS.md`, or
+  `docs/ai-prompt-catalog.md` directly.
+- `docs/ai-prompt-catalog.md` is now a generated index and 60% shorter. The
+  hand-condensed copies of each prompt are gone — they duplicated the real
+  prompts and drifted from them; the table links to the prompt sources instead.
+  It is also linked from the README, CONTRIBUTING, and the website, having
+  previously been orphaned.
 - Each tool root README is now a short product index; the ONTAP documentation
   lives in `<tool>/ontap/README.md`
 - CI discovers examples recursively instead of with fixed-depth globs, and fails

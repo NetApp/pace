@@ -18,7 +18,8 @@ prompt's product scope comes from where the file sits, not from frontmatter:
 ai/
 ├── shared/                      # applies everywhere, no product scope
 │   ├── repo-context.md          # kind: shared - repo-wide instructions
-│   └── review-contribution.md   # kind: task   - /review-contribution
+│   ├── review-contribution.md   # kind: task   - /review-contribution
+│   └── prompt-catalog.md        # kind: doc    - docs/ai-prompt-catalog.md
 ├── ontap/
 │   ├── conventions.md           # kind: product - attached under **/ontap/**
 │   └── generate-python.md       # kind: task    - /ontap-generate-python
@@ -37,13 +38,15 @@ description: "One line shown in the command picker"
 ---
 ```
 
-| `kind`    | Purpose                                | Generates                                                                       |
-| --------- | -------------------------------------- | ------------------------------------------------------------------------------- |
-| `shared`  | Repo-wide context. Exactly one file.    | `AGENTS.md`, `.github/copilot-instructions.md`                                   |
-| `product` | Conventions auto-attached by file path | `.github/instructions/<product>/…`, `.cursor/rules/<product>/…`                  |
-| `task`    | A prompt invoked on demand              | `.github/prompts/<name>.prompt.md`, `.cursor/commands/<name>.md`                 |
+| `kind`    | Purpose                                 | Generates                                                       |
+| --------- | --------------------------------------- | --------------------------------------------------------------- |
+| `shared`  | Repo-wide context. Exactly one file.    | `AGENTS.md`, `.github/copilot-instructions.md`                  |
+| `product` | Conventions auto-attached by file path  | `.github/instructions/<product>/…`, `.cursor/rules/<product>/…` |
+| `task`    | A prompt invoked on demand              | `.github/prompts/<name>.prompt.md`, `.cursor/commands/<name>.md` |
+| `doc`     | Human-facing docs that list the prompts | the single path given in `output`                               |
 
-Optional: `globs` overrides the path-derived glob on a `product` file.
+Optional keys: `globs` overrides the path-derived glob on a `product` file, and
+`output` is required on a `doc` to say where it lands.
 
 ## Conventions when authoring
 
@@ -54,8 +57,10 @@ Optional: `globs` overrides the path-derived glob on a `product` file.
 - **Command names are flattened** to `<product>-<task>`, because both tools take
   a slash-command name from the filename and neither namespaces by folder.
   `ai/ontap/generate-python.md` becomes `/ontap-generate-python`.
-- **`{{PROMPT_INDEX}}`** in a `shared` file expands to a table of every task
-  prompt, so the index cannot fall out of date.
+- **Tokens expand to the prompt list**, so it is never written by hand:
+  `{{PROMPT_INDEX}}` becomes a command-and-description table, and
+  `{{PROMPT_FILES}}` adds a column linking each prompt's source file. Both work
+  in any source body.
 
 ## Adding a product
 

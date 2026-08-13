@@ -258,6 +258,12 @@ Open the repo and accept the **recommended extensions** prompt, or search
 | **Terraform** (`hashicorp.terraform`) | HCL formatting and validation |
 | **Ansible** (`redhat.ansible`) | Playbook syntax and lint |
 | **EditorConfig** (`editorconfig.editorconfig`) | Applies `.editorconfig` indent/whitespace rules |
+| **GitHub Copilot** + **Copilot Chat** (`github.copilot`, `github.copilot-chat`) | Enables the repo's `/ontap-…` prompts and auto-attached conventions |
+
+Copilot Chat is what surfaces this repo's prompt library as slash commands. In
+Cursor you need no extension for that - it reads `.cursor/commands/` and
+`.cursor/rules/` natively. Either way, see the
+[AI prompt catalog](docs/ai-prompt-catalog.md) for what is available.
 
 The workspace `.vscode/settings.json` configures:
 - **Python format-on-save** via Ruff (matches CI exactly)
@@ -305,7 +311,9 @@ make ai-assets
 
 CI runs `make ai-assets-check` and fails if a generated file was edited directly
 or if `ai/` changed without a regen. See [`ai/README.md`](ai/README.md) for the
-frontmatter schema and how product scoping works.
+frontmatter schema and how product scoping works, and the
+[AI prompt catalog](docs/ai-prompt-catalog.md) for what each prompt does and how
+to invoke it.
 
 ### Using Docker
 
