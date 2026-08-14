@@ -28,9 +28,14 @@ jobs:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
+        with:
+          egress-policy: audit
+
       - name: Detect example-code changes
         id: scope
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const { data: files } = await github.rest.pulls.listFiles({
@@ -50,7 +55,7 @@ jobs:
       - name: Evaluate Test Report and label
         env:
           TOUCHED: ${{ steps.scope.outputs.touched }}
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const LABEL = 'needs-test-report';

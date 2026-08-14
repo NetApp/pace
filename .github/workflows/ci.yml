@@ -107,7 +107,7 @@ jobs:
       # The examples use only the standard library, so there is no go.sum to
       # hash. Keying the cache on go.mod keeps setup-go's cache step valid; it
       # silently skipped caching while this pointed at a file that never existed.
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go/go.mod
           cache-dependency-path: go/go.mod

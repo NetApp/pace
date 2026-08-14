@@ -144,7 +144,7 @@ jobs:
 
       # No go.sum exists - the examples are standard-library only - so the cache
       # is keyed on go.mod instead. See the matching note in ci.yml.
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go/go.mod
           cache-dependency-path: go/go.mod
