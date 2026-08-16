@@ -1,0 +1,98 @@
+---
+# =============================================================================
+# vars/ncl_storage_provisioning.yml — variables for
+#   playbooks/storage_provisioning.yml
+# =============================================================================
+# Provisions volumes and/or LUNs on multiple clusters simultaneously.
+# Every entry in ncl_storage_targets fires in parallel.
+#
+# Usage:
+#   # Both volume and LUN on every cluster:
+#   ansible-playbook playbooks/storage_provisioning.yml \
+#       --extra-vars "@vars/ncl_storage_provisioning.yml"
+#
+#   # Volumes only:
+#   ansible-playbook playbooks/storage_provisioning.yml \
+#       --extra-vars "@vars/ncl_storage_provisioning.yml" --tags volume
+#
+#   # LUNs only:
+#   ansible-playbook playbooks/storage_provisioning.yml \
+#       --extra-vars "@vars/ncl_storage_provisioning.yml" --tags lun
+# =============================================================================
+
+# ── NCL appliance ─────────────────────────────────────────────────────────────
+ncl_console_url: ""
+ncl_validate_certs: false
+
+# ── Admin credentials ─────────────────────────────────────────────────────────
+# Encrypt with: ansible-vault encrypt_string 'helloworld12345' --name ncl_admin_password
+ncl_admin_email: ""
+ncl_admin_password: "" # ── Organisation (leave empty to auto-discover) ───────────────────────────────
+ncl_org_id: ""
+
+# ── Global volume defaults (overridable per target) ───────────────────────────
+ncl_volume_size: 20
+ncl_volume_size_unit: "MiB"  # B | KiB | MiB | GiB | TiB
+ncl_volume_export_policy_hosts:
+  - "0.0.0.0/0"  # replace with your client CIDR(s)
+
+# ── Global LUN defaults (overridable per target) ──────────────────────────────
+ncl_lun_size: 20
+ncl_lun_size_unit: "KiB"  # B | KiB | MiB | GiB | TiB
+ncl_lun_number: 1
+ncl_lun_host_os: "LINUX"  # AIX | HP_UX | HYPER_V | LINUX | NETWARE | OPENVMS | SOLARIS | VMWARE | WINDOWS | XEN
+ncl_lun_format: "LINUX"  # AIX | HYPER_V | LINUX | SOLARIS | SOLARIS_EFI | VMWARE | WINDOWS | WINDOWS_2008 | WINDOWS_GPT | XEN
+ncl_lun_igroup_name: "ansible_igroup"
+ncl_lun_initiators:
+  - name: "iqn.1993-08.org.debian:01:abc123"  # replace with your IQN or WWN
+    comment: "linux host 1"
+
+# ── Global storage class (optional) ──────────────────────────────────────────
+# Leave empty to use the system default. Applied to all targets unless
+# overridden per-target with storage_class_name or storage_class_id.
+ncl_storage_class_name: ""
+ncl_storage_class_id: ""
+
+# ── Global fleet fallback ─────────────────────────────────────────────────────
+# Used when a target does not specify its own fleet_name / fleet_id.
+ncl_fleet_name: "Fleet-1"
+ncl_fleet_id: ""
+
+# ── Cluster targets ───────────────────────────────────────────────────────────
+# REQUIRED per target: cluster_name OR cluster_ip OR working_environment_id,
+#                      svm_name (or svm_id),
+#                      fleet_name (or fleet_id),
+#                      volume_name, lun_name
+#
+# OPTIONAL per target (omit to use the global defaults above):
+#   fleet_name / fleet_id
+#   working_environment_id  (instead of cluster_name/cluster_ip)
+#   svm_id                  (instead of svm_name)
+#   lun_svm_name / lun_svm_id  (LUN-specific SVM if different from volume SVM)
+#   volume_size / volume_size_unit
+#   lun_size / lun_size_unit
+#   lun_number / lun_host_os / lun_format
+#   lun_igroup_name / lun_initiators
+#   export_policy_hosts
+#   storage_class_name / storage_class_id
+
+ncl_storage_targets:
+#  - cluster_name: ""
+  - cluster_ip: ""
+    svm_name: "vs0"
+    fleet_name: "Fleet-1"
+    volume_name: "ansible_vol_c1"
+    lun_name: "ansible_lun_c1"
+    # Optional per-target overrides:
+    # volume_size:        20
+    # volume_size_unit:   "MiB"
+    # lun_size:           20
+    # lun_size_unit:      "KiB"
+    # lun_igroup_name:    "ig_cluster1"
+    # storage_class_name: "gold-class"
+
+#  - cluster_name: "smcicluster-1"
+#    svm_name: "svm0"
+#    fleet_name: "Fleet-1"
+#    volume_name: "ansible_vol_c1"
+#    lun_name: "ansible_lun_c1"

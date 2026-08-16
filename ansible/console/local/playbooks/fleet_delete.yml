@@ -1,0 +1,207 @@
+---
+# NCL fleet delete — detach any clusters from the fleet, then remove the fleet.
+#
+# Flow:
+#   1. Resolve fleet ID (by name if only ncl_fleet_name is given).
+#   2. Fetch all working environments (clusters) attached to the fleet.
+#   3. DELETE each cluster resource from the fleet.
+#   4. DELETE the fleet itself.
+#
+# Usage — delete by fleet name:
+#   ansible-playbook playbooks/fleet_delete.yml \
+#       --extra-vars "@vars/ncl_fleet.yml" \
+#       -e ncl_admin_password=SECRET \
+#       -e ncl_fleet_name="Fleet-1"
+#
+# Usage — delete by fleet ID (skips name lookup):
+#   ansible-playbook playbooks/fleet_delete.yml \
+#       --extra-vars "@vars/ncl_fleet.yml" \
+#       -e ncl_admin_password=SECRET \
+#       -e ncl_fleet_id=<uuid>
+#
+# Environment variable overrides (CI / secrets managers):
+#   NCL_CONSOLE_URL    → ncl_console_url
+#   NCL_ACCESS_TOKEN   → ncl_access_token
+#   NCL_ORG_ID         → ncl_org_id
+#   NCL_VALIDATE_CERTS → ncl_validate_certs
+
+- name: NCL fleet delete
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../vars/ncl_fleet.yml
+
+  vars:
+    ncl_console_url: "{{ lookup('env', 'NCL_CONSOLE_URL')    | default(ncl_console_url, true) }}"
+    ncl_access_token: "{{ lookup('env', 'NCL_ACCESS_TOKEN')   | default('', true) }}"
+    ncl_org_id: "{{ lookup('env', 'NCL_ORG_ID')         | default('', true) }}"
+    ncl_validate_certs: "{{ lookup('env', 'NCL_VALIDATE_CERTS') | default(ncl_validate_certs, true) | bool }}"
+    ncl_fleet_id: "{{ ncl_fleet_id | default('') }}"
+    ncl_fleet_name: "{{ ncl_fleet_name | default('') }}"
+
+  pre_tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - ncl_console_url | length > 0
+          - (ncl_admin_email | default('') | length > 0 and ncl_admin_password | default('') | length > 0) or ncl_access_token | length > 0
+          - (ncl_fleet_id | length > 0) or (ncl_fleet_name | length > 0)
+        fail_msg: >-
+          Set ncl_console_url, credentials, and either ncl_fleet_name or
+          ncl_fleet_id in vars/ncl_fleet.yml or via -e.
+
+    - name: Login to Console
+      netapp.console.generate_oauth_token:
+        console_url: "{{ ncl_console_url }}"
+        email: "{{ ncl_admin_email }}"
+        password: "{{ ncl_admin_password }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _login
+      when: ncl_access_token | length == 0
+      no_log: true
+
+    - name: Store access token
+      ansible.builtin.set_fact:
+        _ncl_access_token: >-
+          {{ _login.access_token if (_login is not skipped) else ncl_access_token }}
+
+    - name: Discover organisations
+      netapp.console.local_organization_setup:
+        access_token: "{{ _ncl_access_token }}"
+        state: query
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _ncl_orgs
+      when: ncl_org_id | length == 0
+
+    - name: Resolve org ID
+      ansible.builtin.set_fact:
+        _ncl_org_id: >-
+          {{ ncl_org_id if ncl_org_id | length > 0
+             else (_ncl_orgs.organizations | first).id }}
+
+  tasks:
+    # ══════════════════════════════════════════════════════════════════════════
+    # STEP 1 — Resolve the fleet ID when only a name is supplied
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "DELETE | Fetch all fleets to resolve fleet ID by name"
+      netapp.console.storage_fleets:
+        access_token:   "{{ _ncl_access_token }}"
+        console_url:    "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        state:          query
+        org_id:         "{{ _ncl_org_id }}"
+      register: _fleets_response
+      when: ncl_fleet_id | length == 0
+
+    - name: "DELETE | Resolve fleet ID from name"
+      ansible.builtin.set_fact:
+        _resolved_fleet_id: >-
+          {{ (_fleets_response.fleets | default([])
+              | selectattr('name', 'equalto', ncl_fleet_name)
+              | list | first | default({})).get('id', '') }}
+      when: ncl_fleet_id | length == 0
+
+    - name: "DELETE | Fleet not found — already deleted (no-op)"
+      ansible.builtin.debug:
+        msg: "Fleet '{{ ncl_fleet_name }}' not found in org '{{ _ncl_org_id }}' — nothing to delete."
+      when:
+        - ncl_fleet_id | length == 0
+        - _resolved_fleet_id | default('') | length == 0
+
+    - name: "DELETE | End play when fleet does not exist"
+      ansible.builtin.meta: end_play
+      when:
+        - ncl_fleet_id | length == 0
+        - _resolved_fleet_id | default('') | length == 0
+
+    - name: "DELETE | Use provided fleet ID"
+      ansible.builtin.set_fact:
+        _resolved_fleet_id: "{{ ncl_fleet_id }}"
+      when: ncl_fleet_id | length > 0
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # STEP 2 — Fetch working environments (clusters) attached to this fleet
+    # The workingenvironments API requires ?filter=agentId eq '...' — fetch
+    # the agentId from /system/about first.
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "DELETE | Fetch agentId from /system/about"
+      netapp.console.local_agent_info:
+        access_token:   "{{ _ncl_access_token }}"
+        console_url:    "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _about
+
+    - name: "DELETE | Fetch working environments in fleet"
+      netapp.console.query_working_environments:
+        access_token:   "{{ _ncl_access_token }}"
+        console_url:    "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id:         "{{ _ncl_org_id }}"
+        fleet_id:       "{{ _resolved_fleet_id }}"
+        agent_id:       "{{ _about.agent_id }}"
+      register: _we_response
+
+    - name: "DELETE | Store working environment list"
+      ansible.builtin.set_fact:
+        _we_list: "{{ _we_response.working_environments }}"
+
+    - name: "DELETE | Show clusters to be detached"
+      ansible.builtin.debug:
+        msg: >-
+          Fleet '{{ ncl_fleet_name if ncl_fleet_name | length > 0 else _resolved_fleet_id }}'
+          has {{ _we_list | length }} cluster(s) attached:
+          {{ _we_list | map(attribute='workingEnvironmentId') | list }}
+      when: _we_list | length > 0
+
+    - name: "DELETE | No clusters attached"
+      ansible.builtin.debug:
+        msg: "Fleet has no clusters attached — proceeding directly to fleet deletion."
+      when: _we_list | length == 0
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # STEP 3 — Delete each cluster resource from the fleet
+    # DELETE /v1/management/projects/{fleetId}/resources/{workingEnvironmentId}
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "DELETE | Detach clusters from fleet"
+      netapp.console.remove_system_from_fleet:
+        access_token:            "{{ _ncl_access_token }}"
+        console_url:             "{{ ncl_console_url }}"
+        validate_certs:          "{{ ncl_validate_certs }}"
+        fleet_id:                "{{ _resolved_fleet_id }}"
+        working_environment_ids: "{{ _we_list | map(attribute='workingEnvironmentId') | list }}"
+      register: _we_delete_results
+      when: _we_list | length > 0
+
+    - name: "DELETE | Cluster detach summary"
+      ansible.builtin.debug:
+        msg: >-
+          Detached {{ _we_delete_results.removed_count | default(0) }} cluster(s):
+          {{ _we_delete_results.removed_ids | default([]) | join(', ') }}
+      when: _we_list | length > 0
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # STEP 4 — Delete the fleet
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "DELETE | Delete fleet by resolved ID"
+      netapp.console.storage_fleets:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        state: absent
+        fleet_id: "{{ _resolved_fleet_id }}"
+      register: _delete_result
+
+    - name: "DELETE | Summary"
+      ansible.builtin.debug:
+        msg: >-
+          ╔══════════════════════════════════════════════════════╗
+          ║              Fleet Management — Delete               ║
+          ╠══════════════════════════════════════════════════════╣
+          ║ Fleet   : {{ ncl_fleet_name if ncl_fleet_name | length > 0 else ncl_fleet_id }}
+          ║ Fleet ID: {{ _resolved_fleet_id }}
+          ║ Clusters detached: {{ _we_list | length }}
+          ║ Fleet deleted    : {{ _delete_result.changed }}
+          ║ Message : {{ _delete_result.msg }}
+          ╚══════════════════════════════════════════════════════╝

@@ -1,0 +1,497 @@
+---
+# ncl_nested_folder_fleet.yml
+#
+# Manages a two-level folder hierarchy with a fleet placed under the child:
+#
+#   Organisation
+#   └── <ncl_parent_folder_name>          ← STEP 1 (create)
+#       └── <ncl_child_folder_name>       ← STEP 2 (create)
+#           └── <ncl_fleet_name>          ← STEP 3 (create)
+#
+# ncl_nested_action controls what the playbook does:
+#
+#   create  (default)
+#     Idempotently creates the parent folder → child folder → fleet.
+#     Re-running against an existing environment is a safe no-op.
+#
+#   delete
+#     Needs only ncl_fleet_name.  The playbook:
+#       1. Finds the fleet in the hierarchy resources API.
+#       2. Walks the parentId chain upward to discover folder ancestors.
+#       3. Deletes the fleet.
+#       4. Re-queries the hierarchy; deletes the child folder only if it is
+#          now completely empty (no folders, projects, or fleets remain).
+#       5. Re-queries again; deletes the parent folder only if it is now
+#          completely empty AND it is still a folder (not the org root).
+#     Parent / child folder names are NOT required for delete.
+#
+# ── Quick-start ──────────────────────────────────────────────────────────────
+#
+#   # Create (default):
+#   ansible-playbook playbooks/nested_folder_fleet.yml \
+#       --extra-vars "@vars/ncl.yml" \
+#       -e ncl_parent_folder_name="eu-region" \
+#       -e ncl_child_folder_name="eu-prod" \
+#       -e ncl_fleet_name="eu-prod-fleet"
+#
+#   # Delete (only fleet name needed; folders cleaned up automatically):
+#   ansible-playbook playbooks/nested_folder_fleet.yml \
+#       --extra-vars "@vars/ncl.yml" \
+#       -e ncl_nested_action=delete \
+#       -e ncl_fleet_name="eu-prod-fleet"
+#
+# ── Variables ─────────────────────────────────────────────────────────────────
+#   ncl_nested_action        create | delete                (default: create)
+#   ncl_parent_folder_name   Top-level folder name          (required for create)
+#   ncl_child_folder_name    Child folder name              (required for create)
+#   ncl_fleet_name           Fleet name                     (required always)
+#   ncl_fleet_description    Optional fleet description
+#
+# ── Environment variable overrides (CI / secrets managers) ───────────────────
+#   NCL_CONSOLE_URL    → ncl_console_url
+#   NCL_ACCESS_TOKEN   → ncl_access_token
+#   NCL_ORG_ID         → ncl_org_id
+#   NCL_VALIDATE_CERTS → ncl_validate_certs
+
+- name: "Nested folder + fleet management (create / delete)"
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../vars/ncl.yml
+
+  vars:
+    ncl_console_url: "{{ lookup('env', 'NCL_CONSOLE_URL')    | default(ncl_console_url,    true) }}"
+    ncl_access_token: "{{ lookup('env', 'NCL_ACCESS_TOKEN')   | default('',                 true) }}"
+    ncl_org_id: "{{ lookup('env', 'NCL_ORG_ID')         | default('',                 true) }}"
+    ncl_validate_certs: "{{ lookup('env', 'NCL_VALIDATE_CERTS') | default(ncl_validate_certs, true) | bool }}"
+    ncl_nested_action: "create"
+
+    # CREATE variables — override via -e or vars/ncl.yml
+    ncl_parent_folder_name: "{{ ncl_parent_folder_name | default('region-folder') }}"
+    ncl_child_folder_name: "{{ ncl_child_folder_name  | default('env-folder') }}"
+    ncl_fleet_name: "{{ ncl_fleet_name         | default('nested-fleet') }}"
+    ncl_fleet_description: "{{ ncl_fleet_description  | default('Managed by Ansible') }}"
+
+  pre_tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - ncl_console_url | length > 0
+          - (ncl_admin_email | length > 0 and ncl_admin_password | length > 0) or ncl_access_token | length > 0
+          - ncl_nested_action in ['create', 'delete']
+          - ncl_fleet_name | length > 0
+          - ncl_nested_action != 'create' or (ncl_parent_folder_name | length > 0 and ncl_child_folder_name | length > 0)
+        fail_msg: >-
+          Set ncl_console_url, credentials and ncl_fleet_name.
+          For create also set ncl_parent_folder_name and ncl_child_folder_name.
+
+    # ── Authentication ────────────────────────────────────────────────────────
+    - name: Login to Console
+      netapp.console.generate_oauth_token:
+        console_url: "{{ ncl_console_url }}"
+        email: "{{ ncl_admin_email }}"
+        password: "{{ ncl_admin_password }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _login
+      when: ncl_access_token | length == 0
+      no_log: true
+
+    - name: Store access token
+      ansible.builtin.set_fact:
+        _ncl_access_token: >-
+          {{ _login.access_token if (_login is not skipped) else ncl_access_token }}
+
+    # ── Org resolution ────────────────────────────────────────────────────────
+    - name: Discover organisations
+      netapp.console.local_organization_setup:
+        access_token: "{{ _ncl_access_token }}"
+        state: query
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _ncl_orgs
+      when: ncl_org_id | length == 0
+
+    - name: Resolve org ID
+      ansible.builtin.set_fact:
+        _ncl_org_id: >-
+          {{ ncl_org_id if ncl_org_id | length > 0
+             else (_ncl_orgs.organizations | first).id }}
+
+    - name: Show resolved org
+      ansible.builtin.debug:
+        msg: "Org id={{ _ncl_org_id }} | action={{ ncl_nested_action }}"
+
+  tasks:
+    # ══════════════════════════════════════════════════════════════════════════
+    # ACTION: create
+    # ══════════════════════════════════════════════════════════════════════════
+
+    # STEP 1 ── parent folder at org root ─────────────────────────────────────
+    - name: "CREATE | STEP 1 | Ensure parent folder exists: {{ ncl_parent_folder_name }}"
+      netapp.console.folder_management:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        name: "{{ ncl_parent_folder_name }}"
+        description: "Parent folder — managed by Ansible"
+        state: present
+      register: _parent_folder
+      when: ncl_nested_action == 'create'
+
+    - name: "CREATE | STEP 1 | Result"
+      ansible.builtin.debug:
+        msg: >-
+          Parent folder '{{ ncl_parent_folder_name }}'
+          {{ 'created' if _parent_folder.changed else 'already existed' }}
+          — id={{ _parent_folder.folder.id }}
+      when: ncl_nested_action == 'create'
+
+    # STEP 2 ── child folder under parent ─────────────────────────────────────
+    - name: "CREATE | STEP 2 | Ensure child folder exists under parent: {{ ncl_child_folder_name }}"
+      netapp.console.folder_management:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        name: "{{ ncl_child_folder_name }}"
+        parent_id: "{{ _parent_folder.folder.id }}"
+        description: "Child folder under '{{ ncl_parent_folder_name }}' — managed by Ansible"
+        state: present
+      register: _child_folder
+      when: ncl_nested_action == 'create'
+
+    - name: "CREATE | STEP 2 | Result"
+      ansible.builtin.debug:
+        msg: >-
+          Child folder '{{ ncl_child_folder_name }}'
+          {{ 'created' if _child_folder.changed else 'already existed' }}
+          — id={{ _child_folder.folder.id }}
+          (parent={{ ncl_parent_folder_name }}, id={{ _parent_folder.folder.id }})
+      when: ncl_nested_action == 'create'
+
+    # STEP 3 ── fleet under the child folder ──────────────────────────────────
+    - name: "CREATE | STEP 3 | Ensure fleet exists under child folder: {{ ncl_fleet_name }}"
+      netapp.console.storage_fleets:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: present
+        name: "{{ ncl_fleet_name }}"
+        description: "{{ ncl_fleet_description }}"
+        folder_id: "{{ _child_folder.folder.id }}"
+      register: _fleet
+      when: ncl_nested_action == 'create'
+
+    - name: "CREATE | STEP 3 | Result"
+      ansible.builtin.debug:
+        msg: >-
+          Fleet '{{ ncl_fleet_name }}'
+          {{ 'created' if _fleet.changed else 'already existed' }}
+          — id={{ _fleet.fleet.id }}
+      when: ncl_nested_action == 'create'
+
+    - name: "CREATE | Summary"
+      ansible.builtin.debug:
+        msg: |
+          ╔══════════════════════════════════════════════════════════════╗
+          ║       Nested Folder + Fleet — Provisioning Summary          ║
+          ╠══════════════════════════════════════════════════════════════╣
+          ║ Org                : {{ _ncl_org_id }}
+          ║                                                              ║
+          ║ Parent folder      : {{ ncl_parent_folder_name }}
+          ║   id               : {{ _parent_folder.folder.id }}
+          ║   changed          : {{ _parent_folder.changed }}
+          ║                                                              ║
+          ║ Child  folder      : {{ ncl_child_folder_name }}
+          ║   id               : {{ _child_folder.folder.id }}
+          ║   parent           : {{ ncl_parent_folder_name }}
+          ║   changed          : {{ _child_folder.changed }}
+          ║                                                              ║
+          ║ Fleet              : {{ ncl_fleet_name }}
+          ║   id               : {{ _fleet.fleet.id }}
+          ║   placed under     : {{ ncl_child_folder_name }} (id={{ _child_folder.folder.id }})
+          ║   changed          : {{ _fleet.changed }}
+          ╚══════════════════════════════════════════════════════════════╝
+      when: ncl_nested_action == 'create'
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # ACTION: delete
+    #
+    # Only ncl_fleet_name is required.  The playbook walks the parentId chain
+    # upward from the fleet to discover folder ancestors automatically, then
+    # tears down: fleet → child folder (if empty) → parent folder (if empty
+    # and still a real folder, not the org root).
+    #
+    # "Conditionally" means: a folder is deleted only when it has zero
+    # remaining children (folders, projects, or fleets) after its own child
+    # has been removed.  Sibling folders / fleets placed there by other
+    # processes are never touched.
+    # ══════════════════════════════════════════════════════════════════════════
+
+    # ── DISCOVER: snapshot hierarchy resources and fleet list ─────────────────
+    - name: "DELETE | Snapshot all hierarchy resources (folders + projects)"
+      netapp.console.scope_management:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: query
+      register: _snap_scopes
+      when: ncl_nested_action == 'delete'
+
+    - name: "DELETE | Snapshot all fleets (assets API)"
+      netapp.console.storage_fleets:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: query
+      register: _snap_fleets
+      when: ncl_nested_action == 'delete'
+
+    # ── Locate the fleet and walk its parentId chain ──────────────────────────
+    # Fleets created as resourceType=project appear in the hierarchy resources
+    # API carrying their parentId.  The assets-API list is a fallback in case
+    # the fleet is not visible in the hierarchy snapshot.
+    - name: "DELETE | Locate fleet and resolve parent chain: {{ ncl_fleet_name }}"
+      ansible.builtin.set_fact:
+        _fleet_obj: >-
+          {{
+            (_snap_scopes.scopes
+              | selectattr('name', 'equalto', ncl_fleet_name)
+              | selectattr('resourceType', 'equalto', 'project')
+              | list | first)
+            | default(
+                _snap_fleets.fleets
+                | selectattr('name', 'equalto', ncl_fleet_name)
+                | list | first
+                | default({})
+              )
+          }}
+      when: ncl_nested_action == 'delete'
+
+    - name: "DELETE | Abort — fleet not found in org: {{ ncl_fleet_name }}"
+      ansible.builtin.assert:
+        that:
+          - _fleet_obj.id is defined
+        fail_msg: >-
+          Fleet '{{ ncl_fleet_name }}' was not found in org '{{ _ncl_org_id }}'.
+          Nothing to delete.
+      when: ncl_nested_action == 'delete'
+
+    # Walk parentId: fleet.parentId → child folder object
+    - name: "DELETE | Resolve child folder (fleet's direct parent)"
+      ansible.builtin.set_fact:
+        _child_folder_obj: >-
+          {{
+            _snap_scopes.scopes
+            | selectattr('id', 'equalto', _fleet_obj.parentId | default(''))
+            | list | first | default({})
+          }}
+      when: ncl_nested_action == 'delete'
+
+    # Walk parentId: child folder.parentId → parent folder object
+    # If the child folder's parentId is the org itself it won't appear in
+    # scopes (org is excluded by the hierarchy filter) → default to {}.
+    - name: "DELETE | Resolve parent folder (child's parent, stops at org root)"
+      ansible.builtin.set_fact:
+        _parent_folder_obj: >-
+          {{
+            _snap_scopes.scopes
+            | selectattr('id', 'equalto', _child_folder_obj.parentId | default(''))
+            | list | first | default({})
+          }}
+      when:
+        - ncl_nested_action == 'delete'
+        - _child_folder_obj.id is defined
+
+    - name: "DELETE | Show discovered parent chain"
+      ansible.builtin.debug:
+        msg: |
+          Fleet         : '{{ ncl_fleet_name }}' (id={{ _fleet_obj.id }}, parentId={{ _fleet_obj.parentId | default('n/a') }})
+          Child  folder : '{{ _child_folder_obj.name | default('(none — fleet is at org root)') }}' (id={{ _child_folder_obj.id | default('n/a') }})
+          Parent folder : '{{ _parent_folder_obj.name | default('(none — child is at org root)') }}' (id={{ _parent_folder_obj.id | default('n/a') }})
+      when: ncl_nested_action == 'delete'
+
+    # ── STEP D1: Delete the fleet ─────────────────────────────────────────────
+    - name: "DELETE | STEP D1 | Delete fleet '{{ ncl_fleet_name }}'"
+      netapp.console.storage_fleets:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: absent
+        fleet_id: "{{ _fleet_obj.id }}"
+      register: _fleet_delete
+      when: ncl_nested_action == 'delete'
+
+    # ── STEP D2: Conditionally delete the child folder (if now empty) ─────────
+    # Re-query hierarchy + fleets after fleet deletion.  A child folder is
+    # "empty" when nothing lists it as parentId across both APIs.
+    - name: "DELETE | STEP D2 | Re-snapshot after fleet deletion"
+      netapp.console.scope_management:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: query
+      register: _post_d1_scopes
+      when:
+        - ncl_nested_action == 'delete'
+        - _child_folder_obj.id is defined
+
+    - name: "DELETE | STEP D2 | Re-snapshot fleets after fleet deletion"
+      netapp.console.storage_fleets:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: query
+      register: _post_d1_fleets
+      when:
+        - ncl_nested_action == 'delete'
+        - _child_folder_obj.id is defined
+
+    - name: "DELETE | STEP D2 | Count remaining children of child folder"
+      ansible.builtin.set_fact:
+        # Fleets appear in the hierarchy scopes as resourceType=project,
+        # so a single scopes query covers folders, projects, and fleets.
+        _child_remaining_count: >-
+          {{
+            _post_d1_scopes.scopes
+            | selectattr('parentId', 'defined')
+            | selectattr('parentId', 'equalto', _child_folder_obj.id)
+            | list | length
+          }}
+      when:
+        - ncl_nested_action == 'delete'
+        - _child_folder_obj.id is defined
+
+    - name: "DELETE | STEP D2 | Delete child folder (empty — 0 children remain)"
+      netapp.console.folder_management:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: absent
+        folder_id: "{{ _child_folder_obj.id }}"
+      register: _child_folder_delete
+      when:
+        - ncl_nested_action == 'delete'
+        - _child_folder_obj.id is defined
+        - _child_remaining_count | int == 0
+
+    - name: "DELETE | STEP D2 | Skip child folder (children remain): {{ _child_remaining_count | default(0) }}"
+      ansible.builtin.debug:
+        msg: >-
+          Child folder '{{ _child_folder_obj.name | default('') }}'
+          (id={{ _child_folder_obj.id | default('n/a') }}) has
+          {{ _child_remaining_count }} remaining child(ren) — leaving it intact.
+      when:
+        - ncl_nested_action == 'delete'
+        - _child_folder_obj.id is defined
+        - _child_remaining_count | int > 0
+
+    # ── STEP D3: Conditionally delete the parent folder (if now empty) ────────
+    # Only considered when child folder was actually deleted.  Guards:
+    #   • parent was discovered (parentId chain didn't reach org root)
+    #   • parent resourceType == 'folder' (not an org-level resource)
+    #   • no remaining children across both APIs
+    - name: "DELETE | STEP D3 | Re-snapshot after child folder deletion"
+      netapp.console.scope_management:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: query
+      register: _post_d2_scopes
+      when:
+        - ncl_nested_action == 'delete'
+        - _parent_folder_obj.id is defined
+        - _parent_folder_obj.resourceType | default('') == 'folder'
+        - _child_folder_delete is not skipped
+
+    - name: "DELETE | STEP D3 | Re-snapshot fleets after child folder deletion"
+      netapp.console.storage_fleets:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: query
+      register: _post_d2_fleets
+      when:
+        - ncl_nested_action == 'delete'
+        - _parent_folder_obj.id is defined
+        - _parent_folder_obj.resourceType | default('') == 'folder'
+        - _child_folder_delete is not skipped
+
+    - name: "DELETE | STEP D3 | Count remaining children of parent folder"
+      ansible.builtin.set_fact:
+        _parent_remaining_count: >-
+          {{
+            _post_d2_scopes.scopes
+            | selectattr('parentId', 'defined')
+            | selectattr('parentId', 'equalto', _parent_folder_obj.id)
+            | list | length
+          }}
+      when:
+        - ncl_nested_action == 'delete'
+        - _parent_folder_obj.id is defined
+        - _parent_folder_obj.resourceType | default('') == 'folder'
+        - _child_folder_delete is not skipped
+
+    - name: "DELETE | STEP D3 | Delete parent folder (empty — 0 children remain)"
+      netapp.console.folder_management:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: absent
+        folder_id: "{{ _parent_folder_obj.id }}"
+      register: _parent_folder_delete
+      when:
+        - ncl_nested_action == 'delete'
+        - _parent_folder_obj.id is defined
+        - _parent_folder_obj.resourceType | default('') == 'folder'
+        - _child_folder_delete is not skipped
+        - _parent_remaining_count | int == 0
+
+    - name: "DELETE | STEP D3 | Skip parent folder (children remain): {{ _parent_remaining_count | default(0) }}"
+      ansible.builtin.debug:
+        msg: >-
+          Parent folder '{{ _parent_folder_obj.name | default('') }}'
+          (id={{ _parent_folder_obj.id | default('n/a') }}) has
+          {{ _parent_remaining_count }} remaining child(ren) — leaving it intact.
+      when:
+        - ncl_nested_action == 'delete'
+        - _parent_folder_obj.id is defined
+        - _parent_folder_obj.resourceType | default('') == 'folder'
+        - _child_folder_delete is not skipped
+        - _parent_remaining_count | default(0) | int > 0
+
+    # ── DELETE Summary ────────────────────────────────────────────────────────
+    - name: "DELETE | Summary"
+      ansible.builtin.debug:
+        msg: |
+          ╔══════════════════════════════════════════════════════════════╗
+          ║       Nested Folder + Fleet — Delete Summary                ║
+          ╠══════════════════════════════════════════════════════════════╣
+          ║ Fleet '{{ ncl_fleet_name }}'
+          ║   id      : {{ _fleet_obj.id }}
+          ║   deleted : {{ _fleet_delete.changed }}
+          ║
+          ║ Child folder '{{ _child_folder_obj.name | default("(fleet was at org root)") }}'
+          ║   id      : {{ _child_folder_obj.id | default('n/a') }}
+          ║   deleted : {{ _child_folder_delete.changed | default(false) }}
+          ║   reason  : {% if _child_folder_obj.id is not defined %}fleet had no folder parent{% elif _child_folder_delete is skipped %}{{ _child_remaining_count | default(0) }} child(ren) remain — preserved{% else %}empty after fleet removal{% endif %}
+
+          ║ Parent folder '{{ _parent_folder_obj.name | default("(child was at org root)") }}'
+          ║   id      : {{ _parent_folder_obj.id | default('n/a') }}
+          ║   deleted : {{ _parent_folder_delete.changed | default(false) }}
+          ║   reason  : {% if _parent_folder_obj.id is not defined or _parent_folder_obj.resourceType | default('') != 'folder' %}child folder was at org root — no parent to delete{% elif _child_folder_delete is skipped %}child folder was preserved — parent skipped{% elif _parent_folder_delete is skipped %}{{ _parent_remaining_count | default(0) }} child(ren) remain — preserved{% else %}empty after child removal{% endif %}
+
+          ╚══════════════════════════════════════════════════════════════╝
+      when: ncl_nested_action == 'delete'

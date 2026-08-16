@@ -1,0 +1,277 @@
+---
+# NCL fleet management — list or create fleets.
+# Optionally create a folder first and place the fleet inside it.
+#
+# For deleting fleets use: playbooks/fleet_delete.yml
+#
+# Usage (controlled entirely by --tags, no extra variable needed):
+#
+# Tags:
+#   always  — auth + org resolution (always runs)
+#   list    — list all fleets in the org
+#   folder  — create the folder (ncl_fleet_folder_name must be set)
+#   fleet   — create the fleet + attach clusters if ncl_onprem_clusters is set
+#   create  — folder + fleet + attach clusters together
+#   attach  — attach ncl_onprem_clusters to an existing fleet (ncl_fleet_id required)
+#
+# Examples:
+#   List fleets only:
+#     ansible-playbook playbooks/fleet_management.yml \
+#         --extra-vars "@vars/ncl_fleet.yml" --tags list
+#
+#   Create a folder only:
+#     ansible-playbook playbooks/fleet_management.yml \
+#         --extra-vars "@vars/ncl_fleet.yml" --tags folder
+#
+#   Create folder + fleet (+ attach clusters if ncl_onprem_clusters defined):
+#     ansible-playbook playbooks/fleet_management.yml \
+#         --extra-vars "@vars/ncl_fleet.yml" --tags create
+#
+#   Create fleet only (folder already exists, pass its id):
+#     ansible-playbook playbooks/fleet_management.yml \
+#         --extra-vars "@vars/ncl_fleet.yml" \
+#         -e ncl_fleet_parent_id=<folder-uuid> --tags fleet
+#
+#   Attach clusters to an existing fleet (clusters must already be registered):
+#     ansible-playbook playbooks/fleet_management.yml \
+#         --extra-vars "@vars/ncl_fleet.yml" \
+#         -e ncl_fleet_id=<uuid> --tags attach
+
+- name: NCL fleet management
+  hosts: localhost
+  gather_facts: false
+
+  # vars_files is intentionally omitted — pass either:
+  #   --extra-vars "@vars/ncl_fleet.yml"   (dedicated, recommended)
+  #   --extra-vars "@vars/ncl.yml"          (shared, backward-compatible)
+
+  vars:
+    ncl_console_url: "{{ lookup('env', 'NCL_CONSOLE_URL')    | default(ncl_console_url, true) }}"
+    ncl_access_token: "{{ lookup('env', 'NCL_ACCESS_TOKEN')   | default('', true) }}"
+    ncl_org_id: "{{ lookup('env', 'NCL_ORG_ID')         | default('', true) }}"
+    ncl_validate_certs: "{{ lookup('env', 'NCL_VALIDATE_CERTS') | default(ncl_validate_certs, true) | bool }}"
+    ncl_fleet_id: ""
+    # Folder to create the fleet inside.
+    # Leave empty to place the fleet directly under the org root.
+    ncl_fleet_folder_name: "{{ ncl_folder_name | default('') }}"
+    ncl_fleet_folder_description: "{{ ncl_folder_description | default('Managed by Ansible') }}"
+    # Explicit parent folder UUID — set this to skip folder creation and use
+    # an existing folder directly. Resolved automatically when
+    # ncl_fleet_folder_name is given.
+    ncl_fleet_parent_id: ""
+
+  pre_tasks:
+    - name: Check required variables
+      tags: [always]
+      ansible.builtin.assert:
+        that:
+          - ncl_console_url | length > 0
+          - ncl_admin_email | length > 0 or ncl_access_token | length > 0
+        fail_msg: >-
+          Set ncl_console_url and credentials in vars/ncl_fleet.yml.
+
+    - name: Login
+      tags: [always]
+      netapp.console.generate_oauth_token:
+        console_url: "{{ ncl_console_url }}"
+        email: "{{ ncl_admin_email }}"
+        password: "{{ ncl_admin_password }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _login
+      when: ncl_access_token | length == 0
+      no_log: true
+
+    - name: Store token
+      tags: [always]
+      ansible.builtin.set_fact:
+        _ncl_access_token: "{{ _login.access_token if (_login is not skipped) else ncl_access_token }}"
+
+    - name: Discover organisations
+      tags: [always]
+      netapp.console.local_organization_setup:
+        access_token: "{{ _ncl_access_token }}"
+        state: query
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _ncl_orgs
+
+    - name: Resolve org id
+      tags: [always]
+      ansible.builtin.set_fact:
+        _ncl_org_id: >-
+          {{ ncl_org_id
+             if (ncl_org_id | default('') | length > 0)
+             else (_ncl_orgs.organizations | first).id }}
+        _ncl_org_name: >-
+          {{ (_ncl_orgs.organizations
+              | selectattr('id', 'equalto',
+                  ncl_org_id if (ncl_org_id | default('') | length > 0)
+                  else (_ncl_orgs.organizations | first).id)
+              | list | first).name | default('unknown') }}
+
+    - name: Show resolved org
+      tags: [always]
+      ansible.builtin.debug:
+        msg: "Using org '{{ _ncl_org_name }}' (id={{ _ncl_org_id }})"
+
+  tasks:
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAG: list  — show all fleets in the org
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "LIST | All fleets in the org"
+      tags: [list]
+      netapp.console.storage_fleets:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        state: query
+        org_id: "{{ _ncl_org_id }}"
+      register: ncl_fleets
+
+    - name: "LIST | Show fleets"
+      tags: [list]
+      ansible.builtin.debug:
+        msg: >-
+          Fleets in org '{{ _ncl_org_name }}' ({{ ncl_fleets.fleets | length }}):
+          {{ ncl_fleets.fleets | map(attribute='name') | list }}
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAG: folder  — create (or confirm) the parent folder
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "FOLDER | Create folder '{{ ncl_fleet_folder_name }}'"
+      tags: [folder, create]
+      netapp.console.folder_management:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        name: "{{ ncl_fleet_folder_name }}"
+        description: "{{ ncl_fleet_folder_description }}"
+      register: _folder_result
+      when:
+        - ncl_fleet_folder_name | length > 0
+        - ncl_fleet_parent_id | length == 0
+
+    - name: "FOLDER | Store folder ID"
+      tags: [folder, create]
+      ansible.builtin.set_fact:
+        _resolved_parent_id: "{{ _folder_result.folder.id }}"
+      when:
+        - _folder_result is not skipped
+        - _folder_result.folder.id is defined
+
+    - name: "FOLDER | Use explicit parent ID (folder already exists)"
+      tags: [folder, create, fleet]
+      ansible.builtin.set_fact:
+        _resolved_parent_id: "{{ ncl_fleet_parent_id }}"
+      when:
+        - ncl_fleet_parent_id | length > 0
+        - _resolved_parent_id is not defined
+
+    - name: "FOLDER | Default parent to org root (no folder specified)"
+      tags: [folder, create, fleet]
+      ansible.builtin.set_fact:
+        _resolved_parent_id: "{{ _ncl_org_id }}"
+      when: _resolved_parent_id is not defined
+
+    - name: "FOLDER | Show resolved parent"
+      tags: [folder, create]
+      ansible.builtin.debug:
+        msg: >-
+          Fleet will be created under:
+          {{ ncl_fleet_folder_name if ncl_fleet_folder_name | length > 0 else '(org root)' }}
+          (parent_id={{ _resolved_parent_id }})
+          {{ '[' + _folder_result.msg + ']' if (_folder_result is defined and _folder_result is not skipped) else '' }}
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAG: fleet + create  — create the fleet under the resolved parent
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "FLEET | Create fleet '{{ ncl_fleet_name }}'"
+      tags: [fleet, create]
+      netapp.console.storage_fleets:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        state: present
+        org_id: "{{ _ncl_org_id }}"
+        name: "{{ ncl_fleet_name }}"
+        description: "{{ ncl_fleet_description | default('Managed by Ansible') }}"
+        parent_id: "{{ _resolved_parent_id }}"
+      register: ncl_fleet_result
+
+    - name: "FLEET | Show created fleet"
+      tags: [fleet, create]
+      ansible.builtin.debug:
+        msg: >-
+          ╔══════════════════════════════════════════════════════╗
+          ║          Fleet Management — Create                   ║
+          ╠══════════════════════════════════════════════════════╣
+          ║ Fleet   : {{ ncl_fleet_name }}
+          ║ Fleet ID: {{ ncl_fleet_result.fleet.id | default('n/a') }}
+          ║ Changed : {{ ncl_fleet_result.changed }}
+          ║ Parent  : {{ ncl_fleet_folder_name if ncl_fleet_folder_name | length > 0 else '(org root)' }} ({{ _resolved_parent_id }})
+          ╚══════════════════════════════════════════════════════╝
+      when: ncl_fleet_result is not skipped
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAG: attach  — attach on-prem clusters (ncl_onprem_clusters) to the fleet
+    # Runs automatically after fleet creation when ncl_onprem_clusters is set.
+    # Can also be run standalone with --tags attach -e ncl_fleet_id=<uuid>.
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "ATTACH | Skip — ncl_onprem_clusters not defined or empty"
+      tags: [fleet, create, attach]
+      ansible.builtin.debug:
+        msg: "ncl_onprem_clusters not defined or empty — skipping cluster attach step."
+      when: (ncl_onprem_clusters | default([])) | length == 0
+
+    - name: "ATTACH | Resolve target fleet ID"
+      tags: [fleet, create, attach]
+      ansible.builtin.set_fact:
+        _attach_fleet_id: >-
+          {%- if ncl_fleet_result is defined and ncl_fleet_result is not skipped
+                 and ncl_fleet_result.fleet.id is defined -%}
+            {{ ncl_fleet_result.fleet.id }}
+          {%- else -%}
+            {{ ncl_fleet_id | default('') }}
+          {%- endif -%}
+      when: (ncl_onprem_clusters | default([])) | length > 0
+
+    - name: "ATTACH | Fail if fleet ID could not be resolved"
+      tags: [fleet, create, attach]
+      ansible.builtin.fail:
+        msg: >-
+          Cannot attach clusters: target fleet ID is unknown.
+          Pass -e ncl_fleet_id=<uuid> when using --tags attach standalone,
+          or run with --tags fleet/create to create the fleet first.
+      when:
+        - (ncl_onprem_clusters | default([])) | length > 0
+        - _attach_fleet_id | default('') | length == 0
+
+    - name: "ATTACH | Attach clusters to fleet"
+      tags: [fleet, create, attach]
+      netapp.console.add_systems_to_fleet:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        fleet_id: "{{ _attach_fleet_id }}"
+        cluster_ips: "{{ ncl_onprem_clusters | map(attribute='cluster_ip') | list }}"
+      register: _attach_result
+      when: (ncl_onprem_clusters | default([])) | length > 0
+
+    - name: "ATTACH | Summary"
+      tags: [fleet, create, attach]
+      ansible.builtin.debug:
+        msg: >-
+          ╔══════════════════════════════════════════════════════╗
+          ║        Fleet Management — Attach Clusters            ║
+          ╠══════════════════════════════════════════════════════╣
+          ║ Fleet ID  : {{ _attach_result.fleet_id | default('n/a') }}
+          ║ Attached  : {{ _attach_result.attached_count | default(0) }} cluster(s)
+          ║ WE IDs    : {{ _attach_result.attached_ids | default([]) | join(', ') }}
+          ║ Skipped   : {{ _attach_result.already_attached_ids | default([]) | length }} already attached
+          ║ Unmatched : {{ _attach_result.unmatched_ips | default([]) | join(', ') or 'none' }}
+          ╚══════════════════════════════════════════════════════╝
+      when: (ncl_onprem_clusters | default([])) | length > 0
+
+    # For fleet deletion use: ansible-playbook playbooks/fleet_delete.yml

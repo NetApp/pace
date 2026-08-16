@@ -1,0 +1,67 @@
+---
+# =============================================================================
+# Console Email Configuration — dedicated variable defaults
+# =============================================================================
+# Usage:
+#   ansible-playbook playbooks/email_config.yml \
+#       --extra-vars "@vars/ncl_email_config.yml" \
+#       -e ncl_admin_password=YOUR_PASSWORD \
+#       -e ncl_smtp_password=SMTP_PASSWORD
+#
+# Override any variable on the command line with -e, e.g.:
+#   -e ncl_email_action=create
+#   -e ncl_smtp_host=mail.example.com
+#
+# For secrets in production, encrypt with Ansible Vault:
+#   ansible-vault encrypt vars/ncl_email_config.yml
+# =============================================================================
+
+# ── Console appliance ──────────────────────────────────────────────────────────
+ncl_console_url: "" # REQUIRED: set your appliance URL
+ncl_validate_certs: false                  # set true in production
+
+# ── Admin credentials ─────────────────────────────────────────────────────────
+ncl_admin_email: ""
+ncl_admin_password: "" # REQUIRED: pass via -e or Vault
+
+# ── Organisation ──────────────────────────────────────────────────────────────
+# The org_id from the API URL:
+#   /organizations/<org_id>/email-config
+# Leave empty to auto-discover from the first organisation.
+ncl_org_id: ""
+
+# ── Action ────────────────────────────────────────────────────────────────────
+# Supported values: query | create
+ncl_email_action: "query"
+
+# ── SMTP server settings (required for create/update) ─────────────────────────
+# host — SMTP server hostname or IP address
+# port — optional; auto-defaults to 465 when ssl=true, 25 otherwise.
+#         Override here only when using a non-standard port.
+ncl_smtp_host: "mail.netapp.com"
+ncl_smtp_port: ""   # leave empty to auto-default based on ssl/start_tls
+
+# SMTP authentication
+ncl_smtp_username: ""
+ncl_smtp_password: ""           # REQUIRED: pass via -e or Vault
+
+# Sender identity
+ncl_smtp_from_name: "Console Notifications"
+ncl_smtp_from_address: "service@console.netapp.com"
+
+# ── TLS mode — choose one ──────────────────────────────────────────────────────
+# STARTTLS (port 25): start_tls=true, ssl=false
+# Implicit SSL (port 465): start_tls=false, ssl=true
+ncl_smtp_start_tls: true
+ncl_smtp_ssl: false
+
+# PEM-encoded CA certificate for SMTP TLS verification.
+# Leave empty to use the system default CA bundle.
+ncl_smtp_tls_certificate: ""
+
+# ── Connectivity test (used when ncl_email_action=create) ─────────────────────
+# A test email is sent to ncl_smtp_test_address before saving the configuration.
+# Set ncl_smtp_run_test=false to skip the test and create/update directly.
+ncl_smtp_run_test: true
+ncl_smtp_test_address: ""
+ncl_smtp_test_subject: ""

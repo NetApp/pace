@@ -1,0 +1,607 @@
+---
+# NCL folder management — list, create or delete folders inside an organisation.
+#
+# Supported actions (ncl_folder_action):
+#   list   — list all folders/projects in the org (via resources API)
+#   create — create a folder and verify it appears in the resources API
+#   delete — delete a folder by name or by id
+#            set ncl_folder_cascade=true to delete all child folders first
+#            (leaves → root order, API never rejects a non-empty folder)
+#            set ncl_folder_delete_empty_ancestors=true to also walk UP the
+#            parentId chain and delete each ancestor folder only when it
+#            becomes empty after its child was removed (conditional, safe)
+#
+# Usage — with vars file:
+#   ansible-playbook playbooks/folder_management.yml \
+#       --extra-vars "@vars/ncl.yml"
+#
+# Usage — override action and folder name inline:
+#   ansible-playbook playbooks/folder_management.yml \
+#       --extra-vars "@vars/ncl.yml" \
+#       -e ncl_folder_action=create \
+#       -e ncl_folder_name="prod-folder"
+#
+# Usage — create a nested folder under an existing parent folder:
+#   ansible-playbook playbooks/folder_management.yml \
+#       --extra-vars "@vars/ncl.yml" \
+#       -e ncl_folder_action=create \
+#       -e ncl_folder_name="nested-folder" \
+#       -e ncl_folder_parent_id=<parent-folder-id>
+#
+# Usage — delete a single (empty) folder by name:
+#   ansible-playbook playbooks/folder_management.yml \
+#       --extra-vars "@vars/ncl.yml" \
+#       -e ncl_folder_action=delete \
+#       -e ncl_folder_name="prod-folder"
+#
+# Usage — cascade delete (folder + all descendants, children first):
+#   ansible-playbook playbooks/folder_management.yml \
+#       --extra-vars "@vars/ncl.yml" \
+#       -e ncl_folder_action=delete \
+#       -e ncl_folder_name="prod-folder" \
+#       -e ncl_folder_cascade=true
+#
+# Usage — cascade delete by id:
+#   ansible-playbook playbooks/folder_management.yml \
+#       --extra-vars "@vars/ncl.yml" \
+#       -e ncl_folder_action=delete \
+#       -e ncl_folder_id=<uuid> \
+#       -e ncl_folder_cascade=true
+#
+# Environment variable overrides (CI / secrets managers):
+#   NCL_CONSOLE_URL    → ncl_console_url
+#   NCL_ACCESS_TOKEN   → ncl_access_token
+#   NCL_ORG_ID         → ncl_org_id
+#   NCL_VALIDATE_CERTS → ncl_validate_certs
+
+- name: NCL folder management (list / create / delete)
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../vars/ncl.yml
+
+  vars:
+    ncl_console_url: "{{ lookup('env', 'NCL_CONSOLE_URL')    | default(ncl_console_url,    true) }}"
+    ncl_access_token: "{{ lookup('env', 'NCL_ACCESS_TOKEN')   | default('',                 true) }}"
+    ncl_org_id: "{{ lookup('env', 'NCL_ORG_ID')         | default('',                 true) }}"
+    ncl_validate_certs: "{{ lookup('env', 'NCL_VALIDATE_CERTS') | default(ncl_validate_certs, true) | bool }}"
+
+  pre_tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - ncl_console_url | length > 0
+          - (ncl_admin_email | length > 0 and ncl_admin_password | length > 0) or ncl_access_token | length > 0
+          - ncl_folder_action in ['list', 'create', 'delete']
+        fail_msg: >-
+          Set ncl_console_url, credentials and ncl_folder_action
+          (list | create | delete) in vars/ncl.yml or via -e.
+
+    # ── Authentication ────────────────────────────────────────────────────────
+    - name: Login to Console
+      netapp.console.generate_oauth_token:
+        console_url: "{{ ncl_console_url }}"
+        email: "{{ ncl_admin_email }}"
+        password: "{{ ncl_admin_password }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _login
+      when: ncl_access_token | length == 0
+      no_log: true
+
+    - name: Store access token
+      ansible.builtin.set_fact:
+        _ncl_access_token: >-
+          {{ _login.access_token if (_login is not skipped) else ncl_access_token }}
+
+    # ── Org resolution ────────────────────────────────────────────────────────
+    - name: Discover organisations
+      netapp.console.local_organization_setup:
+        access_token: "{{ _ncl_access_token }}"
+        state: query
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _ncl_orgs
+      when: ncl_org_id | length == 0
+
+    - name: Resolve org ID
+      ansible.builtin.set_fact:
+        _ncl_org_id: >-
+          {{ ncl_org_id if ncl_org_id | length > 0
+             else (_ncl_orgs.organizations | first).id }}
+
+    - name: Show resolved org
+      ansible.builtin.debug:
+        msg: "Using org id={{ _ncl_org_id }}"
+
+  tasks:
+    # ══════════════════════════════════════════════════════════════════════════
+    # ACTION: list
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "LIST | All folders and projects in the organisation"
+      netapp.console.scope_management:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: query
+      register: _all_scopes
+      when: ncl_folder_action == 'list'
+
+    - name: "LIST | Folders only"
+      ansible.builtin.set_fact:
+        _folders_only: >-
+          {{ _all_scopes.scopes | selectattr('resourceType', 'equalto', 'folder') | list }}
+      when: ncl_folder_action == 'list'
+
+    - name: "LIST | Show results"
+      ansible.builtin.debug:
+        msg: |
+          Total hierarchy resources : {{ _all_scopes.scopes | length }}
+          Folders                   : {{ _folders_only | length }}
+          Folder names              : {{ _folders_only | map(attribute='name') | list }}
+          All scope names           : {{ _all_scopes.scopes | map(attribute='name') | list }}
+      when: ncl_folder_action == 'list'
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # ACTION: create
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "CREATE | Validate folder name is set"
+      ansible.builtin.assert:
+        that:
+          - ncl_folder_name | length > 0
+        fail_msg: "ncl_folder_name must be set when ncl_folder_action=create."
+      when: ncl_folder_action == 'create'
+
+    # ── Resolve parent name → ID (only when a parent name is supplied) ────────
+    - name: "CREATE | List all folders to resolve parent name"
+      netapp.console.scope_management:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: query
+      register: _parent_lookup_scopes
+      when:
+        - ncl_folder_action == 'create'
+        - ncl_folder_parent_name | default('') | length > 0
+
+    - name: "CREATE | Resolve parent folder ID from name"
+      ansible.builtin.set_fact:
+        _resolved_parent_id: >-
+          {{ (_parent_lookup_scopes.scopes
+              | selectattr('name', 'equalto', ncl_folder_parent_name)
+              | selectattr('resourceType', 'equalto', 'folder')
+              | list | first | default({})).id | default('') }}
+      when:
+        - ncl_folder_action == 'create'
+        - ncl_folder_parent_name | default('') | length > 0
+
+    # ── Auto-create parent if it does not exist ───────────────────────────────
+    - name: "CREATE | Parent folder not found, creating: {{ ncl_folder_parent_name }}"
+      netapp.console.folder_management:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        name: "{{ ncl_folder_parent_name }}"
+        description: "Auto-created by Ansible (parent of '{{ ncl_folder_name }}')"
+      register: _auto_parent_result
+      when:
+        - ncl_folder_action == 'create'
+        - ncl_folder_parent_name | default('') | length > 0
+        - _resolved_parent_id | default('') | length == 0
+
+    - name: "CREATE | Store auto-created parent ID"
+      ansible.builtin.set_fact:
+        _resolved_parent_id: "{{ _auto_parent_result.folder.id }}"
+      when:
+        - ncl_folder_action == 'create'
+        - ncl_folder_parent_name | default('') | length > 0
+        - _auto_parent_result is not skipped
+        - _auto_parent_result.folder.id is defined
+
+    - name: "CREATE | Show resolved parent"
+      ansible.builtin.debug:
+        msg: >-
+          Parent folder '{{ ncl_folder_parent_name }}'
+          {{ 'auto-created' if (_auto_parent_result is not skipped) else 'already existed' }}
+          — id={{ _resolved_parent_id }}
+      when:
+        - ncl_folder_action == 'create'
+        - ncl_folder_parent_name | default('') | length > 0
+
+    - name: "CREATE | Ensure folder exists: {{ ncl_folder_name }}"
+      netapp.console.folder_management:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        name: "{{ ncl_folder_name }}"
+        description: "{{ ncl_folder_description | default('Managed by Ansible') }}"
+        parent_id: "{{ _resolved_parent_id if (ncl_folder_parent_name | default('') | length > 0) else omit }}"
+      register: _folder_result
+      when: ncl_folder_action == 'create'
+
+    - name: "CREATE | Result"
+      ansible.builtin.debug:
+        msg: "{{ _folder_result.msg }}"
+      when: ncl_folder_action == 'create'
+
+    - name: "CREATE | Store folder ID"
+      ansible.builtin.set_fact:
+        _created_folder_id: "{{ _folder_result.folder.id }}"
+        _created_folder_name: "{{ _folder_result.folder.name }}"
+      when: ncl_folder_action == 'create'
+
+    # ── Post-creation verification ────────────────────────────────────────────
+    - name: "VERIFY | Assert folder appears in resources API (inline verification)"
+      ansible.builtin.assert:
+        that:
+          - _folder_result.verified | bool
+          - _folder_result.all_folders | selectattr('id', 'equalto', _created_folder_id) | list | length > 0
+        fail_msg: >-
+          Folder '{{ ncl_folder_name }}' (id={{ _created_folder_id }})
+          was NOT found in the resources API response after creation.
+        success_msg: >-
+          Folder '{{ ncl_folder_name }}' (id={{ _created_folder_id }})
+          confirmed in resources API.
+      when: ncl_folder_action == 'create'
+
+    - name: "VERIFY | Cross-check via scope_management state=query"
+      netapp.console.scope_management:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: query
+      register: _post_scopes
+      when: ncl_folder_action == 'create'
+
+    - name: "VERIFY | Assert folder visible via scope_management"
+      ansible.builtin.assert:
+        that:
+          - _post_scopes.scopes | selectattr('id', 'equalto', _created_folder_id) | list | length > 0
+        fail_msg: >-
+          Folder '{{ ncl_folder_name }}' not found via scope_management state=query.
+        success_msg: >-
+          Folder '{{ ncl_folder_name }}' confirmed via scope_management state=query.
+      when: ncl_folder_action == 'create'
+
+    - name: "CREATE | Summary"
+      ansible.builtin.debug:
+        msg: |
+          ╔══════════════════════════════════════════════════════╗
+          ║         Folder Management — Create                   ║
+          ╠══════════════════════════════════════════════════════╣
+          ║ Name        : {{ _created_folder_name }}
+          ║ ID          : {{ _created_folder_id }}
+          ║ Changed     : {{ _folder_result.changed }}
+          ║ Verified    : {{ _folder_result.verified }}
+          ║ Parent name : {{ ncl_folder_parent_name | default('org root') }}
+          ║ Parent ID   : {{ _resolved_parent_id | default('—') }}
+          ║ Total scopes: {{ _post_scopes.scopes | length }}
+          ╚══════════════════════════════════════════════════════╝
+      when: ncl_folder_action == 'create'
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # ACTION: delete
+    #
+    # Deletes a folder by name or by id.  When ncl_folder_cascade=true the
+    # module walks the subtree and deletes every descendant folder first
+    # (deepest leaves → root) so the target folder is always empty when its
+    # own DELETE call is made.  Projects / workspaces inside the subtree are
+    # intentionally left untouched.
+    #
+    # Usage — single folder (must be empty):
+    #   -e ncl_folder_action=delete -e ncl_folder_name="my-folder"
+    #
+    # Usage — cascade (folder + all child folders, children first):
+    #   -e ncl_folder_action=delete -e ncl_folder_name="prod-folder" \
+    #   -e ncl_folder_cascade=true
+    #
+    # Usage — delete by id:
+    #   -e ncl_folder_action=delete -e ncl_folder_id="<uuid>" \
+    #   -e ncl_folder_cascade=true
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "DELETE | Validate name or id is set"
+      ansible.builtin.assert:
+        that:
+          - (ncl_folder_name | default('') | length > 0) or (ncl_folder_id | default('') | length > 0)
+        fail_msg: "Set ncl_folder_name or ncl_folder_id when ncl_folder_action=delete."
+      when: ncl_folder_action == 'delete'
+
+    - name: "DELETE | Store label"
+      ansible.builtin.set_fact:
+        _delete_label: >-
+          {{ ncl_folder_name if (ncl_folder_name | default('') | length > 0)
+             else ncl_folder_id }}
+      when: ncl_folder_action == 'delete'
+
+    # ── Snapshot before deletion — needed to trace parentId chain upward ──────
+    # Must run before the delete so the target's parentId is still available.
+    - name: "DELETE | Snapshot hierarchy (pre-delete)"
+      netapp.console.scope_management:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: query
+      register: _pre_delete_scopes
+      when: ncl_folder_action == 'delete'
+
+    # Two separate set_fact tasks using "{{ expr }}" (not >- block) so Ansible
+    # preserves dict type — a >- block with {%- if -%} coerces to a string,
+    # making .parentId return Undefined.
+    - name: "DELETE | Resolve target folder from snapshot (by id)"
+      ansible.builtin.set_fact:
+        _target_folder_obj: "{{ _pre_delete_scopes.scopes | selectattr('id', 'equalto', ncl_folder_id) | list | first | default({}) }}"
+      when:
+        - ncl_folder_action == 'delete'
+        - ncl_folder_id | default('') | length > 0
+
+    - name: "DELETE | Resolve target folder from snapshot (by name)"
+      ansible.builtin.set_fact:
+        _target_folder_obj: >-
+          {{ _pre_delete_scopes.scopes
+             | selectattr('name', 'equalto', ncl_folder_name)
+             | selectattr('resourceType', 'equalto', 'folder')
+             | list | first | default({}) }}
+      when:
+        - ncl_folder_action == 'delete'
+        - ncl_folder_id | default('') | length == 0
+
+    # ── Delete the target folder (+ optional subtree) ─────────────────────────
+    - name: "DELETE | Delete folder{{ ' and all descendants' if ncl_folder_cascade | default(false) | bool else '' }}"
+      netapp.console.folder_management:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: absent
+        cascade: "{{ ncl_folder_cascade | default(false) | bool }}"
+        name: "{{ ncl_folder_name | default(omit) }}"
+        folder_id: "{{ ncl_folder_id | default(omit) }}"
+      register: _delete_result
+      when: ncl_folder_action == 'delete'
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Conditional ancestor cleanup (ncl_folder_delete_empty_ancestors=true)
+    #
+    # After deleting the target, walk the parentId chain upward up to 3 levels.
+    # At each level: re-query live hierarchy, count remaining children, delete
+    # only when count == 0 and the ancestor is a real folder.  Stop climbing as
+    # soon as an ancestor is non-empty or not a folder.
+    # ══════════════════════════════════════════════════════════════════════════
+
+    # ── LEVEL 1: direct parent ────────────────────────────────────────────────
+    - name: "DELETE | ANCESTORS | Resolve L1 (direct parent)"
+      ansible.builtin.set_fact:
+        _anc1_obj: "{{ _pre_delete_scopes.scopes | selectattr('id', 'equalto', _target_folder_obj.parentId) | list | first | default({}) }}"
+      when:
+        - ncl_folder_action == 'delete'
+        - ncl_folder_delete_empty_ancestors | default(false) | bool
+        - _delete_result.changed | default(false)
+        - _target_folder_obj is defined
+        - _target_folder_obj.parentId is defined
+
+    - name: "DELETE | ANCESTORS | Re-snapshot after target deletion"
+      netapp.console.scope_management:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: query
+      register: _post_anc1_scopes
+      when:
+        - ncl_folder_action == 'delete'
+        - ncl_folder_delete_empty_ancestors | default(false) | bool
+        - _delete_result.changed | default(false)
+        - _anc1_obj is defined and _anc1_obj.id is defined
+        - _anc1_obj.resourceType | default('') == 'folder'
+
+    - name: "DELETE | ANCESTORS | Count L1 remaining children"
+      ansible.builtin.set_fact:
+        _anc1_children: "{{ _post_anc1_scopes.scopes | selectattr('parentId', 'defined') | selectattr('parentId', 'equalto', _anc1_obj.id) | list | length }}"
+      when:
+        - ncl_folder_action == 'delete'
+        - ncl_folder_delete_empty_ancestors | default(false) | bool
+        - _delete_result.changed | default(false)
+        - _anc1_obj is defined and _anc1_obj.id is defined
+        - _anc1_obj.resourceType | default('') == 'folder'
+
+    - name: "DELETE | ANCESTORS | Delete L1 (empty): {{ _anc1_obj.name | default('') }}"
+      netapp.console.folder_management:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: absent
+        folder_id: "{{ _anc1_obj.id }}"
+      register: _anc1_delete
+      when:
+        - ncl_folder_action == 'delete'
+        - ncl_folder_delete_empty_ancestors | default(false) | bool
+        - _delete_result.changed | default(false)
+        - _anc1_obj is defined and _anc1_obj.id is defined
+        - _anc1_obj.resourceType | default('') == 'folder'
+        - _anc1_children | int == 0
+
+    - name: "DELETE | ANCESTORS | Skip L1 (children remain): {{ _anc1_obj.name | default('') }}"
+      ansible.builtin.debug:
+        msg: "Ancestor '{{ _anc1_obj.name }}' has {{ _anc1_children }} remaining child(ren) — leaving intact. Walk stops here."
+      when:
+        - ncl_folder_action == 'delete'
+        - ncl_folder_delete_empty_ancestors | default(false) | bool
+        - _delete_result.changed | default(false)
+        - _anc1_obj is defined and _anc1_obj.id is defined
+        - _anc1_obj.resourceType | default('') == 'folder'
+        - _anc1_children | default(0) | int > 0
+
+    # ── LEVEL 2: grandparent ──────────────────────────────────────────────────
+    - name: "DELETE | ANCESTORS | Resolve L2 (grandparent)"
+      ansible.builtin.set_fact:
+        _anc2_obj: "{{ _pre_delete_scopes.scopes | selectattr('id', 'equalto', _anc1_obj.parentId) | list | first | default({}) }}"
+      when:
+        - ncl_folder_action == 'delete'
+        - ncl_folder_delete_empty_ancestors | default(false) | bool
+        - _anc1_delete is not skipped and _anc1_delete.changed | default(false)
+        - _anc1_obj.parentId is defined
+
+    - name: "DELETE | ANCESTORS | Re-snapshot after L1 deletion"
+      netapp.console.scope_management:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: query
+      register: _post_anc2_scopes
+      when:
+        - ncl_folder_action == 'delete'
+        - ncl_folder_delete_empty_ancestors | default(false) | bool
+        - _anc1_delete is not skipped and _anc1_delete.changed | default(false)
+        - _anc2_obj is defined and _anc2_obj.id is defined
+        - _anc2_obj.resourceType | default('') == 'folder'
+
+    - name: "DELETE | ANCESTORS | Count L2 remaining children"
+      ansible.builtin.set_fact:
+        _anc2_children: "{{ _post_anc2_scopes.scopes | selectattr('parentId', 'defined') | selectattr('parentId', 'equalto', _anc2_obj.id) | list | length }}"
+      when:
+        - ncl_folder_action == 'delete'
+        - ncl_folder_delete_empty_ancestors | default(false) | bool
+        - _anc1_delete is not skipped and _anc1_delete.changed | default(false)
+        - _anc2_obj is defined and _anc2_obj.id is defined
+        - _anc2_obj.resourceType | default('') == 'folder'
+
+    - name: "DELETE | ANCESTORS | Delete L2 (empty): {{ _anc2_obj.name | default('') }}"
+      netapp.console.folder_management:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: absent
+        folder_id: "{{ _anc2_obj.id }}"
+      register: _anc2_delete
+      when:
+        - ncl_folder_action == 'delete'
+        - ncl_folder_delete_empty_ancestors | default(false) | bool
+        - _anc1_delete is not skipped and _anc1_delete.changed | default(false)
+        - _anc2_obj is defined and _anc2_obj.id is defined
+        - _anc2_obj.resourceType | default('') == 'folder'
+        - _anc2_children | int == 0
+
+    - name: "DELETE | ANCESTORS | Skip L2 (children remain): {{ _anc2_obj.name | default('') }}"
+      ansible.builtin.debug:
+        msg: "Ancestor '{{ _anc2_obj.name }}' has {{ _anc2_children }} remaining child(ren) — leaving intact. Walk stops here."
+      when:
+        - ncl_folder_action == 'delete'
+        - ncl_folder_delete_empty_ancestors | default(false) | bool
+        - _anc1_delete is not skipped and _anc1_delete.changed | default(false)
+        - _anc2_obj is defined and _anc2_obj.id is defined
+        - _anc2_obj.resourceType | default('') == 'folder'
+        - _anc2_children | default(0) | int > 0
+
+    # ── LEVEL 3: great-grandparent ────────────────────────────────────────────
+    - name: "DELETE | ANCESTORS | Resolve L3 (great-grandparent)"
+      ansible.builtin.set_fact:
+        _anc3_obj: "{{ _pre_delete_scopes.scopes | selectattr('id', 'equalto', _anc2_obj.parentId) | list | first | default({}) }}"
+      when:
+        - ncl_folder_action == 'delete'
+        - ncl_folder_delete_empty_ancestors | default(false) | bool
+        - _anc2_delete is not skipped and _anc2_delete.changed | default(false)
+        - _anc2_obj.parentId is defined
+
+    - name: "DELETE | ANCESTORS | Re-snapshot after L2 deletion"
+      netapp.console.scope_management:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: query
+      register: _post_anc3_scopes
+      when:
+        - ncl_folder_action == 'delete'
+        - ncl_folder_delete_empty_ancestors | default(false) | bool
+        - _anc2_delete is not skipped and _anc2_delete.changed | default(false)
+        - _anc3_obj is defined and _anc3_obj.id is defined
+        - _anc3_obj.resourceType | default('') == 'folder'
+
+    - name: "DELETE | ANCESTORS | Count L3 remaining children"
+      ansible.builtin.set_fact:
+        _anc3_children: "{{ _post_anc3_scopes.scopes | selectattr('parentId', 'defined') | selectattr('parentId', 'equalto', _anc3_obj.id) | list | length }}"
+      when:
+        - ncl_folder_action == 'delete'
+        - ncl_folder_delete_empty_ancestors | default(false) | bool
+        - _anc2_delete is not skipped and _anc2_delete.changed | default(false)
+        - _anc3_obj is defined and _anc3_obj.id is defined
+        - _anc3_obj.resourceType | default('') == 'folder'
+
+    - name: "DELETE | ANCESTORS | Delete L3 (empty): {{ _anc3_obj.name | default('') }}"
+      netapp.console.folder_management:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: absent
+        folder_id: "{{ _anc3_obj.id }}"
+      register: _anc3_delete
+      when:
+        - ncl_folder_action == 'delete'
+        - ncl_folder_delete_empty_ancestors | default(false) | bool
+        - _anc2_delete is not skipped and _anc2_delete.changed | default(false)
+        - _anc3_obj is defined and _anc3_obj.id is defined
+        - _anc3_obj.resourceType | default('') == 'folder'
+        - _anc3_children | int == 0
+
+    - name: "DELETE | ANCESTORS | Skip L3 (children remain): {{ _anc3_obj.name | default('') }}"
+      ansible.builtin.debug:
+        msg: "Ancestor '{{ _anc3_obj.name }}' has {{ _anc3_children }} remaining child(ren) — leaving intact. Walk stops here."
+      when:
+        - ncl_folder_action == 'delete'
+        - ncl_folder_delete_empty_ancestors | default(false) | bool
+        - _anc2_delete is not skipped and _anc2_delete.changed | default(false)
+        - _anc3_obj is defined and _anc3_obj.id is defined
+        - _anc3_obj.resourceType | default('') == 'folder'
+        - _anc3_children | default(0) | int > 0
+
+    # ── Summary ───────────────────────────────────────────────────────────────
+    - name: "DELETE | Build ancestor status strings"
+      ansible.builtin.set_fact:
+        _anc1_status: >-
+          {{ 'deleted' if (_anc1_delete is defined and _anc1_delete is not skipped
+             and _anc1_delete.changed | default(false))
+             else ('skipped (' + (_anc1_children | default('—') | string) + ' children)')
+             if (_anc1_obj is defined and _anc1_obj.id is defined)
+             else 'n/a (at org root)' }}
+        _anc2_status: >-
+          {{ 'deleted' if (_anc2_delete is defined and _anc2_delete is not skipped
+             and _anc2_delete.changed | default(false))
+             else ('skipped (' + (_anc2_children | default('—') | string) + ' children)')
+             if (_anc2_obj is defined and _anc2_obj.id is defined)
+             else 'n/a' }}
+        _anc3_status: >-
+          {{ 'deleted' if (_anc3_delete is defined and _anc3_delete is not skipped
+             and _anc3_delete.changed | default(false))
+             else ('skipped (' + (_anc3_children | default('—') | string) + ' children)')
+             if (_anc3_obj is defined and _anc3_obj.id is defined)
+             else 'n/a' }}
+      when: ncl_folder_action == 'delete'
+
+    - name: "DELETE | Summary"
+      ansible.builtin.debug:
+        msg: |
+          ╔══════════════════════════════════════════════════════╗
+          ║         Folder Management — Delete                   ║
+          ╠══════════════════════════════════════════════════════╣
+          ║ Target           : {{ _delete_label }}
+          ║ Cascade          : {{ ncl_folder_cascade | default(false) | bool }}
+          ║ Delete ancestors : {{ ncl_folder_delete_empty_ancestors | default(false) | bool }}
+          ║ Target deleted   : {{ _delete_result.changed }}
+          ║ Folders removed  : {{ _delete_result.deleted_folders | length }} (target/subtree)
+          {% for f in _delete_result.deleted_folders %}║   • {{ f.name }} ({{ f.id }})
+          {% endfor %}║ Ancestors cleaned:
+          ║   L1 '{{ _anc1_obj.name | default('n/a') }}': {{ _anc1_status | default('n/a') }}
+          ║   L2 '{{ _anc2_obj.name | default('n/a') }}': {{ _anc2_status | default('n/a') }}
+          ║   L3 '{{ _anc3_obj.name | default('n/a') }}': {{ _anc3_status | default('n/a') }}
+          ╚══════════════════════════════════════════════════════╝
+      when: ncl_folder_action == 'delete'

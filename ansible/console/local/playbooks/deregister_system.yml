@@ -1,0 +1,112 @@
+---
+# Console system deregistration — query fleet membership or permanently remove
+# one or more working environments from the organisation.
+#
+# This is an irreversible operation. Systems must be re-registered via the
+# register_onprem_system.yml playbook to appear in the Console again.
+#
+# Multi-cluster support
+# ──────────────────────
+# Set `ncl_systems` in the vars file (or via -e) to a list of systems.
+# Each item may provide `we_id` and/or `cluster_ip` (and an optional
+# `agent_id`). The playbook processes every system sequentially.
+#
+# Fleet-membership safety check
+# ──────────────────────────────
+# Before deregistering each system, the playbook queries all fleets.
+# If the working environment is still assigned to one or more fleets:
+#   • ncl_deregister_force=false (default) → playbook fails with a clear message
+#     listing the fleet(s). Remove the system from those fleets first, or set
+#     ncl_deregister_force=true to override.
+#   • ncl_deregister_force=true → deregistration proceeds and a warning is shown.
+#
+# Usage:
+#   # Query membership for systems listed in vars file (no changes):
+#   ansible-playbook playbooks/deregister_system.yml \
+#       --extra-vars "@vars/ncl_deregister_system.yml" \
+#       -e ncl_admin_password=SECRET \
+#       -e ncl_deregister_action=query
+#
+#   # Deregister all listed systems:
+#   ansible-playbook playbooks/deregister_system.yml \
+#       --extra-vars "@vars/ncl_deregister_system.yml" \
+#       -e ncl_admin_password=SECRET \
+#       -e ncl_deregister_action=deregister
+#
+#   # Override systems list inline (two clusters by IP):
+#   ansible-playbook playbooks/deregister_system.yml \
+#       --extra-vars "@vars/ncl_deregister_system.yml" \
+#       -e '{"ncl_systems":[{"cluster_ip":"10.0.0.1"},{"cluster_ip":"10.0.0.2"}]}' \
+#       -e ncl_admin_password=SECRET \
+#       -e ncl_deregister_action=deregister
+#
+# Environment variable overrides:
+#   NCL_CONSOLE_URL    → ncl_console_url
+#   NCL_ACCESS_TOKEN   → ncl_access_token
+#   NCL_ORG_ID         → ncl_org_id
+#   NCL_VALIDATE_CERTS → ncl_validate_certs
+
+- name: NCL system deregistration
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../vars/ncl_deregister_system.yml
+
+  vars:
+    ncl_console_url:    "{{ lookup('env', 'NCL_CONSOLE_URL')    | default(ncl_console_url,    true) }}"
+    ncl_access_token:   "{{ lookup('env', 'NCL_ACCESS_TOKEN')   | default('',                 true) }}"
+    ncl_org_id:         "{{ lookup('env', 'NCL_ORG_ID')         | default('',                 true) }}"
+    ncl_validate_certs: "{{ lookup('env', 'NCL_VALIDATE_CERTS') | default(ncl_validate_certs, true) | bool }}"
+
+  pre_tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - ncl_console_url | length > 0
+          - (ncl_admin_email | default('') | length > 0 and ncl_admin_password | default('') | length > 0)
+            or ncl_access_token | length > 0
+          - ncl_deregister_action in ['query', 'deregister']
+          - ncl_systems | default([]) | length > 0
+        fail_msg: >-
+          Set ncl_console_url, credentials, ncl_deregister_action (query|deregister),
+          and ncl_systems (list of {we_id: ...} or {cluster_ip: ...} entries)
+          in vars/ncl_deregister_system.yml or via -e.
+
+    - name: Login to Console
+      netapp.console.generate_oauth_token:
+        console_url:    "{{ ncl_console_url }}"
+        email:          "{{ ncl_admin_email }}"
+        password:       "{{ ncl_admin_password }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _login
+      when: ncl_access_token | length == 0
+      no_log: true
+
+    - name: Store access token
+      ansible.builtin.set_fact:
+        _ncl_access_token: >-
+          {{ _login.access_token if (_login is not skipped) else ncl_access_token }}
+
+    - name: Discover organisations
+      netapp.console.local_organization_setup:
+        access_token:   "{{ _ncl_access_token }}"
+        state:          query
+        console_url:    "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _ncl_orgs
+      when: ncl_org_id | length == 0
+
+    - name: Resolve org ID
+      ansible.builtin.set_fact:
+        _ncl_org_id: >-
+          {{ ncl_org_id if ncl_org_id | length > 0
+             else (_ncl_orgs.organizations | first).id }}
+
+  tasks:
+    - name: "Process systems (count: {{ ncl_systems | length }})"
+      ansible.builtin.include_tasks: tasks/deregister_one.yml
+      loop: "{{ ncl_systems }}"
+      loop_control:
+        loop_var: _system
+        label: "{{ _system.cluster_ip | default(_system.we_id | default('item')) }}"

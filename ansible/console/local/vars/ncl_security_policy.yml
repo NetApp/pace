@@ -1,0 +1,52 @@
+---
+# =============================================================================
+# NCL Security Policy — dedicated variable defaults
+# =============================================================================
+# Usage:
+#   ansible-playbook playbooks/security_policies.yml \
+#       --extra-vars "@vars/ncl_security_policy.yml" -e ncl_admin_password=YOUR_PASSWORD
+#
+# Override any variable on the command line with -e, e.g.:
+#   -e ncl_security_policy_action=create
+#   -e ncl_security_policy_name="my-policy"
+#
+# For secrets in production, encrypt with Ansible Vault:
+#   ansible-vault encrypt vars/ncl_security_policy.yml
+# =============================================================================
+
+# ── NCL appliance ─────────────────────────────────────────────────────────────
+ncl_console_url: "" # REQUIRED: set your appliance URL
+ncl_validate_certs: false                  # set true in production
+
+# ── Admin credentials ─────────────────────────────────────────────────────────
+ncl_admin_email: ""
+ncl_admin_password: "" # REQUIRED: set via Vault or -e
+
+# ── Organisation ──────────────────────────────────────────────────────────────
+# The org_id from the API URL:
+#   /storage-management/v1/organizations/<org_id>/securitypolicies
+ncl_org_id: ""
+
+# ── Action ────────────────────────────────────────────────────────────────────
+# Supported values: query | create | delete
+ncl_security_policy_action: "query"
+
+# ── Policy identity ───────────────────────────────────────────────────────────
+# Name used for create (state=present) and name-based delete (state=absent).
+ncl_security_policy_name: "ansible-security-policy-1"
+ncl_security_policy_description: "new"
+
+# ID used for direct delete (state=absent with policy_id).
+# Leave empty to delete by ncl_security_policy_name instead.
+ncl_security_policy_id: ""
+
+# ── Security policy constraints (required for create) ─────────────────────────
+# encryptionType     — encryption requirement for associated resources.
+#                      Use "ANY" for no restriction.
+# ransomwareProtection — ransomware protection requirement.
+#                      Use "ANY" for no restriction.
+# fips               — FIPS 140-2 compliance requirement.
+#                      Use "ANY" for no restriction.
+ncl_security_policy_encryption_type: "ANY"
+ncl_security_policy_ransomware_protection: "ANY"
+ncl_security_policy_fips: "ANY"

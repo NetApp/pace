@@ -1,0 +1,96 @@
+---
+# =============================================================================
+# vars/ncl_volume_delete.yml — variable defaults for playbooks/volumes_delete.yml
+# =============================================================================
+# Usage:
+#   ansible-playbook playbooks/volumes_delete.yml \
+#       --extra-vars "@vars/ncl_volume_delete.yml" -e ncl_admin_password=SECRET
+#
+# For secrets in production, encrypt with Ansible Vault:
+#   ansible-vault encrypt vars/ncl_volume_delete.yml
+# =============================================================================
+
+# ── NCL appliance ─────────────────────────────────────────────────────────────
+ncl_console_url: "" # REQUIRED: set your appliance URL
+ncl_validate_certs: false                 # set true in production
+
+# ── Admin credentials ─────────────────────────────────────────────────────────
+ncl_admin_email: ""
+ncl_admin_password: "" # REQUIRED: set via Vault or -e
+
+# ── Organisation ──────────────────────────────────────────────────────────────
+ncl_org_id: ""  # leave empty to auto-discover from the first organisation
+
+# ── Action ────────────────────────────────────────────────────────────────────
+# Supported values: query | delete
+ncl_volume_action: "query"
+
+# =============================================================================
+# MULTI-CLUSTER MODE  (ncl_clusters list)
+# =============================================================================
+# When ncl_clusters is non-empty, the playbook iterates over every entry and
+# performs ncl_volume_action on each cluster independently.
+#
+# Each entry supports:
+#   cluster_name   — match WE by display name  (mutually exclusive with we_id)
+#   cluster_ip     — match WE by mgmt IP        (mutually exclusive with we_id)
+#   we_id          — skip WE lookup entirely     (fastest)
+#   volume_name    — (delete only) single volume to remove from this cluster
+#   volume_names   — (delete only) list of volumes to remove from this cluster
+#
+# If volume_name / volume_names are omitted on a delete run, the playbook uses
+# the top-level ncl_volume_name / ncl_volume_names as a fallback.
+#
+# Example — query volumes across three clusters:
+#   ncl_clusters:
+#     - cluster_ip: "10.193.186.56"           # resolve by management IP
+#     - cluster_ip: "10.193.186.57"
+#     - we_id:      "OnPremWorkingEnvironment-abc123def"  # skip lookup
+#
+# Example — delete specific volumes per cluster:
+#   ncl_clusters:
+#     - cluster_ip: "10.193.186.56"
+#       volume_names:
+#         - "ansible_vol_01"
+#         - "ansible_vol_02"
+#     - cluster_ip: "10.193.186.57"
+#       volume_name: "old_test_vol"
+#
+# Example — delete ALL volumes on a cluster:
+#   ncl_clusters:
+#     - cluster_ip: "10.193.186.56"
+#       delete_all: true
+ncl_clusters:
+  - cluster_ip: ""
+    volume_names:
+      - "LUN_Clone_NoSC_1786668713396"
+      - "LUN_Clone_WithSC_1786668713396"
+
+# =============================================================================
+# SINGLE-CLUSTER MODE  (used when ncl_clusters is empty)
+# =============================================================================
+# Supply ONE of the three options below (priority order):
+#   1. ncl_we_id        — skip lookup entirely (fastest)
+#   2. ncl_cluster_name — match by cluster display name
+#   3. ncl_cluster_ip   — match by management IP in the WE JSON
+ncl_we_id: ""
+ncl_cluster_name: ""
+ncl_cluster_ip: ""
+
+# ── Single volume delete ──────────────────────────────────────────────────────
+# Used as a fallback when ncl_clusters entries do not specify their own volumes.
+ncl_volume_name: ""
+
+# ── Multi-volume delete ───────────────────────────────────────────────────────
+# Mutually exclusive with ncl_volume_name. Used as fallback for ncl_clusters.
+ncl_volume_names: []
+# Example:
+#   ncl_volume_names:
+#     - "ansible_vol_01"
+#     - "ansible_vol_02"
+
+# ── Delete ALL volumes ────────────────────────────────────────────────────────
+# Set true to delete every volume on every cluster in ncl_clusters.
+# Per-cluster delete_all: true overrides this for individual entries.
+# WARNING: irreversible — use with care.
+ncl_volume_delete_all: false

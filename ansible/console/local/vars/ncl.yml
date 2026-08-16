@@ -1,0 +1,237 @@
+---
+# =============================================================================
+# NetApp Console Local — shared variable defaults
+# =============================================================================
+# Copy this file to vars/ncl.yml and fill in your values, OR override any
+# variable on the command line with -e, OR use Ansible Vault for secrets.
+#
+# Usage:
+#   ansible-playbook playbooks/ncl_user_registration.yml \
+#       --extra-vars "@vars/ncl.yml"
+#
+# For secrets in production, encrypt with Ansible Vault:
+#   ansible-vault encrypt vars/ncl.yml
+# =============================================================================
+
+# ── Shared label ────────────────────────────────────────────────────────────
+# Default description applied to all resources created by Ansible.
+# Override per-resource with ncl_folder_description, ncl_sa_description, etc.
+ncl_managed_by: "Managed by Ansible"
+
+# ── NCL appliance ────────────────────────────────────────────────────────────
+# Full URL including scheme is required — e.g. "https://ncl.corp.example.com"
+# A bare IP address (without https://) will NOT work.
+ncl_console_url: "" # REQUIRED: set your appliance URL
+ncl_validate_certs: false  # set true in production with valid TLS certs
+
+# ── Admin credentials ────────────────────────────────────────────────────────
+# Encrypt with Ansible Vault: ansible-vault encrypt_string 'MyPassword!' --name ncl_admin_password
+ncl_admin_full_name: "NCL Admin"
+ncl_admin_email: "" # REQUIRED: set your admin email
+ncl_admin_password: "" # REQUIRED: set via Vault or -e
+ncl_admin_company: "NetApp"
+
+# ── Organisation / fleet defaults ────────────────────────────────────────────
+# ncl_org_id: leave empty to auto-discover the default org after login,
+#             or set explicitly to target a specific organisation.
+#             Can also be passed via -e ncl_org_id=<id> or NCL_ORG_ID env var.
+ncl_org_id: ""
+ncl_target_org_name: "NetApp"
+ncl_fleet_name: "Ansible-Managed-Fleet-1"
+ncl_fleet_description: "Managed by Ansible"
+# Folder to create the fleet inside (used by ncl_fleet_management.yml).
+# Leave empty to place the fleet directly under the org root.
+ncl_fleet_folder_name: ""  # e.g. "prod-folder"
+
+# ── On-premises ONTAP system registration ────────────────────────────────────
+# Used by playbooks/ncl_onprem_system.yml
+# Provide ncl_fleet_id (preferred — skips an extra API call) OR ncl_fleet_name
+# (the module will look it up from /organizations/{org_id}/fleets).
+ncl_fleet_id: ""  # leave empty to resolve by ncl_fleet_name
+
+# ONTAP cluster management IP and credentials.
+# Encrypt password with Ansible Vault: ansible-vault encrypt_string 'MyPass' --name ncl_onprem_password
+ncl_onprem_cluster_ip: ""  # REQUIRED: cluster management IP, e.g. "192.168.1.100"
+ncl_onprem_username: "admin"
+ncl_onprem_password: "CHANGE_ME"  # REQUIRED: set via Vault or -e
+
+# ── Multi-cluster registration ────────────────────────────────────────────────
+# Used by playbooks/ncl_onprem_system.yml when registering more than one cluster.
+# Each entry can target the same fleet or a different one.
+# When this list is defined it takes priority over the single-cluster vars above.
+# Omit fleet_id to resolve by fleet_name (slower but friendlier).
+# Per-entry agent_id is optional — falls back to global ncl_agent_id.
+ncl_onprem_clusters:
+  - cluster_ip: ""          # REQUIRED: cluster management IP
+    username: "admin"
+    password: ""          # REQUIRED: set via Ansible Vault or -e
+    fleet_name: ""        # fleet name to attach this cluster to
+# - cluster_ip:  ""
+#   username:    "admin"
+#   password:    ""
+#   fleet_name:  ""   # same fleet
+# - cluster_ip:  ""
+#   username:    "admin"
+#   password:    ""
+#   fleet_name:  ""   # different fleet
+
+# ── Folder management ───────────────────────────────────────────────────────
+# Used by playbooks/ncl_folder.yml
+# Set ncl_folder_action to: list | create | delete
+ncl_folder_action: "list"
+ncl_folder_name: "Ansible-Managed-Folder-1"
+ncl_folder_description: "{{ ncl_managed_by }}"
+# Leave empty to create at org root; set to a parent folder name for nested creation.
+ncl_folder_parent_name: ""
+# Set ncl_folder_id to delete by ID directly (skips name lookup).
+ncl_folder_id: ""
+# cascade: true  → delete folder + all descendants (leaves → root order)
+# cascade: false → delete target folder only; fails if it still has children
+ncl_folder_cascade: false
+# delete_empty_ancestors: true → after deleting the target, walk UP and remove
+# each ancestor that becomes empty (up to 3 levels). Stops at the first
+# non-empty ancestor or the org root.
+ncl_folder_delete_empty_ancestors: false
+
+# ── Nested folder + fleet provisioning ──────────────────────────────────────
+# Used by playbooks/ncl_nested_folder_fleet.yml
+# The playbook creates:
+#   Org → <ncl_parent_folder_name> → <ncl_child_folder_name> → <ncl_fleet_name>
+ncl_parent_folder_name: "region-folder"
+ncl_child_folder_name: "env-folder"
+# ncl_fleet_name is shared with the existing fleet section above.
+
+# ── LLM configuration management ────────────────────────────────────────────
+# Used by playbooks/ncl_llm_config.yml
+# Set ncl_llm_action to: list | create | delete
+ncl_llm_action: "create"
+
+# Provider: openai | commonOpenAI | anthropic | bedrock
+ncl_llm_provider: "commonOpenAI"
+
+# OpenAI / OpenAI-compatible proxy / Anthropic — use api_key + base_url
+ncl_llm_api_key: "CHANGE_ME"  # encrypt with Ansible Vault in production
+ncl_llm_base_url: "https://llm-proxy-api.ai.openeng.netapp.com"
+
+# AWS Bedrock — use aws_access_key_id + aws_secret_access_key
+ncl_llm_aws_access_key_id: ""
+ncl_llm_aws_secret_access_key: ""  # encrypt with Ansible Vault in production
+
+# Models to associate with this configuration (list)
+ncl_llm_models:
+  - gpt-5
+
+# SSL verification for the provider endpoint (false for self-signed/internal)
+ncl_llm_ssl_verify: false
+
+# Optional: extra user parameter sent as extraParams.user
+ncl_llm_user_name: ""
+
+# Run a connectivity test (stateDesired=TESTING) before saving — recommended
+ncl_llm_run_test: true
+
+# Set when deleting (ncl_llm_action=delete) or updating an existing config
+ncl_llm_config_id: ""
+
+# ── Storage provisioning ─────────────────────────────────────────────────────
+# Used by playbooks/storage_provisioning.yml
+# Both volume and LUN creation are driven by the storage_provisioning module.
+#
+# Friendly names are preferred — no UUIDs needed.
+# The module resolves: fleet_name → id, cluster_name → working_environment_id,
+# svm_name → svm UUID, storage_class_name → storage_class_id.
+# Supply the *_id variant to skip the lookup and use the UUID directly.
+
+# ── Fleet ──────────────────────────────────────────────────────────────────
+# ncl_fleet_id is already defined in the fleet section above.
+# Set ncl_fleet_name here if you prefer name-based lookup (ncl_fleet_id takes priority).
+# ncl_fleet_name is also already defined above.
+
+# ── Cluster / Working environment ──────────────────────────────────────────
+# Friendly name (preferred). Set ncl_working_environment_id to skip the lookup.
+ncl_cluster_name: ""  # REQUIRED (or set ncl_working_environment_id)
+ncl_working_environment_id: ""  # UUID — leave empty when ncl_cluster_name is set
+
+# ── SVM ────────────────────────────────────────────────────────────────────
+# Friendly name (preferred). Set ncl_svm_id to skip the lookup.
+ncl_svm_name: ""  # REQUIRED (or set ncl_svm_id)
+ncl_svm_id: ""  # UUID — leave empty when ncl_svm_name is set
+
+# Optional per-LUN SVM override (uses ncl_svm_name/id above when not set).
+ncl_lun_svm_name: ""
+ncl_lun_svm_id: ""
+
+# ── Storage class (optional) ────────────────────────────────────────────────
+# Friendly name (preferred). Set ncl_storage_class_id to skip the lookup.
+ncl_storage_class_name: ""  # leave empty to use the system default
+ncl_storage_class_id: ""  # UUID — leave empty when ncl_storage_class_name is set
+
+# ── Volume settings ─────────────────────────────────────────────────────────
+ncl_volume_name: "ansible_vol_01"
+ncl_volume_size: 20
+ncl_volume_size_unit: "MiB"  # B | KiB | MiB | GiB | TiB
+ncl_volume_export_policy_hosts:
+  - "0.0.0.0/0"  # replace with your client CIDR(s)
+
+# ── LUN settings ────────────────────────────────────────────────────────────
+ncl_lun_name: "ansible_lun_1"
+ncl_lun_size: 20
+ncl_lun_size_unit: "KiB"  # B | KiB | MiB | GiB | TiB
+ncl_lun_number: 1
+ncl_lun_host_os: "LINUX"  # AIX | HP_UX | HYPER_V | LINUX | NETWARE | OPENVMS | SOLARIS | VMWARE | WINDOWS | XEN
+ncl_lun_format: "LINUX"  # AIX | HYPER_V | LINUX | SOLARIS | SOLARIS_EFI | VMWARE | WINDOWS | WINDOWS_2008 | WINDOWS_GPT | XEN
+ncl_lun_igroup_name: "igroup_1"
+ncl_lun_initiators:
+  # iSCSI initiator — IQN format
+  - name: "iqn.1993-08.org.debian:01:abc123"
+    comment: "linux host 1"
+# FC initiator — WWN format (colon-separated hex pairs)
+# - name: "50:0a:09:82:8d:13:e3:a3"
+#   comment: "fc host 1"
+
+# ── Service account management ───────────────────────────────────────────────
+# Used by playbooks/ncl_service_account.yml
+# Set ncl_sa_action to: list | create | delete
+ncl_sa_action: "create"
+ncl_sa_name: "ansible-service-account"
+ncl_sa_description: "{{ ncl_managed_by }}"
+# Role to assign at org level — e.g. "Organization Admin", "Viewer".
+# Leave empty to use the Console default.
+ncl_sa_role: ""
+# Required when ncl_sa_action=delete: the service account UUID.
+ncl_sa_id: ""
+
+# ── Console Connector / agent ID — sent as the X-Agent-Id header.
+# OPTIONAL: when left empty the module auto-discovers it from
+#   GET {ncl_console_url}/system/about  (NCL appliances only).
+# Obtain manually from: Console UI → Connectors, or the /agents API.
+ncl_agent_id: ""  # leave empty for auto-discovery on NCL
+
+# ── Multi-cluster parallel provisioning ──────────────────────────────────────
+# Used by playbooks/storage_provisioning.yml
+#
+# Each entry can override any global ncl_* default.  Omit a key to inherit the
+# global value (e.g. volume_size, lun_host_os, ncl_lun_initiators, etc.).
+#
+# Required per target: cluster_name (or working_environment_id),
+#                      svm_name (or svm_id), fleet_name (or fleet_id),
+#                      volume_name, lun_name
+ncl_storage_targets:
+  - cluster_name: ""  # target cluster 1
+    svm_name: "vs2"
+    fleet_name: "Ansible-Managed-Fleet-1"
+    volume_name: "ansible_vol_c1"
+    lun_name: "ansible_lun_c1"
+    # Optional per-target overrides — omit to use global ncl_* values:
+    # volume_size:        20
+    # volume_size_unit:   "MiB"
+    # lun_size:           20
+    # lun_size_unit:      "KiB"
+    # lun_igroup_name:    "ig_c1"
+    # storage_class_name: "gold-class"
+
+  - cluster_name: ""  # target cluster 2
+    svm_name: "svm0"
+    fleet_name: "Ansible-Managed-Fleet-1"
+    volume_name: "ansible_vol_c1"
+    lun_name: "ansible_lun_c1"

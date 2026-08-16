@@ -1,0 +1,6 @@
+---
+# Install all dependencies for netapp.console playbooks.
+# Run: ansible-galaxy collection install -r requirements.yml
+collections:
+  - name: netapp.console
+    version: ">=1.0.0"

@@ -1,0 +1,151 @@
+---
+# Console email-server configuration — query, create/update, or delete.
+#
+# Driven by ncl_email_action (query | create | delete) set in
+# vars/ncl_email_config.yml or overridden on the CLI with -e.
+#
+# Usage:
+#   # Query current email config:
+#   ansible-playbook playbooks/email_config.yml \
+#       --extra-vars "@vars/ncl_email_config.yml" \
+#       -e ncl_admin_password=SECRET
+#
+#   # Create / update with STARTTLS (port 25) and connectivity test:
+#   ansible-playbook playbooks/email_config.yml \
+#       --extra-vars "@vars/ncl_email_config.yml" \
+#       -e ncl_admin_password=SECRET \
+#       -e ncl_smtp_password=SMTP_SECRET \
+#       -e ncl_email_action=create
+#
+#   # Create / update with implicit SSL (port 465), skip test:
+#   ansible-playbook playbooks/email_config.yml \
+#       --extra-vars "@vars/ncl_email_config.yml" \
+#       -e ncl_admin_password=SECRET \
+#       -e ncl_smtp_password=SMTP_SECRET \
+#       -e ncl_email_action=create \
+#       -e ncl_smtp_port=465 \
+#       -e ncl_smtp_start_tls=false \
+#       -e ncl_smtp_ssl=true \
+#       -e ncl_smtp_run_test=false
+#
+#
+# Environment variable overrides (CI / secrets managers):
+#   NCL_CONSOLE_URL    → ncl_console_url
+#   NCL_ACCESS_TOKEN   → ncl_access_token
+#   NCL_ORG_ID         → ncl_org_id
+#   NCL_VALIDATE_CERTS → ncl_validate_certs
+
+- name: NCL email configuration management
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../vars/ncl_email_config.yml
+
+  vars:
+    ncl_console_url:    "{{ lookup('env', 'NCL_CONSOLE_URL')    | default(ncl_console_url,    true) }}"
+    ncl_access_token:   "{{ lookup('env', 'NCL_ACCESS_TOKEN')   | default('',                 true) }}"
+    ncl_org_id:         "{{ lookup('env', 'NCL_ORG_ID')         | default('',                 true) }}"
+    ncl_validate_certs: "{{ lookup('env', 'NCL_VALIDATE_CERTS') | default(ncl_validate_certs, true) | bool }}"
+
+  pre_tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - ncl_console_url | length > 0
+          - (ncl_admin_email | default('') | length > 0 and ncl_admin_password | default('') | length > 0)
+            or ncl_access_token | length > 0
+          - ncl_email_action in ['query', 'create']
+        fail_msg: >-
+          Set ncl_console_url, credentials, and ncl_email_action
+          (query|create) in vars/ncl_email_config.yml or via -e.
+
+    - name: Login to Console
+      netapp.console.generate_oauth_token:
+        console_url:    "{{ ncl_console_url }}"
+        email:          "{{ ncl_admin_email }}"
+        password:       "{{ ncl_admin_password }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _login
+      when: ncl_access_token | length == 0
+      no_log: true
+
+    - name: Store access token
+      ansible.builtin.set_fact:
+        _ncl_access_token: >-
+          {{ _login.access_token if (_login is not skipped) else ncl_access_token }}
+
+    - name: Discover organisations
+      netapp.console.local_organization_setup:
+        access_token:   "{{ _ncl_access_token }}"
+        state:          query
+        console_url:    "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _ncl_orgs
+      when: ncl_org_id | length == 0
+
+    - name: Resolve org ID
+      ansible.builtin.set_fact:
+        _ncl_org_id: >-
+          {{ ncl_org_id if ncl_org_id | length > 0
+             else (_ncl_orgs.organizations | first).id }}
+
+  tasks:
+    # ══════════════════════════════════════════════════════════════════════════
+    # ACTION: query — retrieve the current email configuration
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "QUERY | Get email configuration"
+      netapp.console.email_config:
+        access_token:   "{{ _ncl_access_token }}"
+        console_url:    "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id:         "{{ _ncl_org_id }}"
+        state: query
+      register: _email_result
+      when: ncl_email_action == 'query'
+
+    - name: "QUERY | Show email configuration"
+      ansible.builtin.debug:
+        msg: |
+          Email configuration:
+          {{ _email_result.email_config | to_nice_yaml }}
+      when: ncl_email_action == 'query'
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # ACTION: create — create or update the email configuration
+    # A test email is sent first (unless ncl_smtp_run_test=false).
+    # If the config already exists this issues a PATCH (idempotent).
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "CREATE | Ensure email configuration is present"
+      netapp.console.email_config:
+        access_token:    "{{ _ncl_access_token }}"
+        console_url:     "{{ ncl_console_url }}"
+        validate_certs:  "{{ ncl_validate_certs }}"
+        org_id:          "{{ _ncl_org_id }}"
+        state:           present
+        host:            "{{ ncl_smtp_host }}"
+        port:            "{{ ncl_smtp_port | default(omit, true) if (ncl_smtp_port | default('') | string | length == 0) else ncl_smtp_port | int }}"
+        username:        "{{ ncl_smtp_username }}"
+        password:        "{{ ncl_smtp_password }}"
+        from_name:       "{{ ncl_smtp_from_name }}"
+        from_address:    "{{ ncl_smtp_from_address }}"
+        start_tls:       "{{ ncl_smtp_start_tls | bool }}"
+        ssl:             "{{ ncl_smtp_ssl | bool }}"
+        tls_certificate: "{{ ncl_smtp_tls_certificate | default('') }}"
+        run_test:        "{{ ncl_smtp_run_test | bool }}"
+        test_address:    "{{ ncl_smtp_test_address | default(omit) }}"
+        test_subject:    "{{ ncl_smtp_test_subject | default(omit) }}"
+      register: _email_result
+      when: ncl_email_action == 'create'
+      no_log: true  # suppress smtp password
+
+    - name: "CREATE | Show result"
+      ansible.builtin.debug:
+        msg: >-
+          {{ '✅' if _email_result.changed else 'ℹ️ ' }}
+          {{ _email_result.msg }}
+          {% if _email_result.changed and _email_result.email_config is defined %}
+          host={{ _email_result.email_config.host | default('n/a') }}
+          port={{ _email_result.email_config.port | default('n/a') }}
+          {% endif %}
+      when: ncl_email_action == 'create'

@@ -1,0 +1,182 @@
+---
+# NCL capacity policy management — list, create, or delete capacity policies.
+#
+# Driven by ncl_capacity_policy_action (query | create | delete) set in
+# vars/ncl_capacity_policy.yml or overridden on the CLI with -e.
+#
+# Usage:
+#   # List all capacity policies:
+#   ansible-playbook playbooks/capacity_policies.yml \
+#       --extra-vars "@vars/ncl_capacity_policy.yml" \
+#       -e ncl_admin_password=SECRET
+#
+#   # Create a capacity policy:
+#   ansible-playbook playbooks/capacity_policies.yml \
+#       --extra-vars "@vars/ncl_capacity_policy.yml" \
+#       -e ncl_admin_password=SECRET \
+#       -e ncl_capacity_policy_action=create
+#
+#   # Delete a capacity policy by name:
+#   ansible-playbook playbooks/capacity_policies.yml \
+#       --extra-vars "@vars/ncl_capacity_policy.yml" \
+#       -e ncl_admin_password=SECRET \
+#       -e ncl_capacity_policy_action=delete
+#
+#   # Delete a capacity policy by ID (skips name lookup):
+#   ansible-playbook playbooks/capacity_policies.yml \
+#       --extra-vars "@vars/ncl_capacity_policy.yml" \
+#       -e ncl_admin_password=SECRET \
+#       -e ncl_capacity_policy_action=delete \
+#       -e ncl_capacity_policy_id=<uuid>
+#
+# Environment variable overrides (CI / secrets managers):
+#   NCL_CONSOLE_URL    → ncl_console_url
+#   NCL_ACCESS_TOKEN   → ncl_access_token
+#   NCL_ORG_ID         → ncl_org_id
+#   NCL_VALIDATE_CERTS → ncl_validate_certs
+
+- name: NCL capacity policy management
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../vars/ncl_capacity_policy.yml
+
+  vars:
+    ncl_console_url:    "{{ lookup('env', 'NCL_CONSOLE_URL')    | default(ncl_console_url, true) }}"
+    ncl_access_token:   "{{ lookup('env', 'NCL_ACCESS_TOKEN')   | default('', true) }}"
+    ncl_org_id:         "{{ lookup('env', 'NCL_ORG_ID')         | default('', true) }}"
+    ncl_validate_certs: "{{ lookup('env', 'NCL_VALIDATE_CERTS') | default(ncl_validate_certs, true) | bool }}"
+
+  pre_tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - ncl_console_url | length > 0
+          - (ncl_admin_email | default('') | length > 0 and ncl_admin_password | default('') | length > 0)
+            or ncl_access_token | length > 0
+          - ncl_capacity_policy_action in ['query', 'create', 'delete']
+        fail_msg: >-
+          Set ncl_console_url, credentials, and ncl_capacity_policy_action
+          (query|create|delete) in vars/ncl_capacity_policy.yml or via -e.
+
+    - name: Login to Console
+      netapp.console.generate_oauth_token:
+        console_url:    "{{ ncl_console_url }}"
+        email:          "{{ ncl_admin_email }}"
+        password:       "{{ ncl_admin_password }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _login
+      when: ncl_access_token | length == 0
+      no_log: true
+
+    - name: Store access token
+      ansible.builtin.set_fact:
+        _ncl_access_token: >-
+          {{ _login.access_token if (_login is not skipped) else ncl_access_token }}
+
+    - name: Discover organisations
+      netapp.console.local_organization_setup:
+        access_token:   "{{ _ncl_access_token }}"
+        state:          query
+        console_url:    "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _ncl_orgs
+      when: ncl_org_id | length == 0
+
+    - name: Resolve org ID
+      ansible.builtin.set_fact:
+        _ncl_org_id: >-
+          {{ ncl_org_id if ncl_org_id | length > 0
+             else (_ncl_orgs.organizations | first).id }}
+
+  tasks:
+    # ══════════════════════════════════════════════════════════════════════════
+    # ACTION: query — list all capacity policies
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "QUERY | List all capacity policies"
+      netapp.console.capacity_policies:
+        access_token:   "{{ _ncl_access_token }}"
+        console_url:    "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id:         "{{ _ncl_org_id }}"
+        state:          query
+      register: _cp_query
+      when: ncl_capacity_policy_action == 'query'
+
+    - name: "QUERY | Show capacity policies"
+      ansible.builtin.debug:
+        msg: >-
+          Capacity policies in org '{{ _ncl_org_id }}'
+          ({{ _cp_query.policies | default([]) | length }}):
+          {{ _cp_query.policies | default([]) | map(attribute='name') | list }}
+      when: ncl_capacity_policy_action == 'query'
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # ACTION: create — ensure capacity policy exists (idempotent)
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "CREATE | Ensure capacity policy exists: {{ ncl_capacity_policy_name }}"
+      netapp.console.capacity_policies:
+        access_token:   "{{ _ncl_access_token }}"
+        console_url:    "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id:         "{{ _ncl_org_id }}"
+        state:          present
+        name:           "{{ ncl_capacity_policy_name }}"
+        description:    "{{ ncl_capacity_policy_description | default('Managed by Ansible') }}"
+        space_reserved: "{{ ncl_capacity_policy_space_reserved }}"
+        auto_grow:      "{{ ncl_capacity_policy_auto_grow }}"
+        tiering:        "{{ ncl_capacity_policy_tiering }}"
+      register: _cp_create
+      when: ncl_capacity_policy_action == 'create'
+
+    - name: "CREATE | Summary"
+      ansible.builtin.debug:
+        msg: >-
+          ╔══════════════════════════════════════════════════════╗
+          ║       Capacity Policy Management — Create            ║
+          ╠══════════════════════════════════════════════════════╣
+          ║ Name          : {{ ncl_capacity_policy_name }}
+          ║ ID            : {{ _cp_create.policy.id | default('n/a') }}
+          ║ Space Reserved: {{ ncl_capacity_policy_space_reserved }}
+          ║ Auto Grow     : {{ ncl_capacity_policy_auto_grow }}
+          ║ Tiering       : {{ ncl_capacity_policy_tiering }}
+          ║ Changed       : {{ _cp_create.changed }}
+          ║ Message       : {{ _cp_create.msg }}
+          ╚══════════════════════════════════════════════════════╝
+      when: ncl_capacity_policy_action == 'create'
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # ACTION: delete — remove capacity policy by name or ID
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "DELETE | Remove capacity policy"
+      netapp.console.capacity_policies:
+        access_token:   "{{ _ncl_access_token }}"
+        console_url:    "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id:         "{{ _ncl_org_id }}"
+        state:          absent
+        name: >-
+          {{ ncl_capacity_policy_name
+             if ncl_capacity_policy_id | default('') | length == 0
+             else omit }}
+        policy_id: >-
+          {{ ncl_capacity_policy_id
+             if ncl_capacity_policy_id | default('') | length > 0
+             else omit }}
+      register: _cp_delete
+      when: ncl_capacity_policy_action == 'delete'
+
+    - name: "DELETE | Summary"
+      ansible.builtin.debug:
+        msg: >-
+          ╔══════════════════════════════════════════════════════╗
+          ║       Capacity Policy Management — Delete            ║
+          ╠══════════════════════════════════════════════════════╣
+          ║ Target  : {{ ncl_capacity_policy_name
+                         if ncl_capacity_policy_id | default('') | length == 0
+                         else ncl_capacity_policy_id }}
+          ║ Changed : {{ _cp_delete.changed }}
+          ║ Message : {{ _cp_delete.msg }}
+          ╚══════════════════════════════════════════════════════╝
+      when: ncl_capacity_policy_action == 'delete'
