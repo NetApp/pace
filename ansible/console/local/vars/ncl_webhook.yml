@@ -1,0 +1,83 @@
+---
+# =============================================================================
+# Console Webhook — dedicated variable defaults
+# =============================================================================
+# Usage:
+#   ansible-playbook playbooks/webhooks.yml \
+#       --extra-vars "@vars/ncl_webhook.yml" \
+#       -e ncl_admin_password=YOUR_PASSWORD
+#
+# Override any variable on the command line with -e, e.g.:
+#   -e ncl_webhook_action=create
+#   -e ncl_webhook_name="my-webhook"
+#
+# For secrets in production, encrypt with Ansible Vault:
+#   ansible-vault encrypt vars/ncl_webhook.yml
+# =============================================================================
+
+# ── Console appliance ──────────────────────────────────────────────────────────
+ncl_console_url: "" # REQUIRED: set your appliance URL
+ncl_validate_certs: false                  # set true in production
+
+# ── Admin credentials ─────────────────────────────────────────────────────────
+ncl_admin_email: ""
+ncl_admin_password: "" # REQUIRED: set via Vault or -e
+
+# ── Organisation ──────────────────────────────────────────────────────────────
+# The org_id from the API URL:
+#   /organizations/<org_id>/webhooks
+ncl_org_id: ""   # leave empty to auto-discover from the first org
+
+# ── Action ────────────────────────────────────────────────────────────────────
+# Supported values: query | create | delete
+ncl_webhook_action: "query"
+
+# ── Webhook identity ──────────────────────────────────────────────────────────
+# Name used for create (state=present) and name-based delete (state=absent).
+ncl_webhook_name: "ansible-webhook-1"
+
+# ID used for direct delete (state=absent with webhook_id).
+# Leave empty to delete by ncl_webhook_name instead.
+ncl_webhook_id: ""
+
+# ── Endpoint settings (required for create) ────────────────────────────────────
+# endpoint_url — where notifications are delivered.
+#                Use a service like https://webhook.site to test easily.
+# http_method  — HTTP method for delivery. Supported: POST | PUT
+# format       — Payload format. Supported: JSON | OTEL
+#                Use OTEL when delivering to OpenTelemetry-compatible receivers.
+ncl_webhook_endpoint_url: "https://webhook.site/your-unique-id"
+ncl_webhook_http_method: "POST"
+ncl_webhook_format: "JSON"
+
+# ── TLS ───────────────────────────────────────────────────────────────────────
+# PEM-encoded CA certificate for verifying the receiver endpoint's TLS cert.
+# Leave empty to use the system CA bundle.
+ncl_webhook_tls_ca_certificate: ""
+
+# ── Custom HTTP headers ───────────────────────────────────────────────────────
+# List of {"key": ..., "value": ...} dicts.
+# Leave as empty list [] if no custom headers are needed.
+# Example:
+#   ncl_webhook_headers:
+#     - key: "X-Source"
+#       value: "ansible-automation"
+ncl_webhook_headers: []
+
+# ── Payload attributes ────────────────────────────────────────────────────────
+# List of {"key": ..., "value": ...} dicts embedded in the payload.
+# Primarily used with format=OTEL to attach metadata to each notification.
+# Leave as empty list [] if no attributes are needed.
+# Example:
+#   ncl_webhook_attributes:
+#     - key: "environment"
+#       value: "production"
+#     - key: "team"
+#       value: "storage-ops"
+ncl_webhook_attributes: []
+
+# ── Test notification ─────────────────────────────────────────────────────────
+# When true, a test notification is sent to endpoint_url before creating the
+# webhook. If the test fails the module aborts without creating.
+# Set to false to skip the connectivity test.
+ncl_webhook_run_test: true

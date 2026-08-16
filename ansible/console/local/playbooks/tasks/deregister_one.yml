@@ -1,0 +1,80 @@
+---
+# Included by deregister_system.yml once per item in _systems_list.
+# Loop variable: _system  (dict with optional keys: we_id, cluster_ip, agent_id)
+#
+# Expected facts already set by the calling playbook:
+#   _ncl_access_token, _ncl_org_id, ncl_console_url, ncl_validate_certs,
+#   ncl_deregister_action, ncl_deregister_force
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 1 — Query fleet membership (always runs for both actions)
+# ══════════════════════════════════════════════════════════════════════════════
+- name: "STEP 1 | Query fleet membership — {{ _system.cluster_ip | default(_system.we_id | default('?')) }}"
+  netapp.console.deregister_system:
+    access_token:           "{{ _ncl_access_token }}"
+    console_url:            "{{ ncl_console_url }}"
+    validate_certs:         "{{ ncl_validate_certs }}"
+    org_id:                 "{{ _ncl_org_id }}"
+    working_environment_id: "{{ _system.we_id | default(omit) }}"
+    cluster_ip:             "{{ _system.cluster_ip | default(omit) }}"
+    agent_id:               "{{ _system.agent_id | default(omit) }}"
+    state: query
+  register: _we_info
+
+- name: "STEP 1 | Show fleet membership — {{ _we_info.working_environment_id }}"
+  ansible.builtin.debug:
+    msg: >-
+      Working environment '{{ _we_info.working_environment_id }}'
+      {% if _we_info.in_fleet %}
+      ⚠️  is currently assigned to {{ _we_info.fleet_ids | length }} fleet(s):
+      {{ _we_info.fleet_ids | join(', ') }}
+      {% else %}
+      ✅ is not assigned to any fleet — safe to deregister.
+      {% endif %}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 2 — Guard: block if in a fleet and force not set
+# ══════════════════════════════════════════════════════════════════════════════
+- name: "STEP 2 | Fleet-membership safety check — {{ _we_info.working_environment_id }}"
+  ansible.builtin.assert:
+    that:
+      - not _we_info.in_fleet or (ncl_deregister_force | bool)
+    fail_msg: >-
+      Working environment '{{ _we_info.working_environment_id }}' is still
+      assigned to fleet(s): {{ _we_info.fleet_ids | join(', ') }}.
+      Remove it from those fleets first (use remove_system_from_fleet.yml),
+      or re-run with -e ncl_deregister_force=true to override.
+  when: ncl_deregister_action == 'deregister'
+
+- name: "STEP 2 | Force-delete warning — {{ _we_info.working_environment_id }}"
+  ansible.builtin.debug:
+    msg: >-
+      ⚠️  force=true: deregistering '{{ _we_info.working_environment_id }}'
+      even though it is still in fleet(s): {{ _we_info.fleet_ids | join(', ') }}.
+  when:
+    - ncl_deregister_action == 'deregister'
+    - _we_info.in_fleet
+    - ncl_deregister_force | bool
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 3 — Deregister
+# ══════════════════════════════════════════════════════════════════════════════
+- name: "STEP 3 | Deregister working environment — {{ _we_info.working_environment_id }}"
+  netapp.console.deregister_system:
+    access_token:           "{{ _ncl_access_token }}"
+    console_url:            "{{ ncl_console_url }}"
+    validate_certs:         "{{ ncl_validate_certs }}"
+    org_id:                 "{{ _ncl_org_id }}"
+    working_environment_id: "{{ _we_info.working_environment_id }}"
+    agent_id:               "{{ _system.agent_id | default(omit) }}"
+    force:                  "{{ ncl_deregister_force | bool }}"
+    state: absent
+  register: _deregister_result
+  when: ncl_deregister_action == 'deregister'
+
+- name: "STEP 3 | Show result — {{ _we_info.working_environment_id }}"
+  ansible.builtin.debug:
+    msg: >-
+      {{ '✅' if _deregister_result.changed else 'ℹ️ ' }}
+      {{ _deregister_result.msg }}
+  when: ncl_deregister_action == 'deregister'

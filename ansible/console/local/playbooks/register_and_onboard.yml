@@ -1,0 +1,381 @@
+---
+# NCL end-to-end onboarding: register user + create org → create fleet → add on-prem ONTAP system.
+#
+# Steps performed in sequence:
+#   1. Register the first admin user (optionally skipped when already registered).
+#   2. Obtain an access token by logging in.
+#   3. Ensure the target organisation exists (create if absent).
+#   4. Create a folder inside the organisation (optional — skipped when ncl_folder_name is empty).
+#   5. Create the target fleet inside the folder or at org root (idempotent).
+#   6. Register an on-premises ONTAP cluster under the newly created fleet.
+#   7. Poll until the working environment is usable (agent_id scoped, up to 10 minutes).
+#   8. Configure an LLM provider for the organisation (optional).
+#
+# Usage — variables file (recommended):
+#   ansible-playbook playbooks/register_and_onboard.yml \
+#       --extra-vars "@vars/ncl_register_and_onboard.yml" \
+#       -e ncl_admin_password=YOUR_PASSWORD \
+#       -e ncl_onprem_password=ONTAP_PASSWORD
+#
+# Usage — fully inline (no vars file needed):
+#   ansible-playbook playbooks/register_and_onboard.yml \
+#       -e ncl_console_url=https://10.192.58.45 \
+#       -e ncl_admin_full_name="NCL Admin" \
+#       -e ncl_admin_email=admin@example.com \
+#       -e ncl_admin_password=secret \
+#       -e ncl_admin_company=NetApp \
+#       -e ncl_target_org_name=MyOrg \
+#       -e ncl_fleet_name=my-fleet \
+#       -e ncl_onprem_cluster_ip=192.168.1.100 \
+#       -e ncl_onprem_username=admin \
+#       -e ncl_onprem_password=ontap_secret
+#
+# Set skip_registration=true when the admin user has already been registered:
+#   -e skip_registration=true
+#
+# Environment variable overrides (CI / secrets managers):
+#   NCL_CONSOLE_URL    → ncl_console_url
+#   NCL_ACCESS_TOKEN   → ncl_access_token   (skip login step when set)
+#   NCL_ORG_ID         → ncl_org_id         (skip org creation when set)
+#   NCL_AGENT_ID       → ncl_agent_id
+#   NCL_VALIDATE_CERTS → ncl_validate_certs
+
+- name: NCL end-to-end onboarding (register user → create fleet → add on-prem)
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../vars/ncl_register_and_onboard.yml
+
+  vars:
+    # ── Connection ────────────────────────────────────────────────────────────
+    ncl_console_url: "{{ lookup('env', 'NCL_CONSOLE_URL')    | default(ncl_console_url,    true) }}"
+    ncl_access_token: "{{ lookup('env', 'NCL_ACCESS_TOKEN')   | default('',                 true) }}"
+    ncl_org_id: "{{ lookup('env', 'NCL_ORG_ID')         | default('',                 true) }}"
+    ncl_validate_certs: "{{ lookup('env', 'NCL_VALIDATE_CERTS') | default(ncl_validate_certs, true) | bool }}"
+
+    # ── Console Connector (agent) ──────────────────────────────────────────────
+    # Optional — auto-discovered from GET {ncl_console_url}/system/about when empty.
+    ncl_agent_id: "{{ lookup('env', 'NCL_AGENT_ID') | default(ncl_agent_id | default(''), true) }}"
+
+    # ── Behaviour flags ───────────────────────────────────────────────────────
+    # Set skip_registration=true when the admin user is already registered.
+    skip_registration: false
+
+  pre_tasks:
+    # ── Input validation ──────────────────────────────────────────────────────
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - ncl_console_url        | length > 0
+          - ncl_admin_email        | length > 0
+          - ncl_admin_password     | length > 0
+          - ncl_target_org_name    | length > 0
+          - ncl_fleet_name         | length > 0
+          - ncl_onprem_cluster_ip  | length > 0
+          - ncl_onprem_username    | length > 0
+          - ncl_onprem_password    | length > 0
+        fail_msg: |
+          Missing required variables. Ensure the following are set (via vars/ncl.yml or -e):
+            ncl_console_url, ncl_admin_email, ncl_admin_password,
+            ncl_target_org_name, ncl_fleet_name,
+            ncl_onprem_cluster_ip, ncl_onprem_username, ncl_onprem_password.
+
+  tasks:
+    # ══════════════════════════════════════════════════════════════════════════
+    # STEP 1 — Register the admin user and create the organisation
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "STEP 1 | Register NCL admin user with org creation"
+      netapp.console.local_bootstrap:
+        console_url: "{{ ncl_console_url }}"
+        full_name: "{{ ncl_admin_full_name | default('NCL Admin') }}"
+        email: "{{ ncl_admin_email }}"
+        password: "{{ ncl_admin_password }}"
+        company: "{{ ncl_admin_company | default('') }}"
+        fetch_token: true
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _registration
+      when: not (skip_registration | bool)
+      no_log: true
+
+    - name: "STEP 1 | Registration result"
+      ansible.builtin.debug:
+        msg: "{{ _registration.msg | default('Registration skipped (skip_registration=true)') }}"
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # STEP 2 — Obtain an access token (login if not already provided)
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "STEP 2 | Use token from registration"
+      ansible.builtin.set_fact:
+        _ncl_access_token: "{{ _registration.access_token }}"
+      when:
+        - not (skip_registration | bool)
+        - _registration is not skipped
+        - _registration.access_token is defined
+
+    - name: "STEP 2 | Login (when registration was skipped or token absent)"
+      netapp.console.generate_oauth_token:
+        console_url: "{{ ncl_console_url }}"
+        email: "{{ ncl_admin_email }}"
+        password: "{{ ncl_admin_password }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _login
+      when: >-
+        (skip_registration | bool)
+        or (_ncl_access_token | default('') | length == 0)
+        or ncl_access_token | length > 0
+      no_log: true
+
+    - name: "STEP 2 | Resolve final access token"
+      ansible.builtin.set_fact:
+        _ncl_access_token: >-
+          {{
+            ncl_access_token
+            if ncl_access_token | length > 0
+            else (
+              _login.access_token
+              if (_login is not skipped and _login.access_token is defined)
+              else _ncl_access_token | default('')
+            )
+          }}
+
+    - name: "STEP 2 | Assert a valid token was obtained"
+      ansible.builtin.assert:
+        that:
+          - _ncl_access_token | length > 0
+        fail_msg: "Could not obtain an access token. Check credentials or supply NCL_ACCESS_TOKEN."
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # STEP 3 — Ensure the target organisation exists
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "STEP 3 | List existing organisations"
+      netapp.console.local_organization_setup:
+        access_token: "{{ _ncl_access_token }}"
+        state: query
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _ncl_orgs
+      when: ncl_org_id | length == 0
+
+    - name: "STEP 3 | Check if target org already exists"
+      ansible.builtin.set_fact:
+        _ncl_existing_org: >-
+          {{ _ncl_orgs.organizations
+             | selectattr('name', 'equalto', ncl_target_org_name)
+             | list | first | default({}) }}
+      when: ncl_org_id | length == 0
+
+    - name: "STEP 3 | Create organisation (when not found)"
+      netapp.console.local_organization_setup:
+        access_token: "{{ _ncl_access_token }}"
+        state: present
+        name: "{{ ncl_target_org_name }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _ncl_org_create
+      when:
+        - ncl_org_id | length == 0
+        - _ncl_existing_org | default({}) | length == 0
+
+    - name: "STEP 3 | Resolve org ID and name"
+      ansible.builtin.set_fact:
+        _ncl_org_id: >-
+          {{
+            ncl_org_id if ncl_org_id | length > 0
+            else (
+              _ncl_existing_org.id
+              if (_ncl_existing_org | default({}) | length > 0)
+              else _ncl_org_create.organization.id
+            )
+          }}
+        _ncl_org_name: >-
+          {{
+            ncl_target_org_name
+            if ncl_org_id | length > 0
+            else (
+              _ncl_existing_org.name
+              if (_ncl_existing_org | default({}) | length > 0)
+              else (_ncl_org_create.organization.name | default(ncl_target_org_name))
+            )
+          }}
+
+    - name: "STEP 3 | Show resolved organisation"
+      ansible.builtin.debug:
+        msg: "✅ Organisation: '{{ _ncl_org_name }}' (id={{ _ncl_org_id }})"
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # STEP 4 — Create a folder inside the organisation (optional)
+    # If ncl_folder_name is empty the fleet is placed directly under the org root.
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "STEP 4 | Create folder inside organisation"
+      netapp.console.folder_management:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: present
+        name: "{{ ncl_folder_name }}"
+        description: "{{ ncl_folder_description | default('Managed by Ansible') }}"
+        parent_id: "{{ _ncl_org_id }}"
+      register: _ncl_folder
+      when: ncl_folder_name | default('') | length > 0
+
+    - name: "STEP 4 | Store folder ID"
+      ansible.builtin.set_fact:
+        _ncl_folder_id: >-
+          {{ _ncl_folder.folder.id
+             if (ncl_folder_name | default('') | length > 0)
+             else '' }}
+
+    - name: "STEP 4 | Show folder"
+      ansible.builtin.debug:
+        msg: >-
+          ✅ Folder: '{{ ncl_folder_name }}' (id={{ _ncl_folder_id }})
+          {{ '— already existed' if not _ncl_folder.changed else '— newly created' }}
+      when: ncl_folder_name | default('') | length > 0
+
+    - name: "STEP 4 | No folder — fleet will be created under org root"
+      ansible.builtin.debug:
+        msg: "ℹ️  ncl_folder_name is empty — fleet '{{ ncl_fleet_name }}' will be placed directly under org '{{ _ncl_org_name }}'"
+      when: ncl_folder_name | default('') | length == 0
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # STEP 5 — Create the fleet inside the folder
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "STEP 5 | List existing fleets"
+      netapp.console.storage_fleets:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        state: query
+        org_id: "{{ _ncl_org_id }}"
+      register: _ncl_fleets
+
+    - name: "STEP 5 | Check if target fleet already exists"
+      ansible.builtin.set_fact:
+        _ncl_existing_fleet: >-
+          {{ _ncl_fleets.fleets
+             | selectattr('name', 'equalto', ncl_fleet_name)
+             | list | first | default({}) }}
+
+    - name: "STEP 5 | Create fleet inside folder (when not found)"
+      netapp.console.storage_fleets:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        state: present
+        org_id: "{{ _ncl_org_id }}"
+        name: "{{ ncl_fleet_name }}"
+        description: "{{ ncl_fleet_description | default('Managed by Ansible') }}"
+        folder_id: "{{ _ncl_folder_id if _ncl_folder_id | length > 0 else omit }}"
+      register: _ncl_fleet_create
+      when: _ncl_existing_fleet | default({}) | length == 0
+
+    - name: "STEP 5 | Resolve fleet ID"
+      ansible.builtin.set_fact:
+        _ncl_fleet_id: >-
+          {{
+            _ncl_existing_fleet.id
+            if (_ncl_existing_fleet | default({}) | length > 0)
+            else _ncl_fleet_create.fleet.id
+          }}
+
+    - name: "STEP 5 | Show fleet"
+      ansible.builtin.debug:
+        msg: >-
+          ✅ Fleet: '{{ ncl_fleet_name }}' (id={{ _ncl_fleet_id }})
+          {{ '— already existed' if (_ncl_existing_fleet | default({}) | length > 0) else '— newly created' }}
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # STEP 6 — Register the on-premises ONTAP system under the fleet
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "STEP 6 | Register on-prem ONTAP system under fleet"
+      netapp.console.add_new_systems:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        fleet_id: "{{ _ncl_fleet_id }}"
+        cluster_ip: "{{ ncl_onprem_cluster_ip }}"
+        username: "{{ ncl_onprem_username }}"
+        password: "{{ ncl_onprem_password }}"
+        agent_id: "{{ ncl_agent_id if ncl_agent_id | length > 0 else omit }}"
+        wait_for_ready: true
+        wait_timeout: "{{ ncl_we_wait_timeout | default(600) }}"
+        wait_interval: "{{ ncl_we_wait_interval | default(30) }}"
+      register: _onprem_result
+      no_log: false  # set true in production to suppress credential echo
+
+    - name: "STEP 6 | Show registration result"
+      ansible.builtin.debug:
+        msg: |
+          ✅ On-prem system registered!
+             Name    : {{ _onprem_result.working_environment.name | default(ncl_onprem_cluster_ip) }}
+             Fleet ID: {{ _onprem_result.fleet_id }}
+             Status  : {{ _onprem_result.we_status | default('n/a') }}
+             Message : {{ _onprem_result.msg }}
+
+    - name: "STEP 6 | Store working environment details as facts"
+      ansible.builtin.set_fact:
+        registered_we_id: "{{ _onprem_result.working_environment.publicId | default('') }}"
+        registered_we_name: "{{ _onprem_result.working_environment.name | default(ncl_onprem_cluster_ip) }}"
+        registered_fleet_id: "{{ _onprem_result.fleet_id }}"
+        registered_we_status: "{{ _onprem_result.we_status | default('UNKNOWN') }}"
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # STEP 7 — Working environment readiness is handled inside add_new_systems
+    # (wait_for_ready=true above). This step just surfaces the final status.
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "STEP 7 | Working environment readiness"
+      ansible.builtin.debug:
+        msg: >-
+          {{ '✅' if registered_we_status not in ['PENDING', 'UNKNOWN', 'TIMEOUT'] else '⚠️' }}
+          Working environment '{{ registered_we_name }}'
+          status={{ registered_we_status }}
+          id={{ registered_we_id }}
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # STEP 8 — Configure LLM provider for the organisation
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "STEP 8 | Configure LLM provider"
+      netapp.console.llm_config:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: present
+        provider: "{{ ncl_llm_provider }}"
+        api_key: "{{ ncl_llm_api_key | default(omit) }}"
+        base_url: "{{ ncl_llm_base_url | default(omit) }}"
+        aws_access_key_id: "{{ ncl_llm_aws_access_key_id | default(omit) }}"
+        aws_secret_access_key: "{{ ncl_llm_aws_secret_access_key | default(omit) }}"
+        models: "{{ ncl_llm_models }}"
+        ssl_verify: "{{ ncl_llm_ssl_verify | default(false) }}"
+        run_test: "{{ ncl_llm_run_test | default(true) }}"
+      register: _llm_result
+      when: ncl_llm_provider | default('') | length > 0
+      no_log: true  # suppress api_key / aws credentials from logs
+
+    - name: "STEP 8 | Show LLM configuration result"
+      ansible.builtin.debug:
+        msg: >-
+          ✅ LLM provider '{{ ncl_llm_provider }}' configured
+          (config_id={{ _llm_result.config_id | default('n/a') }},
+          tested={{ _llm_result.tested | default(false) }})
+      when: ncl_llm_provider | default('') | length > 0
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Final summary
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "SUMMARY | End-to-end onboarding complete"
+      ansible.builtin.debug:
+        msg: |
+          ╔══════════════════════════════════════════════════════════╗
+          ║           NCL Onboarding — Complete                      ║
+          ╠══════════════════════════════════════════════════════════╣
+          ║ Organisation : {{ _ncl_org_name }} ({{ _ncl_org_id }})
+          ║ Folder       : {{ ncl_folder_name }} ({{ _ncl_folder_id | default('n/a') }})
+          ║ Fleet        : {{ ncl_fleet_name }} ({{ _ncl_fleet_id }})
+          ║ On-prem WE   : {{ registered_we_name }} ({{ registered_we_id }})
+          ║ LLM Provider : {{ ncl_llm_provider | default('not configured') }}
+          ╚══════════════════════════════════════════════════════════╝

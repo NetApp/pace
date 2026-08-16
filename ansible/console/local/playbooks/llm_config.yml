@@ -1,0 +1,250 @@
+---
+# NCL LLM configuration management — list, create, or delete LLM provider configs.
+#
+# Supported actions (ncl_llm_action):
+#   list   — list all LLM configurations
+#   create — create a new LLM configuration (POST + test PATCH + save PATCH)
+#   delete — delete a configuration by config ID
+#
+# Supported providers (ncl_llm_provider):
+#   openai        — OpenAI      (requires ncl_llm_api_key + ncl_llm_base_url)
+#   commonOpenAI  — OpenAI-compatible proxy (requires ncl_llm_api_key + ncl_llm_base_url)
+#   anthropic     — Anthropic   (requires ncl_llm_api_key + ncl_llm_base_url)
+#   bedrock       — AWS Bedrock (requires ncl_llm_aws_access_key_id + ncl_llm_aws_secret_access_key)
+#
+# API flow for create:
+#   1. POST   /v1/management/configs               → allocates config ID
+#   2. PATCH  /v1/management/configs/{id}          → test (stateDesired=TESTING)
+#   3. PATCH  /v1/management/configs/{id}          → save final config
+#
+# Usage — list all LLM configs:
+#   ansible-playbook playbooks/llm_config.yml \
+#       --extra-vars "@vars/ncl.yml" -e ncl_llm_action=list
+#
+# Usage — create OpenAI config:
+#   ansible-playbook playbooks/llm_config.yml \
+#       --extra-vars "@vars/ncl.yml" \
+#       -e ncl_llm_action=create \
+#       -e ncl_llm_provider=openai \
+#       -e ncl_llm_api_key="sk-..." \
+#       -e ncl_llm_base_url="https://api.openai.com/v1" \
+#       -e '{"ncl_llm_models": ["gpt-4o", "gpt-4o-mini"]}'
+#
+# Usage — create OpenAI-compatible proxy config:
+#   ansible-playbook playbooks/llm_config.yml \
+#       --extra-vars "@vars/ncl.yml" \
+#       -e ncl_llm_action=create \
+#       -e ncl_llm_provider=commonOpenAI \
+#       -e ncl_llm_api_key="local-key" \
+#       -e ncl_llm_base_url="http://my-proxy.internal:8080/v1" \
+#       -e '{"ncl_llm_models": ["llama3-8b"]}' \
+#       -e ncl_llm_ssl_verify=false
+#
+# Usage — delete a config:
+#   ansible-playbook playbooks/llm_config.yml \
+#       --extra-vars "@vars/ncl.yml" \
+#       -e ncl_llm_action=delete \
+#       -e ncl_llm_config_id="<config-uuid>"
+#
+# Environment variable overrides:
+#   NCL_CONSOLE_URL    → ncl_console_url
+#   NCL_ACCESS_TOKEN   → ncl_access_token
+#   NCL_ORG_ID         → ncl_org_id
+
+- name: NCL LLM configuration management (list / create / delete)
+  hosts: localhost
+  gather_facts: false
+
+  # vars_files is intentionally omitted — pass either:
+  #   --extra-vars "@vars/ncl_llm.yml"   (dedicated, recommended)
+  #   --extra-vars "@vars/ncl.yml"        (shared, backward-compatible)
+
+  vars:
+    ncl_console_url: "{{ lookup('env', 'NCL_CONSOLE_URL')    | default(ncl_console_url,    true) }}"
+    ncl_access_token: "{{ lookup('env', 'NCL_ACCESS_TOKEN')   | default('',                 true) }}"
+    ncl_org_id: "{{ lookup('env', 'NCL_ORG_ID')         | default('',                 true) }}"
+    ncl_validate_certs: "{{ lookup('env', 'NCL_VALIDATE_CERTS') | default(ncl_validate_certs, true) | bool }}"
+
+  pre_tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - ncl_console_url | length > 0
+          - (ncl_admin_email | length > 0 and ncl_admin_password | length > 0) or ncl_access_token | length > 0
+          - ncl_llm_action in ['list', 'create', 'delete']
+        fail_msg: >-
+          Set ncl_console_url, credentials and ncl_llm_action
+          (list | create | delete) in vars/ncl.yml or via -e.
+
+    # ── Authentication ────────────────────────────────────────────────────────
+    - name: Login to Console
+      netapp.console.generate_oauth_token:
+        console_url: "{{ ncl_console_url }}"
+        email: "{{ ncl_admin_email }}"
+        password: "{{ ncl_admin_password }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _login
+      when: ncl_access_token | length == 0
+      no_log: true
+
+    - name: Store access token
+      ansible.builtin.set_fact:
+        _ncl_access_token: >-
+          {{ _login.access_token if (_login is not skipped) else ncl_access_token }}
+
+    # ── Org resolution ────────────────────────────────────────────────────────
+    - name: Discover organisations
+      netapp.console.local_organization_setup:
+        access_token: "{{ _ncl_access_token }}"
+        state: query
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _ncl_orgs
+      when: ncl_org_id | length == 0
+
+    - name: Resolve org ID
+      ansible.builtin.set_fact:
+        _ncl_org_id: >-
+          {{ ncl_org_id if ncl_org_id | length > 0
+             else (_ncl_orgs.organizations | first).id }}
+
+    - name: Show resolved org
+      ansible.builtin.debug:
+        msg: "Using org id={{ _ncl_org_id }}"
+
+  tasks:
+    # ══════════════════════════════════════════════════════════════════════════
+    # ACTION: list
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "LIST | Fetch all LLM configurations"
+      netapp.console.llm_config:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: query
+      register: _llm_list
+      when: ncl_llm_action == 'list'
+
+    - name: "LIST | Show LLM configurations"
+      ansible.builtin.debug:
+        msg: |
+          ╔══════════════════════════════════════════════════════╗
+          ║         LLM Configurations — List                    ║
+          ╠══════════════════════════════════════════════════════╣
+          ║ Count : {{ _llm_list.configs | length }}
+          {% for cfg in _llm_list.configs %}║  • id={{ cfg.id | default('?') }}  provider={{ cfg.provider | default(cfg.keys() | reject('in', ['id', 'type', 'version', 'models', 'sslVerify', 'extraParams', 'stateDesired']) | list | first | default('?')) }}  models={{ cfg.models | default([]) }}
+          {% endfor %}╚══════════════════════════════════════════════════════╝
+      when: ncl_llm_action == 'list'
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # ACTION: create
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "CREATE | Validate required parameters"
+      ansible.builtin.assert:
+        that:
+          - ncl_llm_provider | default('') | length > 0
+          - ncl_llm_models   | default([]) | length > 0
+          - (ncl_llm_provider | default('') == 'bedrock' and ncl_llm_aws_access_key_id | default('') | length > 0 and ncl_llm_aws_secret_access_key |
+            default('') | length > 0) or (ncl_llm_provider | default('') != 'bedrock' and ncl_llm_api_key | default('') | length > 0)
+        fail_msg: >-
+          For provider=bedrock set ncl_llm_aws_access_key_id and
+          ncl_llm_aws_secret_access_key.  For all other providers set
+          ncl_llm_api_key.  ncl_llm_provider and ncl_llm_models are always required.
+      when: ncl_llm_action == 'create'
+
+    # ── OpenAI / OpenAI-compatible proxy ─────────────────────────────────────
+    - name: "CREATE | Configure LLM via api_key + base_url (provider): {{ ncl_llm_provider | default('') }}"
+      netapp.console.llm_config:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: present
+        provider: "{{ ncl_llm_provider }}"
+        api_key: "{{ ncl_llm_api_key | default(omit) }}"
+        base_url: "{{ ncl_llm_base_url | default(omit) }}"
+        models: "{{ ncl_llm_models }}"
+        ssl_verify: "{{ ncl_llm_ssl_verify | default(false) | bool }}"
+        user_name: "{{ ncl_llm_user_name | default(omit) }}"
+        config_id: "{{ ncl_llm_config_id | default(omit) }}"
+        run_test: "{{ ncl_llm_run_test | default(true) | bool }}"
+      register: _llm_create_apikey
+      when:
+        - ncl_llm_action == 'create'
+        - ncl_llm_provider | default('') != 'bedrock'
+
+    # ── AWS Bedrock ───────────────────────────────────────────────────────────
+    - name: "CREATE | Configure LLM (bedrock) — AWS credentials"
+      netapp.console.llm_config:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: present
+        provider: bedrock
+        aws_access_key_id: "{{ ncl_llm_aws_access_key_id | default(omit) }}"
+        aws_secret_access_key: "{{ ncl_llm_aws_secret_access_key | default(omit) }}"
+        models: "{{ ncl_llm_models }}"
+        ssl_verify: "{{ ncl_llm_ssl_verify | default(false) | bool }}"
+        user_name: "{{ ncl_llm_user_name | default(omit) }}"
+        config_id: "{{ ncl_llm_config_id | default(omit) }}"
+        run_test: "{{ ncl_llm_run_test | default(true) | bool }}"
+      register: _llm_create_bedrock
+      when:
+        - ncl_llm_action == 'create'
+        - ncl_llm_provider | default('') == 'bedrock'
+
+    - name: "CREATE | Merge result"
+      ansible.builtin.set_fact:
+        _llm_create: "{{ _llm_create_bedrock if (ncl_llm_provider | default('') == 'bedrock') else _llm_create_apikey }}"
+      when: ncl_llm_action == 'create'
+
+    - name: "CREATE | Summary"
+      ansible.builtin.debug:
+        msg: |
+          ╔══════════════════════════════════════════════════════╗
+          ║         LLM Configuration — Create                   ║
+          ╠══════════════════════════════════════════════════════╣
+          ║ Provider   : {{ ncl_llm_provider | default('') }}
+          ║ Base URL   : {{ ncl_llm_base_url | default('n/a') }}
+          ║ Models     : {{ ncl_llm_models | default([]) | join(', ') }}
+          ║ Config ID  : {{ _llm_create.config_id | default('n/a') }}
+          ║ Tested     : {{ _llm_create.tested | default(false) }}
+          ║ Changed    : {{ _llm_create.changed }}
+          ║ Message    : {{ _llm_create.msg | default('') }}
+          ╚══════════════════════════════════════════════════════╝
+      when: ncl_llm_action == 'create'
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # ACTION: delete
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "DELETE | Validate config ID is set"
+      ansible.builtin.assert:
+        that:
+          - ncl_llm_config_id | default('') | length > 0
+        fail_msg: "ncl_llm_config_id must be set when ncl_llm_action=delete."
+      when: ncl_llm_action == 'delete'
+
+    - name: "DELETE | Delete LLM configuration id={{ ncl_llm_config_id | default('') }}"
+      netapp.console.llm_config:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: absent
+        config_id: "{{ ncl_llm_config_id }}"
+      register: _llm_delete
+      when: ncl_llm_action == 'delete'
+
+    - name: "DELETE | Summary"
+      ansible.builtin.debug:
+        msg: |
+          ╔══════════════════════════════════════════════════════╗
+          ║         LLM Configuration — Delete                   ║
+          ╠══════════════════════════════════════════════════════╣
+          ║ Config ID : {{ ncl_llm_config_id | default('') }}
+          ║ Changed   : {{ _llm_delete.changed }}
+          ║ Message   : {{ _llm_delete.msg }}
+          ╚══════════════════════════════════════════════════════╝
+      when: ncl_llm_action == 'delete'

@@ -1,0 +1,279 @@
+---
+# Multi-cluster parallel storage provisioning.
+#
+# Provisions a volume AND a LUN on every cluster defined in ncl_storage_targets
+# simultaneously.  All volume POSTs fire at once, results are collected, then
+# all LUN POSTs fire at once.
+#
+# Usage:
+#   ansible-playbook playbooks/storage_provisioning.yml \
+#       --extra-vars "@vars/ncl_storage_provisioning.yml"
+#
+# Run only volumes or only LUNs across all clusters:
+#   --tags volume
+#   --tags lun
+#
+# Each target in ncl_storage_targets can override any global ncl_* default:
+#
+#   ncl_storage_targets:
+#     - cluster_ip:    10.193.186.56
+#       svm_name:      vs0
+#       fleet_name:    Fleet-1
+#       volume_name:   ansible_vol_c1
+#       lun_name:      ansible_lun_c1
+#       # Optional per-target overrides (fall back to global ncl_* vars):
+#       # volume_size:       20
+#       # volume_size_unit:  MiB
+#       # lun_size:          20
+#       # lun_size_unit:     MiB
+#       # storage_class_name: gold-class
+#     - cluster_ip:    10.193.186.57
+#       svm_name:      vs0
+#       fleet_name:    Fleet-1
+#       volume_name:   ansible_vol_c2
+#       lun_name:      ansible_lun_c2
+
+- name: NCL storage provisioning — parallel multi-cluster
+  hosts: localhost
+  gather_facts: false
+
+  # vars_files is intentionally omitted — pass either:
+  #   --extra-vars "@vars/ncl_storage_provisioning.yml"   (dedicated, recommended)
+  #   --extra-vars "@vars/ncl.yml"                     (shared, backward-compatible)
+
+  vars:
+    ncl_console_url: "{{ lookup('env', 'NCL_CONSOLE_URL')    | default(ncl_console_url, true) }}"
+    ncl_access_token: "{{ lookup('env', 'NCL_ACCESS_TOKEN')   | default('', true) }}"
+    ncl_org_id: "{{ lookup('env', 'NCL_ORG_ID')         | default('', true) }}"
+    ncl_validate_certs: "{{ lookup('env', 'NCL_VALIDATE_CERTS') | default(ncl_validate_certs, true) | bool }}"
+    # How long (seconds) to wait for each async job before timing out.
+    _async_timeout: 300
+    # Poll interval for async_status. A longer delay = fewer "FAILED - RETRYING"
+    # lines printed. Set to roughly your expected API response time (default 30s).
+    _async_poll_delay: 30
+    # Seconds to pause before the first async_status poll.
+    # ONTAP provisioning takes 15-60 s; pause lets jobs finish before first check.
+    _async_initial_wait: 30
+
+  pre_tasks:
+    - name: Validate targets list is defined
+      tags: [always]
+      ansible.builtin.assert:
+        that:
+          - ncl_storage_targets is defined
+          - ncl_storage_targets | length > 0
+        fail_msg: >-
+          Define ncl_storage_targets as a list of dicts in vars/ncl.yml.
+          Each item must have: cluster_name OR cluster_ip OR working_environment_id,
+          svm_name (or svm_id), fleet_name (or fleet_id), volume_name, lun_name.
+
+    - name: Login
+      tags: [always]
+      netapp.console.generate_oauth_token:
+        console_url: "{{ ncl_console_url }}"
+        email: "{{ ncl_admin_email }}"
+        password: "{{ ncl_admin_password }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _login
+      when: ncl_access_token | length == 0
+      no_log: true
+
+    - name: Store access token
+      tags: [always]
+      ansible.builtin.set_fact:
+        _ncl_access_token: >-
+          {{ _login.access_token
+             if (_login is not skipped)
+             else ncl_access_token }}
+
+    - name: Discover organisations
+      tags: [always]
+      netapp.console.local_organization_setup:
+        access_token: "{{ _ncl_access_token }}"
+        state: query
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _ncl_orgs
+
+    - name: Resolve org id
+      tags: [always]
+      ansible.builtin.set_fact:
+        _ncl_org_id: >-
+          {{ ncl_org_id
+             if (ncl_org_id | default('') | length > 0)
+             else (_ncl_orgs.organizations | first).id }}
+
+    - name: Expand fleet lists into individual (cluster x fleet) pairs
+      tags: [always]
+      ansible.builtin.set_fact:
+        _expanded_targets: >-
+          {%- set result = [] -%}
+          {%- for t in ncl_storage_targets -%}
+            {%- set fleet_names = t.fleet_names | default(
+                  [t.fleet_name] if t.fleet_name | default('') | length > 0
+                  else ([ncl_fleet_name] if ncl_fleet_name | default('') | length > 0 else [])
+                ) -%}
+            {%- set fleet_ids = t.fleet_ids | default(
+                  [t.fleet_id] if t.fleet_id | default('') | length > 0
+                  else ([ncl_fleet_id] if ncl_fleet_id | default('') | length > 0 else [])
+                ) -%}
+            {%- if fleet_ids | length > 0 -%}
+              {%- for fid in fleet_ids -%}
+                {%- set entry = t | combine({'fleet_id': fid, 'fleet_name': ''}) -%}
+                {%- set _ = result.append(entry) -%}
+              {%- endfor -%}
+            {%- elif fleet_names | length > 0 -%}
+              {%- for fname in fleet_names -%}
+                {%- set entry = t | combine({'fleet_name': fname, 'fleet_id': ''}) -%}
+                {%- set _ = result.append(entry) -%}
+              {%- endfor -%}
+            {%- else -%}
+              {%- set _ = result.append(t) -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ result }}
+
+    - name: Show targets
+      tags: [always]
+      ansible.builtin.debug:
+        msg: >-
+          Org '{{ _ncl_org_id }}' — {{ _expanded_targets | length }} target(s) (after fleet expansion):
+          {% for t in _expanded_targets %}
+          [{{ loop.index }}] cluster={{ t.cluster_name | default(t.cluster_ip | default(t.working_environment_id | default('?'))) }}
+               fleet={{ t.fleet_name | default(t.fleet_id | default('?')) }}
+               svm={{ t.svm_name | default(t.svm_id | default('?')) }}
+               volume={{ t.volume_name }}  lun={{ t.lun_name }}
+          {% endfor %}
+
+  tasks:
+    # ── Task 1: Fire all volume POSTs simultaneously ──────────────────────────
+    - name: Create volumes in parallel (fire)
+      tags: [volume]
+      netapp.console.storage_provisioning:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        storage_type: volume
+        org_id: "{{ _ncl_org_id }}"
+        # ── Fleet ───────────────────────────────────────────────────────────
+        fleet_name: "{{ item.fleet_name | default(ncl_fleet_name, true) | default(omit, true) }}"
+        fleet_id: "{{ item.fleet_id | default(ncl_fleet_id, true) | default(omit, true) }}"
+        # ── Cluster ───────────────────────────────────────────────────────────────
+        cluster_name: "{{ item.cluster_name | default(omit, true) }}"
+        cluster_ip: "{{ item.cluster_ip | default(omit, true) }}"
+        working_environment_id: "{{ item.working_environment_id | default(omit, true) }}"
+        # ── SVM ───────────────────────────────────────────────────────────────
+        svm_name: "{{ item.svm_name | default(omit, true) }}"
+        svm_id: "{{ item.svm_id | default(omit, true) }}"
+        # ── Storage class ────────────────────────────────────────────────────
+        storage_class_name: "{{ item.storage_class_name | default(ncl_storage_class_name, true) | default(omit, true) }}"
+        storage_class_id: "{{ item.storage_class_id | default(ncl_storage_class_id, true) | default(omit, true) }}"
+        # ── Volume spec ──────────────────────────────────────────────────────
+        name: "{{ item.volume_name }}"
+        size: "{{ item.volume_size | default(ncl_volume_size) }}"
+        size_unit: "{{ item.volume_size_unit | default(ncl_volume_size_unit) }}"
+        export_policy_hosts: "{{ item.export_policy_hosts | default(ncl_volume_export_policy_hosts) }}"
+      loop: "{{ _expanded_targets }}"
+      loop_control:
+        label: "{{ item.cluster_name | default(item.cluster_ip | default('?')) }} / {{ item.volume_name }}"
+      async: "{{ _async_timeout }}"
+      poll: 0  # fire-and-forget — all targets start simultaneously
+      register: _vol_jobs
+
+    - name: Allow volume jobs to settle
+      tags: [volume]
+      ansible.builtin.command: "sleep {{ _async_initial_wait }}"
+      changed_when: false
+
+    - name: Wait for all volume jobs to finish
+      tags: [volume]
+      no_log: true
+      ansible.builtin.async_status:
+        jid: "{{ item.ansible_job_id }}"
+      loop: "{{ _vol_jobs.results }}"
+      loop_control:
+        label: "{{ item.item.cluster_name | default(item.item.cluster_ip | default('?')) }} / {{ item.item.volume_name }}"
+      register: _vol_results
+      until: _vol_results is finished
+      retries: "{{ (_async_timeout / _async_poll_delay) | int }}"
+      delay: "{{ _async_poll_delay }}"
+
+    - name: Show volume results
+      tags: [volume]
+      ansible.builtin.debug:
+        msg: >-
+          {% for r in _vol_results.results %}
+          [{{ loop.index }}] {{ r.item.item.cluster_name | default(r.item.item.cluster_ip | default('?')) }}/{{ r.item.item.volume_name }}:
+               {{ 'OK (changed)' if r.changed else 'already exists (no-op)' }}
+               job={{ r.storage.jobId | default('n/a') }}
+               we={{ r.resolved.working_environment_id | default('?') }}
+               svm={{ r.resolved.svm_id | default('?') }}
+          {% endfor %}
+
+    # ── Task 2: Fire all LUN POSTs simultaneously ─────────────────────────────
+    - name: Create LUNs in parallel (fire)
+      tags: [lun]
+      netapp.console.storage_provisioning:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        storage_type: lun
+        org_id: "{{ _ncl_org_id }}"
+        # ── Fleet ───────────────────────────────────────────────────────────
+        fleet_name: "{{ item.fleet_name | default(ncl_fleet_name, true) | default(omit, true) }}"
+        fleet_id: "{{ item.fleet_id | default(ncl_fleet_id, true) | default(omit, true) }}"
+        # ── Cluster ───────────────────────────────────────────────────────────────
+        cluster_name: "{{ item.cluster_name | default(omit, true) }}"
+        cluster_ip: "{{ item.cluster_ip | default(omit, true) }}"
+        working_environment_id: "{{ item.working_environment_id | default(omit, true) }}"
+        # ── SVM ───────────────────────────────────────────────────────────────
+        svm_name: "{{ item.lun_svm_name | default(item.svm_name, true) | default(omit, true) }}"
+        svm_id: "{{ item.lun_svm_id | default(item.svm_id, true) | default(omit, true) }}"
+        # ── Storage class ────────────────────────────────────────────────────
+        storage_class_name: "{{ item.storage_class_name | default(ncl_storage_class_name, true) | default(omit, true) }}"
+        storage_class_id: "{{ item.storage_class_id | default(ncl_storage_class_id, true) | default(omit, true) }}"
+        # ── LUN spec ─────────────────────────────────────────────────────────
+        name: "{{ item.lun_name }}"
+        size: "{{ item.lun_size | default(ncl_lun_size) }}"
+        size_unit: "{{ item.lun_size_unit | default(ncl_lun_size_unit) }}"
+        number_of_luns: "{{ item.lun_number | default(ncl_lun_number) }}"
+        host_os: "{{ item.lun_host_os | default(ncl_lun_host_os) }}"
+        lun_format: "{{ item.lun_format | default(ncl_lun_format) }}"
+        igroup_name: "{{ item.lun_igroup_name | default(ncl_lun_igroup_name) }}"
+        igroup_initiators: "{{ item.lun_initiators | default(ncl_lun_initiators) }}"
+      loop: "{{ _expanded_targets }}"
+      loop_control:
+        label: "{{ item.cluster_name | default(item.cluster_ip | default('?')) }} / {{ item.lun_name }}"
+      async: "{{ _async_timeout }}"
+      poll: 0  # fire-and-forget — all targets start simultaneously
+      register: _lun_jobs
+
+    - name: Allow LUN jobs to settle
+      tags: [lun]
+      ansible.builtin.command: "sleep {{ _async_initial_wait }}"
+      changed_when: false
+
+    - name: Wait for all LUN jobs to finish
+      tags: [lun]
+      no_log: true
+      ansible.builtin.async_status:
+        jid: "{{ item.ansible_job_id }}"
+      loop: "{{ _lun_jobs.results }}"
+      loop_control:
+        label: "{{ item.item.cluster_name | default(item.item.cluster_ip | default('?')) }} / {{ item.item.lun_name }}"
+      register: _lun_results
+      until: _lun_results is finished
+      retries: "{{ (_async_timeout / _async_poll_delay) | int }}"
+      delay: "{{ _async_poll_delay }}"
+
+    - name: Show LUN results
+      tags: [lun]
+      ansible.builtin.debug:
+        msg: >-
+          {% for r in _lun_results.results %}
+          [{{ loop.index }}] {{ r.item.item.cluster_name | default(r.item.item.cluster_ip | default('?')) }}/{{ r.item.item.lun_name }}:
+               {{ 'OK (changed)' if r.changed else 'already exists (no-op)' }}
+               job={{ r.storage.jobId | default('n/a') }}
+               we={{ r.resolved.working_environment_id | default('?') }}
+               svm={{ r.resolved.svm_id | default('?') }}
+          {% endfor %}

@@ -1,0 +1,195 @@
+---
+# Console webhook management — list, create, or delete outbound webhooks.
+#
+# Driven by ncl_webhook_action (query | create | delete) set in
+# vars/ncl_webhook.yml or overridden on the CLI with -e.
+#
+# Usage:
+#   # List all webhooks:
+#   ansible-playbook playbooks/webhooks.yml \
+#       --extra-vars "@vars/ncl_webhook.yml" \
+#       -e ncl_admin_password=SECRET
+#
+#   # Create a JSON webhook (with connectivity test):
+#   ansible-playbook playbooks/webhooks.yml \
+#       --extra-vars "@vars/ncl_webhook.yml" \
+#       -e ncl_admin_password=SECRET \
+#       -e ncl_webhook_action=create
+#
+#   # Create an OTEL webhook (skip test):
+#   ansible-playbook playbooks/webhooks.yml \
+#       --extra-vars "@vars/ncl_webhook.yml" \
+#       -e ncl_admin_password=SECRET \
+#       -e ncl_webhook_action=create \
+#       -e ncl_webhook_format=OTEL \
+#       -e ncl_webhook_run_test=false
+#
+#   # Delete a webhook by name:
+#   ansible-playbook playbooks/webhooks.yml \
+#       --extra-vars "@vars/ncl_webhook.yml" \
+#       -e ncl_admin_password=SECRET \
+#       -e ncl_webhook_action=delete
+#
+#   # Delete a webhook by ID (skips name lookup):
+#   ansible-playbook playbooks/webhooks.yml \
+#       --extra-vars "@vars/ncl_webhook.yml" \
+#       -e ncl_admin_password=SECRET \
+#       -e ncl_webhook_action=delete \
+#       -e ncl_webhook_id=<uuid>
+#
+# Environment variable overrides (CI / secrets managers):
+#   NCL_CONSOLE_URL    → ncl_console_url
+#   NCL_ACCESS_TOKEN   → ncl_access_token
+#   NCL_ORG_ID         → ncl_org_id
+#   NCL_VALIDATE_CERTS → ncl_validate_certs
+
+- name: NCL webhook management
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../vars/ncl_webhook.yml
+
+  vars:
+    ncl_console_url:    "{{ lookup('env', 'NCL_CONSOLE_URL')    | default(ncl_console_url, true) }}"
+    ncl_access_token:   "{{ lookup('env', 'NCL_ACCESS_TOKEN')   | default('', true) }}"
+    ncl_org_id:         "{{ lookup('env', 'NCL_ORG_ID')         | default('', true) }}"
+    ncl_validate_certs: "{{ lookup('env', 'NCL_VALIDATE_CERTS') | default(ncl_validate_certs, true) | bool }}"
+
+  pre_tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - ncl_console_url | length > 0
+          - (ncl_admin_email | default('') | length > 0 and ncl_admin_password | default('') | length > 0)
+            or ncl_access_token | length > 0
+          - ncl_webhook_action in ['query', 'create', 'delete']
+        fail_msg: >-
+          Set ncl_console_url, credentials, and ncl_webhook_action
+          (query|create|delete) in vars/ncl_webhook.yml or via -e.
+
+    - name: Login to Console
+      netapp.console.generate_oauth_token:
+        console_url:    "{{ ncl_console_url }}"
+        email:          "{{ ncl_admin_email }}"
+        password:       "{{ ncl_admin_password }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _login
+      when: ncl_access_token | length == 0
+      no_log: true
+
+    - name: Store access token
+      ansible.builtin.set_fact:
+        _ncl_access_token: >-
+          {{ _login.access_token if (_login is not skipped) else ncl_access_token }}
+
+    - name: Discover organisations
+      netapp.console.local_organization_setup:
+        access_token:   "{{ _ncl_access_token }}"
+        state:          query
+        console_url:    "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _ncl_orgs
+      when: ncl_org_id | length == 0
+
+    - name: Resolve org ID
+      ansible.builtin.set_fact:
+        _ncl_org_id: >-
+          {{ ncl_org_id if ncl_org_id | length > 0
+             else (_ncl_orgs.organizations | first).id }}
+
+  tasks:
+    # ══════════════════════════════════════════════════════════════════════════
+    # ACTION: query — list all webhooks
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "QUERY | List all webhooks"
+      netapp.console.webhooks:
+        access_token:   "{{ _ncl_access_token }}"
+        console_url:    "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id:         "{{ _ncl_org_id }}"
+        state:          query
+      register: _wh_query
+      when: ncl_webhook_action == 'query'
+
+    - name: "QUERY | Show webhooks"
+      ansible.builtin.debug:
+        msg: >-
+          Webhooks in org '{{ _ncl_org_id }}'
+          ({{ _wh_query.webhooks | default([]) | length }}):
+          {% for wh in _wh_query.webhooks | default([]) %}
+          • {{ wh.name }} [{{ wh.format | default('?') }}] → {{ wh.endpoint_url | default('?') }}
+          {% endfor %}
+      when: ncl_webhook_action == 'query'
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # ACTION: create — ensure webhook exists (test then create, idempotent)
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "CREATE | Ensure webhook exists: {{ ncl_webhook_name }}"
+      netapp.console.webhooks:
+        access_token:        "{{ _ncl_access_token }}"
+        console_url:         "{{ ncl_console_url }}"
+        validate_certs:      "{{ ncl_validate_certs }}"
+        org_id:              "{{ _ncl_org_id }}"
+        state:               present
+        name:                "{{ ncl_webhook_name }}"
+        endpoint_url:        "{{ ncl_webhook_endpoint_url }}"
+        http_method:         "{{ ncl_webhook_http_method | default('POST') }}"
+        format:              "{{ ncl_webhook_format | default('JSON') }}"
+        headers:             "{{ ncl_webhook_headers | default([]) }}"
+        attributes:          "{{ ncl_webhook_attributes | default([]) }}"
+        tls_ca_certificate:  "{{ ncl_webhook_tls_ca_certificate | default('') }}"
+        run_test:            "{{ ncl_webhook_run_test | default(true) | bool }}"
+      register: _wh_create
+      when: ncl_webhook_action == 'create'
+
+    - name: "CREATE | Summary"
+      ansible.builtin.debug:
+        msg: >-
+          ╔══════════════════════════════════════════════════════╗
+          ║          Webhook Management — Create                 ║
+          ╠══════════════════════════════════════════════════════╣
+          ║ Name         : {{ ncl_webhook_name }}
+          ║ ID           : {{ _wh_create.webhook.id | default('n/a') }}
+          ║ Endpoint     : {{ ncl_webhook_endpoint_url }}
+          ║ Format       : {{ ncl_webhook_format | default('JSON') }}
+          ║ Test Run     : {{ ncl_webhook_run_test | default(true) }}
+          ║ Changed      : {{ _wh_create.changed }}
+          ║ Message      : {{ _wh_create.msg }}
+          ╚══════════════════════════════════════════════════════╝
+      when: ncl_webhook_action == 'create'
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # ACTION: delete — remove webhook by name or ID
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "DELETE | Remove webhook"
+      netapp.console.webhooks:
+        access_token:   "{{ _ncl_access_token }}"
+        console_url:    "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id:         "{{ _ncl_org_id }}"
+        state:          absent
+        name: >-
+          {{ ncl_webhook_name
+             if ncl_webhook_id | default('') | length == 0
+             else omit }}
+        webhook_id: >-
+          {{ ncl_webhook_id
+             if ncl_webhook_id | default('') | length > 0
+             else omit }}
+      register: _wh_delete
+      when: ncl_webhook_action == 'delete'
+
+    - name: "DELETE | Summary"
+      ansible.builtin.debug:
+        msg: >-
+          ╔══════════════════════════════════════════════════════╗
+          ║          Webhook Management — Delete                 ║
+          ╠══════════════════════════════════════════════════════╣
+          ║ Target  : {{ ncl_webhook_name
+                         if ncl_webhook_id | default('') | length == 0
+                         else ncl_webhook_id }}
+          ║ Changed : {{ _wh_delete.changed }}
+          ║ Message : {{ _wh_delete.msg }}
+          ╚══════════════════════════════════════════════════════╝
+      when: ncl_webhook_action == 'delete'

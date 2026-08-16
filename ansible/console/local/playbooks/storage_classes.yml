@@ -1,0 +1,186 @@
+---
+# NCL storage class management — list, create, or delete storage classes.
+#
+# Driven by ncl_sc_action (query | create | delete) set in vars/ncl_storage_class.yml
+# or overridden on the CLI with -e ncl_sc_action=<value>.
+#
+# Usage:
+#   # List all storage classes:
+#   ansible-playbook playbooks/storage_classes.yml \
+#       --extra-vars "@vars/ncl_storage_class.yml" \
+#       -e ncl_admin_password=SECRET
+#
+#   # Create a storage class (supply at least one policy ID):
+#   ansible-playbook playbooks/storage_classes.yml \
+#       --extra-vars "@vars/ncl_storage_class.yml" \
+#       -e ncl_admin_password=SECRET \
+#       -e ncl_sc_action=create \
+#       -e ncl_sc_performance_policy_id=<uuid>
+#
+#   # Delete a storage class by name:
+#   ansible-playbook playbooks/storage_classes.yml \
+#       --extra-vars "@vars/ncl_storage_class.yml" \
+#       -e ncl_admin_password=SECRET \
+#       -e ncl_sc_action=delete
+#
+#   # Delete a storage class by ID (skips name lookup):
+#   ansible-playbook playbooks/storage_classes.yml \
+#       --extra-vars "@vars/ncl_storage_class.yml" \
+#       -e ncl_admin_password=SECRET \
+#       -e ncl_sc_action=delete \
+#       -e ncl_sc_id=<uuid>
+#
+# Environment variable overrides (CI / secrets managers):
+#   NCL_CONSOLE_URL    → ncl_console_url
+#   NCL_ACCESS_TOKEN   → ncl_access_token
+#   NCL_ORG_ID         → ncl_org_id
+#   NCL_VALIDATE_CERTS → ncl_validate_certs
+
+- name: NCL storage class management
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../vars/ncl_storage_class.yml
+
+  vars:
+    ncl_console_url:   "{{ lookup('env', 'NCL_CONSOLE_URL')    | default(ncl_console_url, true) }}"
+    ncl_access_token:  "{{ lookup('env', 'NCL_ACCESS_TOKEN')   | default('', true) }}"
+    ncl_org_id:        "{{ lookup('env', 'NCL_ORG_ID')         | default('', true) }}"
+    ncl_validate_certs: "{{ lookup('env', 'NCL_VALIDATE_CERTS') | default(ncl_validate_certs, true) | bool }}"
+
+  pre_tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - ncl_console_url | length > 0
+          - (ncl_admin_email | default('') | length > 0 and ncl_admin_password | default('') | length > 0) or ncl_access_token | length > 0
+          - ncl_sc_action in ['query', 'create', 'delete']
+        fail_msg: >-
+          Set ncl_console_url, credentials, and ncl_sc_action (query|create|delete)
+          in vars/ncl_storage_class.yml or via -e.
+
+    - name: Login to Console
+      netapp.console.generate_oauth_token:
+        console_url:    "{{ ncl_console_url }}"
+        email:          "{{ ncl_admin_email }}"
+        password:       "{{ ncl_admin_password }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _login
+      when: ncl_access_token | length == 0
+      no_log: true
+
+    - name: Store access token
+      ansible.builtin.set_fact:
+        _ncl_access_token: >-
+          {{ _login.access_token if (_login is not skipped) else ncl_access_token }}
+
+    - name: Discover organisations
+      netapp.console.local_organization_setup:
+        access_token:   "{{ _ncl_access_token }}"
+        state:          query
+        console_url:    "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _ncl_orgs
+      when: ncl_org_id | length == 0
+
+    - name: Resolve org ID
+      ansible.builtin.set_fact:
+        _ncl_org_id: >-
+          {{ ncl_org_id if ncl_org_id | length > 0
+             else (_ncl_orgs.organizations | first).id }}
+
+  tasks:
+    # ══════════════════════════════════════════════════════════════════════════
+    # ACTION: query — list all storage classes
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "QUERY | List all storage classes"
+      netapp.console.storage_classes:
+        access_token:   "{{ _ncl_access_token }}"
+        console_url:    "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id:         "{{ _ncl_org_id }}"
+        state:          query
+      register: _sc_query
+      when: ncl_sc_action == 'query'
+
+    - name: "QUERY | Show storage classes"
+      ansible.builtin.debug:
+        msg: >-
+          Storage classes in org '{{ _ncl_org_id }}' ({{ _sc_query.storage_classes | length }}):
+          {{ _sc_query.storage_classes | map(attribute='name') | list }}
+      when: ncl_sc_action == 'query'
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # ACTION: create — ensure storage class exists (idempotent)
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "CREATE | Ensure storage class exists: {{ ncl_sc_name }}"
+      netapp.console.storage_classes:
+        access_token:          "{{ _ncl_access_token }}"
+        console_url:           "{{ ncl_console_url }}"
+        validate_certs:        "{{ ncl_validate_certs }}"
+        org_id:                "{{ _ncl_org_id }}"
+        state:                 present
+        name:                  "{{ ncl_sc_name }}"
+        description:           "{{ ncl_sc_description | default('Managed by Ansible') }}"
+        security_policy_name:    "{{ ncl_sc_security_policy_name
+                                   if ncl_sc_security_policy_name | default('') | length > 0
+                                   else omit }}"
+        capacity_policy_name:    "{{ ncl_sc_capacity_policy_name
+                                   if ncl_sc_capacity_policy_name | default('') | length > 0
+                                   else omit }}"
+        performance_policy_name: "{{ ncl_sc_performance_policy_name
+                                   if ncl_sc_performance_policy_name | default('') | length > 0
+                                   else omit }}"
+        protection_policy_names: "{{ ncl_sc_protection_policy_names
+                                   if ncl_sc_protection_policy_names | default([]) | length > 0
+                                   else omit }}"
+        tags:                  "{{ ncl_sc_tags
+                                   if ncl_sc_tags | default([]) | length > 0
+                                   else omit }}"
+      register: _sc_create
+      when: ncl_sc_action == 'create'
+
+    - name: "CREATE | Summary"
+      ansible.builtin.debug:
+        msg: >-
+          ╔══════════════════════════════════════════════════════╗
+          ║       Storage Class Management — Create              ║
+          ╠══════════════════════════════════════════════════════╣
+          ║ Name    : {{ ncl_sc_name }}
+          ║ ID      : {{ _sc_create.storage_class.id | default('n/a') }}
+          ║ Changed : {{ _sc_create.changed }}
+          ║ Message : {{ _sc_create.msg }}
+          ╚══════════════════════════════════════════════════════╝
+      when: ncl_sc_action == 'create'
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # ACTION: delete — remove storage class by name or ID
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "DELETE | Remove storage class"
+      netapp.console.storage_classes:
+        access_token:     "{{ _ncl_access_token }}"
+        console_url:      "{{ ncl_console_url }}"
+        validate_certs:   "{{ ncl_validate_certs }}"
+        org_id:           "{{ _ncl_org_id }}"
+        state:            absent
+        name:             "{{ ncl_sc_name
+                               if ncl_sc_id | default('') | length == 0
+                               else omit }}"
+        storage_class_id: "{{ ncl_sc_id
+                               if ncl_sc_id | default('') | length > 0
+                               else omit }}"
+      register: _sc_delete
+      when: ncl_sc_action == 'delete'
+
+    - name: "DELETE | Summary"
+      ansible.builtin.debug:
+        msg: >-
+          ╔══════════════════════════════════════════════════════╗
+          ║       Storage Class Management — Delete              ║
+          ╠══════════════════════════════════════════════════════╣
+          ║ Target  : {{ ncl_sc_name if ncl_sc_id | default('') | length == 0 else ncl_sc_id }}
+          ║ Changed : {{ _sc_delete.changed }}
+          ║ Message : {{ _sc_delete.msg }}
+          ╚══════════════════════════════════════════════════════╝
+      when: ncl_sc_action == 'delete'

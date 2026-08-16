@@ -1,0 +1,62 @@
+---
+# =============================================================================
+# vars/ncl_register_onprem.yml — variables for playbooks/register_onprem_system.yml
+# =============================================================================
+# Usage:
+#   ansible-playbook playbooks/register_onprem_system.yml \
+#       --extra-vars "@vars/ncl_register_onprem.yml"
+#
+#   # List available fleets only:
+#   ansible-playbook playbooks/register_onprem_system.yml \
+#       --extra-vars "@vars/ncl_register_onprem.yml" --tags list
+#
+#   # Register clusters:
+#   ansible-playbook playbooks/register_onprem_system.yml \
+#       --extra-vars "@vars/ncl_register_onprem.yml" --tags register
+# =============================================================================
+
+# ── NCL appliance ─────────────────────────────────────────────────────────────
+ncl_console_url: ""
+ncl_validate_certs: false
+
+# ── Admin credentials ─────────────────────────────────────────────────────────
+# Encrypt with: ansible-vault encrypt_string 'helloworld12345' --name ncl_admin_password
+ncl_admin_email: ""
+ncl_admin_password: "" # ── Organisation (leave empty to auto-discover) ───────────────────────────────
+ncl_org_id: ""
+
+# ── Console Connector / agent ID ───────────────────────────────────────────────
+# Leave empty for auto-discovery from GET {ncl_console_url}/system/about
+ncl_agent_id: ""
+
+# ── Working environment readiness polling ─────────────────────────────────────
+# After registration, Harvest needs time to push cluster details to Console.
+# The playbook polls until status != PENDING or the timeout is reached.
+#   Total max wait = _we_poll_retries * _we_poll_interval  (default = 10 min)
+_we_poll_interval: 30    # seconds between each readiness check
+_we_poll_retries: 20     # max number of checks (20 * 30s = 10 minutes)
+
+# ── Clusters to register ──────────────────────────────────────────────────────
+# Use ncl_onprem_clusters for multi-cluster (preferred).
+# All entries fire in parallel. Each can target the same or a different fleet.
+#
+# Required per entry:
+#   cluster_ip   — ONTAP cluster management IP
+#   username     — ONTAP admin user
+#   password     — ONTAP admin password  (use Ansible Vault in production)
+#   fleet_name   — Console fleet name  OR  fleet_id (UUID, faster — no lookup)
+#
+# Optional per entry:
+#   agent_id     — override global ncl_agent_id for this cluster only
+
+ncl_onprem_clusters:
+  # ── Same fleet — multiple clusters ─────────────────────────────────────────
+  - cluster_ip: ""
+    username: "admin"
+    password: ""
+    fleet_name: "Fleet-1"
+
+#  - cluster_ip: ""
+#    username: "admin"
+#    password: ""
+#    fleet_name: "Fleet-2"  # same fleet

@@ -1,0 +1,59 @@
+---
+# =============================================================================
+# vars/ncl_storage_class.yml — variable defaults for
+#   playbooks/ncl_storage_class.yml
+# =============================================================================
+# Usage:
+#   ansible-playbook playbooks/ncl_storage_class.yml \
+#       --extra-vars "@vars/ncl_storage_class.yml" -e ncl_admin_password=SECRET
+#
+# Override any variable on the command line with -e, e.g.:
+#   -e ncl_sc_action=create
+#   -e ncl_sc_name="my-storage-class"
+#
+# For secrets in production, encrypt with Ansible Vault:
+#   ansible-vault encrypt vars/ncl_storage_class.yml
+# =============================================================================
+
+# ── NCL appliance ─────────────────────────────────────────────────────────────
+ncl_console_url: "" # REQUIRED: set your appliance URL
+ncl_validate_certs: false                 # set true in production
+
+# ── Admin credentials ─────────────────────────────────────────────────────────
+ncl_admin_email: ""
+ncl_admin_password: "" # REQUIRED: set via Vault or -e
+
+# ── Organisation ──────────────────────────────────────────────────────────────
+# The org_id from the API URL:
+#   /storage-management/v1/organizations/<org_id>/storageclasses
+ncl_org_id: ""  # leave empty to auto-discover from the first organisation
+
+# ── Action ────────────────────────────────────────────────────────────────────
+# Supported values: query | create | delete
+ncl_sc_action: "query"
+
+# ── Storage class identity ────────────────────────────────────────────────────
+# Name used for create (state=present) and name-based delete (state=absent).
+ncl_sc_name: "ansible-storage-class-1"
+ncl_sc_description: "Managed by Ansible"
+
+# ID used for direct delete (state=absent with storage_class_id).
+# Leave empty to delete by ncl_sc_name instead.
+ncl_sc_id: ""
+
+# ── Policy names (at least one required for create) ───────────────────────────
+# Use the exact display name shown in the Console UI or returned by the
+# respective query playbooks, e.g.:
+#   ansible-playbook playbooks/ncl_performance_policy.yml \
+#       --extra-vars "@vars/ncl_performance_policy.yml" --tags list
+# Leave empty ("") to omit that policy from the storage class payload.
+ncl_sc_security_policy_name: ""     # e.g. "Standard Security"
+ncl_sc_capacity_policy_name: ""     # e.g. "Autogrow Capacity"
+ncl_sc_performance_policy_name: "Value"  # e.g. "Value"
+ncl_sc_protection_policy_names: []  # e.g. ["30-day Recovery"]
+
+# ── Optional metadata tags ────────────────────────────────────────────────────
+# List of single-key dicts attached as metadata.
+# ncl_sc_tags:
+#   - "internal:bxp:supportedApplications": "auto apps"
+ncl_sc_tags: []

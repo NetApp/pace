@@ -1,0 +1,23 @@
+---
+# =============================================================================
+# NetApp Console – NCL Full Onboarding (site entry point)
+# =============================================================================
+# Chains all NCL playbooks in the correct order:
+#   1. user_registration.yml  – bootstrap admin user + org
+#   2. fleet_management.yml   – fleet CRUD (create / list / delete)
+#
+# Run this to perform a complete NCL onboarding in one command:
+#   ansible-playbook playbooks/site.yml \
+#       --extra-vars "@vars/ncl.yml" \
+#       -e fleet_action=create
+#
+# Or run individual playbooks for targeted operations:
+#   ansible-playbook playbooks/user_registration.yml --extra-vars "@vars/ncl.yml"
+#   ansible-playbook playbooks/fleet_management.yml  --extra-vars "@vars/ncl.yml" -e fleet_action=list
+# =============================================================================
+
+- name: NCL user registration
+  import_playbook: user_registration.yml
+
+- name: NCL fleet management
+  import_playbook: fleet_management.yml

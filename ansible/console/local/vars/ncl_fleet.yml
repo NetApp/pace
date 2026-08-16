@@ -1,0 +1,84 @@
+---
+# =============================================================================
+# vars/ncl_fleet.yml — variables for:
+#   playbooks/ncl_fleet_management.yml  (list / create)
+#   playbooks/ncl_fleet_delete.yml      (delete)
+# =============================================================================
+# Usage:
+#   # List all fleets:
+#   ansible-playbook playbooks/ncl_fleet_management.yml \
+#       --extra-vars "@vars/ncl_fleet.yml" --tags list
+#
+#   # Create a folder then a fleet inside it:
+#   ansible-playbook playbooks/ncl_fleet_management.yml \
+#       --extra-vars "@vars/ncl_fleet.yml" --tags create
+#
+#   # Create a folder only:
+#   ansible-playbook playbooks/ncl_fleet_management.yml \
+#       --extra-vars "@vars/ncl_fleet.yml" --tags folder
+#
+#   # Create a fleet only (folder already exists — supply its id):
+#   ansible-playbook playbooks/ncl_fleet_management.yml \
+#       --extra-vars "@vars/ncl_fleet.yml" \
+#       -e ncl_fleet_parent_id=<folder-uuid> --tags fleet
+#
+#   # Delete a fleet by name:
+#   ansible-playbook playbooks/ncl_fleet_delete.yml \
+#       --extra-vars "@vars/ncl_fleet.yml" -e ncl_fleet_name="my-fleet"
+#
+#   # Delete a fleet by id:
+#   ansible-playbook playbooks/ncl_fleet_delete.yml \
+#       --extra-vars "@vars/ncl_fleet.yml" \
+#       -e ncl_fleet_id=<uuid>
+#
+#   # Create fleet then attach registered clusters:
+#   ansible-playbook playbooks/ncl_fleet_management.yml \
+#       --extra-vars "@vars/ncl_fleet.yml" --tags create
+#
+#   # Attach clusters to an existing fleet (standalone):
+#   ansible-playbook playbooks/ncl_fleet_management.yml \
+#       --extra-vars "@vars/ncl_fleet.yml" \
+#       -e ncl_fleet_id=<uuid> --tags attach
+# =============================================================================
+
+# ── NCL appliance ─────────────────────────────────────────────────────────────
+ncl_console_url: ""
+ncl_validate_certs: false
+
+# ── Admin credentials ─────────────────────────────────────────────────────────
+# Encrypt with: ansible-vault encrypt_string 'helloworld12345' --name ncl_admin_password
+ncl_admin_email: ""
+ncl_admin_password: "" # ── Organisation (leave empty to auto-discover) ───────────────────────────────
+ncl_org_id: ""
+
+# ── Fleet ─────────────────────────────────────────────────────────────────────
+ncl_fleet_name: "Fleet-1"
+ncl_fleet_description: "Managed by Ansible"
+# Used by playbooks/ncl_fleet_delete.yml when deleting by id instead of name:
+ncl_fleet_id: ""
+
+# ── Folder (optional) ─────────────────────────────────────────────────────────
+# Set ncl_fleet_folder_name to create a folder and place the fleet inside it.
+# Leave empty to place the fleet directly under the org root.
+ncl_fleet_folder_name: "Ansible-Managed-Folder-1"  # e.g. "prod-folder"
+ncl_fleet_folder_description: "Managed by Ansible"
+# Set ncl_fleet_parent_id to use an existing folder UUID directly
+# (skips folder creation — useful with --tags fleet).
+ncl_fleet_parent_id: ""
+
+# ── Clusters to attach after fleet creation ───────────────────────────────────
+# Optional. When set, ncl_fleet_management.yml (tags: fleet, create, attach)
+# will look up each cluster's working environment via the assets API and
+# bulk-attach them all to the fleet in a single POST call.
+#
+# Clusters MUST already be registered (run register_onprem_system.yml first).
+# Matching is done by cluster_ip against the assets API response.
+#
+# Required per entry:
+#   cluster_ip  — ONTAP cluster management IP (used to look up the WE ID)
+#
+# Optional per entry (not used for attach, kept for cross-playbook compatibility):
+#   username / password / fleet_name / fleet_id
+
+ncl_onprem_clusters:
+  - cluster_ip: ""

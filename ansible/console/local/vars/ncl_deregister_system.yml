@@ -1,0 +1,79 @@
+---
+# =============================================================================
+# Console System Deregistration — dedicated variable defaults
+# =============================================================================
+# Usage:
+#   # Query fleet membership for all systems (no changes):
+#   ansible-playbook playbooks/deregister_system.yml \
+#       --extra-vars "@vars/ncl_deregister_system.yml" \
+#       -e ncl_admin_password=YOUR_PASSWORD \
+#       -e ncl_deregister_action=query
+#
+#   # Deregister all listed systems — safe mode:
+#   ansible-playbook playbooks/deregister_system.yml \
+#       --extra-vars "@vars/ncl_deregister_system.yml" \
+#       -e ncl_admin_password=YOUR_PASSWORD \
+#       -e ncl_deregister_action=deregister
+#
+#   # Deregister all — force even if WEs are still in fleets:
+#   ansible-playbook playbooks/deregister_system.yml \
+#       --extra-vars "@vars/ncl_deregister_system.yml" \
+#       -e ncl_admin_password=YOUR_PASSWORD \
+#       -e ncl_deregister_action=deregister \
+#       -e ncl_deregister_force=true
+#
+#   # Override ncl_systems inline (two clusters by IP):
+#   ansible-playbook playbooks/deregister_system.yml \
+#       --extra-vars "@vars/ncl_deregister_system.yml" \
+#       -e '{"ncl_systems":[{"cluster_ip":"10.0.0.1"},{"cluster_ip":"10.0.0.2"}]}' \
+#       -e ncl_admin_password=YOUR_PASSWORD \
+#       -e ncl_deregister_action=deregister
+#
+# Environment variable overrides (CI / secrets managers):
+#   NCL_CONSOLE_URL    → ncl_console_url
+#   NCL_ACCESS_TOKEN   → ncl_access_token
+#   NCL_ORG_ID         → ncl_org_id
+#   NCL_VALIDATE_CERTS → ncl_validate_certs
+# =============================================================================
+
+# ── Console appliance ──────────────────────────────────────────────────────────
+ncl_console_url: "" # REQUIRED: set your appliance URL
+ncl_validate_certs: false                  # set true in production
+
+# ── Admin credentials ─────────────────────────────────────────────────────────
+ncl_admin_email: ""
+ncl_admin_password: "" # REQUIRED: pass via -e or Vault
+
+# ── Organisation ──────────────────────────────────────────────────────────────
+# Leave empty to auto-discover from the first organisation.
+ncl_org_id: ""
+
+# ── Action ────────────────────────────────────────────────────────────────────
+# Supported values: query | deregister
+#   query       — show fleet membership; no changes made
+#   deregister  — permanently remove the system from the organisation
+ncl_deregister_action: "query"
+
+# ── Systems to operate on ─────────────────────────────────────────────────────
+# List one or more systems. Each entry must supply either `we_id` (preferred)
+# or `cluster_ip` (the module resolves it to a WE ID automatically).
+# An optional per-system `agent_id` narrows the lookup scope.
+#
+# Single-system example:
+#   ncl_systems:
+#     - cluster_ip: ""
+#
+# Multi-system example:
+#   ncl_systems:
+#     - we_id: "OnPremWorkingEnvironment-5b457a6a-c942-4666-805b-0ab7c6bf419f"
+#     - cluster_ip: ""
+#     - cluster_ip: ""
+#       agent_id:   ""
+ncl_systems:
+  - cluster_ip: ""
+
+# ── Force flag ────────────────────────────────────────────────────────────────
+# When false (default) the playbook checks fleet membership and requires the
+# system to be removed from all fleets before deregistering.
+# Set true to skip that safety check and deregister even if still in a fleet.
+ncl_deregister_force: true

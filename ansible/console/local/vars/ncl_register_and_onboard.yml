@@ -1,0 +1,99 @@
+---
+# =============================================================================
+# Console Local — End-to-End Onboarding variable defaults
+# =============================================================================
+# Used by:  playbooks/register_and_onboard.yml
+#
+# This playbook performs a complete onboarding sequence in one run:
+#   1. Register the first admin user (or skip if already registered)
+#   2. Create the organisation (or discover it if it exists)
+#   3. Create a folder inside the org (optional)
+#   4. Create a fleet inside that folder
+#   5. Register an on-premises ONTAP cluster and attach it to the fleet
+#   6. Configure an LLM provider (optional)
+#
+# Usage:
+#   ansible-playbook playbooks/register_and_onboard.yml \
+#       --extra-vars "@vars/ncl_register_and_onboard.yml" \
+#       -e ncl_admin_password=YOUR_PASSWORD \
+#       -e ncl_onprem_password=ONTAP_PASSWORD
+#
+# All secrets should be passed via -e or Ansible Vault — never store
+# plaintext passwords in this file.
+#
+# For secrets in production, encrypt with Ansible Vault:
+#   ansible-vault encrypt vars/ncl_register_and_onboard.yml
+# =============================================================================
+
+# ── Console appliance ──────────────────────────────────────────────────────────
+ncl_console_url: "" # REQUIRED: set your appliance URL
+ncl_validate_certs: false                  # set true in production
+
+# ── Admin user registration ────────────────────────────────────────────────────
+# These are used to bootstrap the first admin account on a fresh appliance.
+# If the user already exists the registration step is skipped (HTTP 409 = no-op).
+ncl_admin_full_name: "Console Admin"
+ncl_admin_email: "" # REQUIRED
+ncl_admin_password: "" # REQUIRED — set via Vault or -e
+ncl_admin_company: "NetApp"
+
+# ── Organisation ──────────────────────────────────────────────────────────────
+# The playbook searches for an org matching this name.
+# If not found, it creates a new org with this name.
+# Leave ncl_org_id empty to let the playbook discover/create the org by name.
+ncl_target_org_name: "NetApp"
+ncl_org_id: ""   # optional — set to skip org discovery and use a known org ID
+
+# ── Folder (optional) ─────────────────────────────────────────────────────────
+# Leave ncl_folder_name empty ("") to place the fleet directly under the
+# organisation root — no folder will be created.
+# When set, the folder is created automatically if it does not already exist.
+ncl_folder_name: ""             # e.g. "Ansible-Managed" — leave "" to skip
+ncl_folder_description: "Managed by Ansible automation"
+
+# ── Fleet ─────────────────────────────────────────────────────────────────────
+# The fleet is created inside the folder defined above.
+# Idempotent — skipped if a fleet with this name already exists.
+ncl_fleet_name: "Fleet-1"
+
+# ── On-premises ONTAP cluster registration ────────────────────────────────────
+# REQUIRED: the cluster management IP and admin credentials.
+ncl_onprem_cluster_ip: ""           # e.g. "10.193.186.56"
+ncl_onprem_username: "admin"
+ncl_onprem_password: "CHANGE_ME"    # REQUIRED — set via Vault or -e
+
+# Connector / agent ID used to route the registration request.
+# Leave empty to auto-discover from GET {console_url}/system/about.
+ncl_agent_id: ""
+
+# ── LLM provider configuration (optional) ────────────────────────────────────
+# Leave ncl_llm_provider empty to skip the LLM configuration step entirely.
+#
+# provider     — supported values: openai | commonOpenAI | anthropic | bedrock
+# api_key      — required for openai / commonOpenAI / anthropic
+# base_url     — provider endpoint URL (openai / commonOpenAI)
+# models       — list of model names to associate with this config
+# ssl_verify   — set false for self-signed / internal endpoints
+# run_test     — send a connectivity test before saving (recommended)
+#
+# Example — OpenAI-compatible local proxy:
+#   ncl_llm_provider: "commonOpenAI"
+#   ncl_llm_api_key: "sk-placeholder"
+#   ncl_llm_base_url: "http://my-llm-proxy:8080/v1"
+#   ncl_llm_models:
+#     - "gpt-4o"
+#
+# Example — AWS Bedrock:
+#   ncl_llm_provider: "bedrock"
+#   ncl_llm_aws_access_key_id: "AKIA..."
+#   ncl_llm_aws_secret_access_key: "CHANGE_ME"
+#   ncl_llm_models:
+#     - "anthropic.claude-3-sonnet-20240229-v1:0"
+ncl_llm_provider: ""                 # leave empty to skip LLM step
+ncl_llm_api_key: ""
+ncl_llm_base_url: ""
+ncl_llm_aws_access_key_id: ""
+ncl_llm_aws_secret_access_key: ""
+ncl_llm_models: []
+ncl_llm_ssl_verify: false
+ncl_llm_run_test: true

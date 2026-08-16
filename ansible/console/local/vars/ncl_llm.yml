@@ -1,0 +1,76 @@
+---
+# =============================================================================
+# vars/ncl_llm.yml — variables for playbooks/ncl_llm_config.yml
+# =============================================================================
+# Usage:
+#   # List all LLM configs:
+#   ansible-playbook playbooks/ncl_llm_config.yml \
+#       --extra-vars "@vars/ncl_llm.yml" -e ncl_llm_action=list
+#
+#   # Create an OpenAI-compatible proxy config:
+#   ansible-playbook playbooks/ncl_llm_config.yml \
+#       --extra-vars "@vars/ncl_llm.yml" -e ncl_llm_action=create
+#
+#   # Create an AWS Bedrock config:
+#   ansible-playbook playbooks/ncl_llm_config.yml \
+#       --extra-vars "@vars/ncl_llm.yml" \
+#       -e ncl_llm_action=create \
+#       -e ncl_llm_provider=bedrock
+#
+#   # Delete a config by id:
+#   ansible-playbook playbooks/ncl_llm_config.yml \
+#       --extra-vars "@vars/ncl_llm.yml" \
+#       -e ncl_llm_action=delete \
+#       -e ncl_llm_config_id=<uuid>
+# =============================================================================
+
+# ── NCL appliance ─────────────────────────────────────────────────────────────
+ncl_console_url: ""
+ncl_validate_certs: false
+
+# ── Admin credentials ─────────────────────────────────────────────────────────
+# Encrypt with: ansible-vault encrypt_string 'helloworld12345' --name ncl_admin_password
+ncl_admin_email: ""
+ncl_admin_password: "" # ── Organisation (leave empty to auto-discover) ───────────────────────────────
+ncl_org_id: ""
+
+# ── Action ────────────────────────────────────────────────────────────────────
+# list | create | delete
+ncl_llm_action: "list"
+
+# ── Provider ──────────────────────────────────────────────────────────────────
+# openai | commonOpenAI | anthropic | bedrock
+ncl_llm_provider: "commonOpenAI"
+
+# ── OpenAI / OpenAI-compatible proxy / Anthropic ─────────────────────────────
+# Used when ncl_llm_provider is: openai | commonOpenAI | anthropic
+# Encrypt api_key with: ansible-vault encrypt_string 'sk-...' --name ncl_llm_api_key
+ncl_llm_api_key: "CHANGE_ME"
+ncl_llm_base_url: "https://llm-proxy-api.ai.openeng.netapp.com"
+
+# ── AWS Bedrock ───────────────────────────────────────────────────────────────
+# Used when ncl_llm_provider is: bedrock
+# Encrypt secret with: ansible-vault encrypt_string 'secret' --name ncl_llm_aws_secret_access_key
+ncl_llm_aws_access_key_id: ""
+ncl_llm_aws_secret_access_key: ""
+
+# ── Models ────────────────────────────────────────────────────────────────────
+# List of model names to associate with this configuration.
+ncl_llm_models:
+  - "gpt-5"
+  # - "gpt-4o"
+  # - "gpt-4o-mini"
+
+# ── SSL verification for the provider endpoint ────────────────────────────────
+ncl_llm_ssl_verify: false
+
+# ── Optional: extra user parameter sent as extraParams.user ──────────────────
+ncl_llm_user_name: ""
+
+# ── Test connectivity before saving (recommended) ─────────────────────────────
+# Sends a stateDesired=TESTING PATCH before the final save PATCH.
+ncl_llm_run_test: true
+
+# ── Required only when ncl_llm_action=delete ─────────────────────────────────
+# Set to the config UUID to delete, or override with -e ncl_llm_config_id=<uuid>
+ncl_llm_config_id: ""

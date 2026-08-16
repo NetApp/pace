@@ -1,0 +1,230 @@
+---
+# NCL on-premises ONTAP system registration — single or multi-cluster.
+#
+# Supports two modes:
+#
+#  1. SINGLE CLUSTER (legacy, backward-compatible)
+#     Set the global ncl_onprem_cluster_ip / ncl_fleet_name vars as before.
+#
+#  2. MULTIPLE CLUSTERS via ncl_onprem_clusters list (preferred)
+#     Each item can target the same fleet or a different one.
+#     All registrations fire in parallel (async / poll:0).
+#
+# Tags:
+#   always   — auth + org resolution (always runs)
+#   list     — list available fleets
+#   register — register cluster(s) under their fleet(s)
+#
+# Usage — dedicated vars file (recommended):
+#   ansible-playbook playbooks/register_onprem_system.yml \
+#       --extra-vars "@vars/ncl_register_onprem.yml" --tags register
+#
+# Usage — shared vars file (backward-compatible):
+#   ansible-playbook playbooks/register_onprem_system.yml \
+#       --extra-vars "@vars/ncl.yml" --tags register
+#
+# Usage — list fleets only:
+#   ansible-playbook playbooks/register_onprem_system.yml \
+#       --extra-vars "@vars/ncl_register_onprem.yml" --tags list
+#
+# ncl_onprem_clusters list format (in vars/ncl.yml):
+#   ncl_onprem_clusters:
+#     - cluster_ip:   "192.168.1.100"
+#       username:     "admin"
+#       password:     "secret"
+#       fleet_name:   "fleet-A"      # OR fleet_id: "<uuid>"
+#     - cluster_ip:   "192.168.1.101"
+#       username:     "admin"
+#       password:     "secret"
+#       fleet_name:   "fleet-B"      # different fleet
+#     - cluster_ip:   "192.168.1.102"
+#       username:     "admin"
+#       password:     "secret"
+#       fleet_name:   "fleet-A"      # same fleet as first
+
+- name: Register on-premises ONTAP system(s) under Console fleet(s)
+  hosts: localhost
+  gather_facts: false
+
+  # vars_files is intentionally omitted — pass either:
+  #   --extra-vars "@vars/ncl_register_onprem.yml"   (dedicated, recommended)
+  #   --extra-vars "@vars/ncl.yml"           (shared, backward-compatible)
+
+  vars:
+    # ── Connection ────────────────────────────────────────────────────────────
+    ncl_console_url: "{{ lookup('env', 'NCL_CONSOLE_URL')    | default(ncl_console_url,    true) }}"
+    ncl_access_token: "{{ lookup('env', 'NCL_ACCESS_TOKEN')   | default('',                 true) }}"
+    ncl_org_id: "{{ lookup('env', 'NCL_ORG_ID')         | default('',                 true) }}"
+    ncl_validate_certs: "{{ lookup('env', 'NCL_VALIDATE_CERTS') | default(ncl_validate_certs, true) | bool }}"
+    ncl_fleet_id: "{{ lookup('env', 'NCL_FLEET_ID')       | default('',                 true) }}"
+    ncl_agent_id: "{{ lookup('env', 'NCL_AGENT_ID')       | default(ncl_agent_id | default(''), true) }}"
+    # Async timeout must cover registration + wait_for_ready polling time.
+    # Default: 300 s (registration) + 600 s (10 min poll) = 900 s.
+    _async_timeout: 900
+    _async_poll_delay: 30
+    # Seconds to pause before the first async_status poll.
+    _async_initial_wait: 10
+    # ── Working environment readiness polling (passed to add_new_systems) ─────
+    # How many seconds to wait between each readiness check.
+    _we_poll_interval: 30
+    # Maximum number of readiness checks before giving up.
+    # Total wait = _we_poll_retries * _we_poll_interval  (default 20 * 30 = 10 min)
+    _we_poll_retries: 20
+
+  pre_tasks:
+    - name: Validate required variables
+      tags: [always]
+      ansible.builtin.assert:
+        that:
+          - ncl_console_url | length > 0
+          - (ncl_admin_email | length > 0 and ncl_admin_password | length > 0) or ncl_access_token | length > 0
+          # Must have either a clusters list OR single-cluster vars
+          - (ncl_onprem_clusters is defined and ncl_onprem_clusters | length > 0) or (ncl_onprem_cluster_ip | default('') | length > 0 and ncl_onprem_username |
+            default('') | length > 0 and ncl_onprem_password | default('') | length > 0 and (ncl_fleet_id | length > 0 or ncl_fleet_name | length > 0))
+        fail_msg: >
+          Define either ncl_onprem_clusters list (multi-cluster) or
+          ncl_onprem_cluster_ip + ncl_onprem_username + ncl_onprem_password +
+          (ncl_fleet_id or ncl_fleet_name) for single-cluster mode.
+
+    - name: Login to Console
+      tags: [always]
+      netapp.console.generate_oauth_token:
+        console_url: "{{ ncl_console_url }}"
+        email: "{{ ncl_admin_email }}"
+        password: "{{ ncl_admin_password }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _login
+      when: ncl_access_token | length == 0
+      no_log: true
+
+    - name: Store access token
+      tags: [always]
+      ansible.builtin.set_fact:
+        _ncl_access_token: >-
+          {{ _login.access_token if (_login is not skipped) else ncl_access_token }}
+
+    - name: Discover organisations
+      tags: [always]
+      netapp.console.local_organization_setup:
+        access_token: "{{ _ncl_access_token }}"
+        state: query
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _ncl_orgs
+
+    - name: Resolve org ID
+      tags: [always]
+      ansible.builtin.set_fact:
+        _ncl_org_id: >-
+          {{ ncl_org_id
+             if (ncl_org_id | default('') | length > 0)
+             else (_ncl_orgs.organizations | first).id }}
+        _ncl_org_name: >-
+          {{ (_ncl_orgs.organizations
+              | selectattr('id', 'equalto',
+                  ncl_org_id if (ncl_org_id | default('') | length > 0)
+                  else (_ncl_orgs.organizations | first).id)
+              | list | first).name | default('unknown') }}
+
+    - name: Build effective cluster list
+      tags: [always]
+      ansible.builtin.set_fact:
+        _clusters: >-
+          {{ ncl_onprem_clusters
+             if (ncl_onprem_clusters is defined and ncl_onprem_clusters | length > 0)
+             else [{
+               'cluster_ip':  ncl_onprem_cluster_ip | default(''),
+               'username':    ncl_onprem_username   | default('admin'),
+               'password':    ncl_onprem_password   | default(''),
+               'fleet_id':    ncl_fleet_id,
+               'fleet_name':  ncl_fleet_name | default('')
+             }] }}
+
+    - name: Show resolved org and cluster targets
+      tags: [always]
+      ansible.builtin.debug:
+        msg: >
+          Org '{{ _ncl_org_name }}' (id={{ _ncl_org_id }}).
+          Registering {{ _clusters | length }} cluster(s):
+          {% for c in _clusters %}
+          [{{ loop.index }}] {{ c.cluster_ip }}
+               fleet={{ c.fleet_name | default(c.fleet_id | default('?')) }}
+          {% endfor %}
+
+  tasks:
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAG: list — show available fleets for reference
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "LIST | Available fleets"
+      tags: [list]
+      netapp.console.storage_fleets:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        state: query
+        org_id: "{{ _ncl_org_id }}"
+      register: _ncl_fleets
+
+    - name: "LIST | Show fleets"
+      tags: [list]
+      ansible.builtin.debug:
+        msg: "Available fleets: {{ _ncl_fleets.fleets | map(attribute='name') | list }}"
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAG: register — register all clusters in parallel
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "REGISTER | Fire all cluster registrations in parallel"
+      tags: [register]
+      netapp.console.add_new_systems:
+        access_token: "{{ _ncl_access_token }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id: "{{ _ncl_org_id }}"
+        fleet_id: "{{ item.fleet_id | default('', true) | default(omit, true) }}"
+        fleet_name: "{{ item.fleet_name | default('', true) | default(omit, true) }}"
+        cluster_ip: "{{ item.cluster_ip }}"
+        username: "{{ item.username }}"
+        password: "{{ item.password }}"
+        agent_id: "{{ item.agent_id | default(ncl_agent_id, true) | default(omit, true) }}"
+        wait_for_ready: true
+        wait_timeout: "{{ _we_poll_retries | int * _we_poll_interval | int }}"
+        wait_interval: "{{ _we_poll_interval }}"
+      loop: "{{ _clusters }}"
+      loop_control:
+        label: "{{ item.cluster_ip }} → fleet={{ item.fleet_name | default(item.fleet_id | default('?')) }}"
+      async: "{{ _async_timeout }}"
+      poll: 0
+      register: _reg_jobs
+      no_log: true  # suppress credentials in output
+
+    - name: "REGISTER | Allow registrations to settle"
+      tags: [register]
+      ansible.builtin.command: "sleep {{ _async_initial_wait }}"
+      changed_when: false
+
+    - name: "REGISTER | Wait for all registrations to complete"
+      tags: [register]
+      no_log: true
+      ansible.builtin.async_status:
+        jid: "{{ item.ansible_job_id }}"
+      loop: "{{ _reg_jobs.results }}"
+      loop_control:
+        label: "{{ item.item.cluster_ip }}"
+      register: _reg_results
+      until: _reg_results is finished
+      retries: "{{ (_async_timeout / _async_poll_delay) | int }}"
+      delay: "{{ _async_poll_delay }}"
+
+    - name: "REGISTER | Show results"
+      tags: [register]
+      ansible.builtin.debug:
+        msg: >
+          {% for r in _reg_results.results %}
+          [{{ loop.index }}] {{ r.item.item.cluster_ip }}
+               fleet={{ r.item.item.fleet_name | default(r.item.item.fleet_id | default('?')) }}
+               {{ 'OK — ' + r.msg | default('registered') if r.changed
+                  else 'already registered (no-op)' }}
+               we_id={{ r.working_environment.publicId | default('n/a') }}
+               we_name={{ r.working_environment.name | default('n/a') }}
+               we_status={{ r.we_status | default('n/a') }}
+          {% endfor %}

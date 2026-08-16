@@ -1,0 +1,118 @@
+---
+# =============================================================================
+# Console Org User Management — variable defaults
+# =============================================================================
+# Usage:
+#   ansible-playbook playbooks/org_users.yml \
+#       --extra-vars "@vars/ncl_org_users.yml" \
+#       -e ncl_admin_password=YOUR_PASSWORD
+#
+# Override any variable on the command line with -e, e.g.:
+#   -e ncl_user_action=create
+#   -e ncl_user_email="newuser@example.com"
+#
+# Role resolved by name + category (instead of raw UUID):
+#   -e ncl_role_name="Storage Viewer"
+#   -e ncl_role_category="Application"
+#
+# Multiple roles — set ncl_roles as a YAML list (overrides ncl_role_name / ncl_user_role_id):
+#   -e '{"ncl_roles": [{"role_name": "Storage Viewer", "role_category": "Application"},
+#                       {"role_name": "Backup and Recovery Backup Viewer", "role_category": "Data Service"}]}'
+#
+# Scope scoped to a folder or fleet:
+#   -e ncl_scope_name="prod-folder"  -e ncl_scope_type="folder"
+#   -e ncl_scope_name="my-fleet"     -e ncl_scope_type="fleet"
+#
+# Org resolved by name (omit ncl_org_id):
+#   -e ncl_scope_name="My Organisation"  -e ncl_scope_type="organization"
+#
+# For secrets in production, encrypt with Ansible Vault:
+#   ansible-vault encrypt vars/ncl_org_users.yml
+# =============================================================================
+
+# ── Console appliance ──────────────────────────────────────────────────────────
+ncl_console_url: ""        # REQUIRED: e.g. https://ncl.corp.example.com
+ncl_validate_certs: false  # set true in production
+
+# ── Admin credentials ─────────────────────────────────────────────────────────
+ncl_admin_email: ""
+ncl_admin_password: ""     # REQUIRED: set via Vault or -e
+
+# ── Pre-obtained token (alternative to email/password) ────────────────────────
+# Set this to skip the login step entirely.
+ncl_access_token: ""
+
+# ── Organisation ──────────────────────────────────────────────────────────────
+# Supply either ncl_org_id (UUID) OR ncl_scope_name + ncl_scope_type=organization.
+# Leave both empty to auto-discover from the first available organisation.
+ncl_org_id: ""
+
+# ── Action ────────────────────────────────────────────────────────────────────
+# Supported values: query | create | delete
+ncl_user_action: "query"
+
+# ── User identity ─────────────────────────────────────────────────────────────
+# Email address of the user to create or delete.
+ncl_user_email: "ansible-managed-user@netapp.com"
+
+# Full display name — used only when creating a new user.
+ncl_user_name: "Ansible Managed User"
+
+# ── Role assignment (required for create) ─────────────────────────────────────
+# Option A — supply the raw role UUID directly:
+ncl_user_role_id: ""
+
+# Option B — resolve by human-readable name (and optionally category):
+# Role name examples: "Storage Viewer", "Organization Admin",
+#                     "Backup and Recovery Backup Viewer"
+ncl_role_name: ""
+
+# Category narrows the role lookup when the same name exists in multiple
+# categories. Common values: Application | Data Service | Platform
+# Leave empty to match the first role with the given name regardless of category.
+ncl_role_category: ""
+
+# Option C — multiple roles in one task (list of dicts).
+# When non-empty this takes precedence over ncl_user_role_id / ncl_role_name.
+# Each entry: {role_name, role_id, role_category, scope_name, scope_type}
+# Example:
+#   ncl_roles:
+#     - role_name: "Storage Viewer"
+#       role_category: "Application"
+#     - role_name: "Backup and Recovery Backup Viewer"
+#       role_category: "Data Service"
+#       scope_name: "production-fleet"
+#       scope_type: fleet
+ncl_roles: []
+
+# ── Scope for role assignment (optional) ──────────────────────────────────────
+# Leave both empty to assign the role at the organisation level.
+#
+# scope_type values:
+#   organization — resolve org by name (ncl_org_id can be left empty)
+#   folder       — scope role to a named folder within the org
+#   fleet        — scope role to a named fleet within the org
+#
+# Examples:
+#   ncl_scope_name: "production-fleet"   ncl_scope_type: "fleet"
+#   ncl_scope_name: "prod-folder"        ncl_scope_type: "folder"
+#   ncl_scope_name: "My Organisation"    ncl_scope_type: "organization"
+ncl_scope_name: ""
+ncl_scope_type: ""
+
+# ── User ID (optional — for direct delete or role-only assignment) ─────────────
+# When set for delete: skips the email lookup and deletes by ID directly.
+# When set for create: skips user creation and only assigns the role.
+# Leave empty to use ncl_user_email for lookup.
+ncl_user_id: ""
+
+# ── Login type ────────────────────────────────────────────────────────────────
+# Tag value for internal:bxp:loginUserType.
+# Standard value for Console Local deployments is "local".
+ncl_user_login_type: "local"
+
+# ── Force delete (fleet-safety bypass) ────────────────────────────────────────
+# When the organisation has active fleets the playbook will refuse to delete
+# a user unless this flag is explicitly set to true.
+# Set to true only after confirming the deletion is intentional.
+ncl_user_force: false

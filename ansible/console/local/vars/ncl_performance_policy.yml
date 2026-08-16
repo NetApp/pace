@@ -1,0 +1,50 @@
+---
+# =============================================================================
+# NCL Performance Policy — dedicated variable defaults
+# =============================================================================
+# Usage:
+#   ansible-playbook playbooks/ncl_performance_policy.yml \
+#       --extra-vars "@vars/ncl_performance_policy.yml"
+#
+# Override any variable on the command line with -e, e.g.:
+#   -e ncl_policy_action=create
+#   -e ncl_policy_name="my-policy"
+#
+# For secrets in production, encrypt with Ansible Vault:
+#   ansible-vault encrypt vars/ncl_performance_policy.yml
+# =============================================================================
+
+# ── NCL appliance ─────────────────────────────────────────────────────────────
+ncl_console_url: "" # REQUIRED: set your appliance URL
+ncl_validate_certs: false                  # set true in production
+
+# ── Admin credentials ─────────────────────────────────────────────────────────
+ncl_admin_email: ""
+ncl_admin_password: "" # REQUIRED: set via Vault or -e
+
+# ── Organisation ──────────────────────────────────────────────────────────────
+# Leave empty to auto-discover from the first org returned by the API.
+ncl_org_id: ""
+
+# ── Action ────────────────────────────────────────────────────────────────────
+# Supported values: query | create | delete
+ncl_policy_action: "query"
+
+# ── Policy identity ───────────────────────────────────────────────────────────
+# Name used for create (state=present) and name-based delete (state=absent).
+ncl_policy_name: "ansible-perf-policy-1"
+ncl_policy_description: "Managed by Ansible"
+
+# ID used for direct delete (state=absent with policy_id).
+# Leave empty to delete by ncl_policy_name instead.
+ncl_policy_id: ""
+
+# ── Adaptive QoS parameters (required for create) ────────────────────────────
+# expectedLatency       — target latency in milliseconds
+# expectedIopsPerTb     — expected IOPS per TB under normal load
+# peakIopsPerTb         — peak IOPS per TB under burst load
+# absoluteMinIopsPerTb  — floor IOPS per TB, never drops below this
+ncl_policy_expected_latency: 30
+ncl_policy_expected_iops_per_tb: 20
+ncl_policy_peak_iops_per_tb: 100
+ncl_policy_absolute_min_iops_per_tb: 10

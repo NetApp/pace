@@ -1,0 +1,281 @@
+---
+# Console org-user management — query, create, or delete local users in an org.
+#
+# Driven by ncl_user_action (query | create | delete) set in
+# vars/ncl_org_users.yml or overridden on the CLI with -e.
+#
+# Role can be supplied as a raw UUID or resolved by name + category:
+#   -e ncl_role_name="Storage Viewer"  -e ncl_role_category="Application"
+#   -e ncl_role_name="Organization Admin"  -e ncl_role_category="Platform"
+#   -e ncl_role_name="Backup and Recovery Backup Viewer"  -e ncl_role_category="Data Service"
+#
+# Multiple roles (ncl_roles list overrides ncl_role_name / ncl_user_role_id):
+#   -e '{"ncl_roles": [{"role_name": "Storage Viewer", "role_category": "Application"},
+#                       {"role_name": "Backup and Recovery Backup Viewer",
+#                        "role_category": "Data Service"}]}'
+#
+# Scope narrows role assignment to a folder or fleet:
+#   -e ncl_scope_name="prod-folder"      -e ncl_scope_type="folder"
+#   -e ncl_scope_name="production-fleet" -e ncl_scope_type="fleet"
+#
+# Org can be resolved by name (omit ncl_org_id):
+#   -e ncl_scope_name="My Organisation"  -e ncl_scope_type="organization"
+#
+# Usage:
+#   # List all users:
+#   ansible-playbook playbooks/org_users.yml \
+#       --extra-vars "@vars/ncl_org_users.yml" \
+#       -e ncl_admin_password=SECRET
+#
+#   # Create user with role by name, scoped to a fleet:
+#   ansible-playbook playbooks/org_users.yml \
+#       --extra-vars "@vars/ncl_org_users.yml" \
+#       -e ncl_admin_password=SECRET \
+#       -e ncl_user_action=create \
+#       -e ncl_role_name="Storage Viewer" \
+#       -e ncl_role_category="Application" \
+#       -e ncl_scope_name="production-fleet" \
+#       -e ncl_scope_type="fleet"
+#
+#   # Delete with force (bypasses fleet-safety gate):
+#   ansible-playbook playbooks/org_users.yml \
+#       --extra-vars "@vars/ncl_org_users.yml" \
+#       -e ncl_admin_password=SECRET \
+#       -e ncl_user_action=delete \
+#       -e ncl_user_force=true
+#
+# Environment variable overrides (CI / secrets managers):
+#   NCL_CONSOLE_URL    → ncl_console_url
+#   NCL_ACCESS_TOKEN   → ncl_access_token
+#   NCL_ORG_ID         → ncl_org_id
+#   NCL_VALIDATE_CERTS → ncl_validate_certs
+
+- name: NCL org user management
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../vars/ncl_org_users.yml
+
+  vars:
+    ncl_console_url:    "{{ lookup('env', 'NCL_CONSOLE_URL')    | default(ncl_console_url, true) }}"
+    ncl_access_token:   "{{ lookup('env', 'NCL_ACCESS_TOKEN')   | default('', true) }}"
+    ncl_org_id:         "{{ lookup('env', 'NCL_ORG_ID')         | default('', true) }}"
+    ncl_validate_certs: "{{ lookup('env', 'NCL_VALIDATE_CERTS') | default(ncl_validate_certs, true) | bool }}"
+
+  pre_tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - ncl_console_url | length > 0
+          - (ncl_admin_email | default('') | length > 0 and ncl_admin_password | default('') | length > 0)
+            or ncl_access_token | length > 0
+          - ncl_user_action in ['query', 'create', 'delete']
+          - >-
+            ncl_user_action != 'create'
+            or (ncl_user_role_id | default('') | length > 0
+                or ncl_role_name | default('') | length > 0
+                or ncl_roles | default([]) | length > 0)
+        fail_msg: >-
+          Required: ncl_console_url, credentials, ncl_user_action (query|create|delete).
+          For create: supply ncl_user_role_id, ncl_role_name, or ncl_roles list.
+          org_id is auto-discovered if not set.
+
+    - name: Login to Console
+      netapp.console.generate_oauth_token:
+        console_url:    "{{ ncl_console_url }}"
+        email:          "{{ ncl_admin_email }}"
+        password:       "{{ ncl_admin_password }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _login
+      when: ncl_access_token | length == 0
+      no_log: true
+
+    - name: Store access token
+      ansible.builtin.set_fact:
+        _ncl_access_token: >-
+          {{ _login.access_token if (_login is not skipped) else ncl_access_token }}
+
+    - name: Discover organisations
+      netapp.console.local_organization_setup:
+        access_token: "{{ _ncl_access_token }}"
+        state: query
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: _ncl_orgs
+
+    - name: Resolve org ID
+      ansible.builtin.set_fact:
+        _ncl_org_id: >-
+          {{ ncl_org_id
+             if (ncl_org_id | default('') | length > 0)
+             else (_ncl_orgs.organizations | first).id }}
+
+    - name: Fail if org ID could not be resolved
+      ansible.builtin.fail:
+        msg: >-
+          Could not determine org_id. Set ncl_org_id to the organisation UUID,
+          or set ncl_scope_name + ncl_scope_type=organization to resolve by name.
+          Auto-discovery returned no organisations (check token permissions).
+      when: _ncl_org_id | length == 0
+
+    # ── Fleet-safety check (delete only) ──────────────────────────────────────
+    - name: "FLEET CHECK | Query fleets in org"
+      netapp.console.storage_fleets:
+        access_token:   "{{ _ncl_access_token }}"
+        console_url:    "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        state:          query
+        org_id:         "{{ _ncl_org_id }}"
+      register: _ncl_fleets
+      when:
+        - ncl_user_action == 'delete'
+        - _ncl_org_id | length > 0
+
+    - name: "FLEET CHECK | Abort if org has fleets and force is not set"
+      ansible.builtin.assert:
+        that:
+          - ncl_user_force | default(false) | bool
+        fail_msg: >-
+          Organisation '{{ _ncl_org_id }}' has
+          {{ _ncl_fleets.fleets | default([]) | length }} active fleet(s).
+          Removing a user from an organisation that manages production systems
+          may affect access control.
+          Re-run with -e ncl_user_force=true to proceed.
+      when:
+        - ncl_user_action == 'delete'
+        - (_ncl_fleets.fleets | default([]) | length) > 0
+
+  tasks:
+    # ══════════════════════════════════════════════════════════════════════════
+    # ACTION: query — list all users in the org
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "QUERY | List all users in org"
+      netapp.console.org_users:
+        access_token:   "{{ _ncl_access_token }}"
+        console_url:    "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id:         "{{ _ncl_org_id }}"
+        state:          query
+      register: _user_query
+      when: ncl_user_action == 'query'
+
+    - name: "QUERY | Show users"
+      ansible.builtin.debug:
+        msg: >-
+          Users in org '{{ _ncl_org_id }}'
+          ({{ _user_query.users | default([]) | length }}):
+          {% for u in _user_query.users | default([]) %}
+          • {{ u.name | default('?') }} <{{ u.email | default('?') }}> [id={{ u.id | default('?') }}]
+          {% endfor %}
+      when: ncl_user_action == 'query'
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # ACTION: create — create user and assign role (idempotent)
+    # Role resolved by name+category OR by raw UUID (ncl_user_role_id).
+    # Scope optionally narrows assignment to folder/fleet/org by name.
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "CREATE | Ensure user exists: {{ ncl_user_email }}"
+      netapp.console.org_users:
+        access_token:    "{{ _ncl_access_token }}"
+        console_url:     "{{ ncl_console_url }}"
+        validate_certs:  "{{ ncl_validate_certs }}"
+        org_id: >-
+          {{ _ncl_org_id
+             if ncl_scope_type | default('') != 'organization'
+             else omit }}
+        state:           present
+        email:           "{{ ncl_user_email }}"
+        name:            "{{ ncl_user_name }}"
+        # ── Multi-role list (takes precedence when non-empty) ─────────────────
+        role_assignments: >-
+          {{ ncl_roles
+             if ncl_roles | default([]) | length > 0
+             else omit }}
+        # ── Single-role fallback (used when ncl_roles is empty) ───────────────
+        role_id: >-
+          {{ ncl_user_role_id
+             if ncl_roles | default([]) | length == 0
+                and ncl_user_role_id | default('') | length > 0
+             else omit }}
+        role_name: >-
+          {{ ncl_role_name
+             if ncl_roles | default([]) | length == 0
+                and ncl_role_name | default('') | length > 0
+                and ncl_user_role_id | default('') | length == 0
+             else omit }}
+        role_category: >-
+          {{ ncl_role_category
+             if ncl_roles | default([]) | length == 0
+                and ncl_role_category | default('') | length > 0
+                and ncl_user_role_id | default('') | length == 0
+             else omit }}
+        # ── Scope: folder / fleet / organization name (single-role path) ──────
+        scope_name: >-
+          {{ ncl_scope_name
+             if ncl_roles | default([]) | length == 0
+                and ncl_scope_name | default('') | length > 0
+             else omit }}
+        scope_type: >-
+          {{ ncl_scope_type
+             if ncl_roles | default([]) | length == 0
+                and ncl_scope_type | default('') | length > 0
+             else omit }}
+        user_login_type: "{{ ncl_user_login_type | default('local') }}"
+      register: _user_create
+      when: ncl_user_action == 'create'
+
+    - name: "CREATE | Summary"
+      ansible.builtin.debug:
+        msg: >-
+          ╔══════════════════════════════════════════════════════════════╗
+          ║           Org User Management — Create                       ║
+          ╠══════════════════════════════════════════════════════════════╣
+          ║ Email         : {{ ncl_user_email }}
+          ║ Name          : {{ ncl_user_name }}
+          ║ User ID       : {{ _user_create.user.id | default('n/a') }}
+          ║ Roles assigned: {{ _user_create.role_assignments | default([]) | length }}
+          ║ Role details  : {{ _user_create.role_assignments | default([])
+                               | map(attribute='role_label') | join(', ') }}
+          ║ Resolved Scope: {{ _user_create.resolved_scope_id | default('n/a') }}
+          ║ Changed       : {{ _user_create.changed }}
+          ║ Message       : {{ _user_create.msg }}
+          ╚══════════════════════════════════════════════════════════════╝
+      when: ncl_user_action == 'create'
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # ACTION: delete — remove user from org by email or ID
+    # Fleet-safety gate is enforced in pre_tasks above.
+    # ══════════════════════════════════════════════════════════════════════════
+    - name: "DELETE | Remove user from org"
+      netapp.console.org_users:
+        access_token:   "{{ _ncl_access_token }}"
+        console_url:    "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+        org_id:         "{{ _ncl_org_id }}"
+        state:          absent
+        email: >-
+          {{ ncl_user_email
+             if ncl_user_id | default('') | length == 0
+             else omit }}
+        user_id: >-
+          {{ ncl_user_id
+             if ncl_user_id | default('') | length > 0
+             else omit }}
+        force:          "{{ ncl_user_force | default(false) | bool }}"
+      register: _user_delete
+      when: ncl_user_action == 'delete'
+
+    - name: "DELETE | Summary"
+      ansible.builtin.debug:
+        msg: >-
+          ╔══════════════════════════════════════════════════════════════╗
+          ║           Org User Management — Delete                       ║
+          ╠══════════════════════════════════════════════════════════════╣
+          ║ Target  : {{ ncl_user_email
+                         if ncl_user_id | default('') | length == 0
+                         else ncl_user_id }}
+          ║ Changed : {{ _user_delete.changed }}
+          ║ Message : {{ _user_delete.msg }}
+          ╚══════════════════════════════════════════════════════════════╝
+      when: ncl_user_action == 'delete'

@@ -1,0 +1,92 @@
+---
+# =============================================================================
+# vars/ncl_active_directory.yml — variables for
+#   playbooks/active_directory.yml
+# =============================================================================
+# Manages Active Directory (LDAP federation) on a NetApp Console Local appliance.
+#
+# Usage:
+#   # List all federations:
+#   ansible-playbook playbooks/active_directory.yml \
+#       --extra-vars "@vars/ncl_active_directory.yml" \
+#       -e ncl_ad_action=list
+#
+#   # Create a new federation:
+#   ansible-playbook playbooks/active_directory.yml \
+#       --extra-vars "@vars/ncl_active_directory.yml" \
+#       -e ncl_ad_action=create
+#
+#   # Enable an existing federation:
+#   ansible-playbook playbooks/active_directory.yml \
+#       --extra-vars "@vars/ncl_active_directory.yml" \
+#       -e ncl_ad_action=enable
+#
+#   # Disable a federation:
+#   ansible-playbook playbooks/active_directory.yml \
+#       --extra-vars "@vars/ncl_active_directory.yml" \
+#       -e ncl_ad_action=disable
+#
+#   # Delete a federation (force required when fleets exist):
+#   ansible-playbook playbooks/active_directory.yml \
+#       --extra-vars "@vars/ncl_active_directory.yml" \
+#       -e ncl_ad_action=delete \
+#       -e ncl_ad_force=true
+# =============================================================================
+
+# ── NCL appliance ─────────────────────────────────────────────────────────────
+ncl_console_url: "" # REQUIRED: set your appliance URL
+ncl_validate_certs: false  # set true in production with valid TLS certs
+
+# ── Admin credentials ─────────────────────────────────────────────────────────
+ncl_admin_email: "" # REQUIRED
+ncl_admin_password: "" # REQUIRED: set via Ansible Vault or -e
+
+# ── Organisation ─────────────────────────────────────────────────────────────
+# Leave empty to auto-discover the first organisation after login,
+# or set explicitly to target a specific org ID.
+ncl_org_id: ""
+
+# ── Action ───────────────────────────────────────────────────────────────────
+# Supported values: list | create | enable | disable | delete
+ncl_ad_action: "list"
+
+# ── Federation identity ───────────────────────────────────────────────────────
+# Display name used for create / enable / disable / delete-by-name.
+ncl_ad_name: "corp-ad"
+
+# UUID of an existing federation — supply to target delete / enable / disable
+# directly without a name lookup.  Leave empty to use ncl_ad_name.
+ncl_ad_federation_id: ""
+
+# ── LDAP connection settings ──────────────────────────────────────────────────
+# Required for create, enable, and disable actions.
+ncl_ad_connection_url: "ldaps://host:port"
+ncl_ad_bind_dn: ""
+ncl_ad_bind_credential: ""  # REQUIRED: encrypt with Ansible Vault in production
+ncl_ad_users_dn: "cn=Users,dc=ncl,dc=iam,dc=com"
+ncl_ad_connection_timeout: 5000  # milliseconds
+
+# ── Desired runtime state ─────────────────────────────────────────────────────
+# Used by create action.  ENABLED | DISABLED.
+ncl_ad_desired_state: "ENABLED"
+
+# ── Pre-check skips ───────────────────────────────────────────────────────────
+# The Console appliance runs test-connection and test-authentication by making
+# an outbound LDAP call, which can exceed the Ansible fetch_url timeout.
+# Both checks are enabled by default; set to true to skip them if you hit
+# a timeout (e.g. "Connection failure: The read operation timed out").
+ncl_ad_skip_connection_test: true
+ncl_ad_skip_auth_test: true
+
+# ── HTTP request timeout ──────────────────────────────────────────────────────
+# Federation PATCH/DELETE operations cause the appliance to communicate with
+# the LDAP server; this can take much longer than a normal API call.
+# Raise this value if you still see read-timeout errors (seconds).
+ncl_ad_timeout: 300
+
+# ── Force deletion ────────────────────────────────────────────────────────────
+# Set to true to allow deletion of the AD federation even when active fleets
+# (storage systems) exist in the organisation.
+# WARNING: Deleting the federation while fleets are active may break
+# authentication for users relying on Active Directory login.
+ncl_ad_force: false

@@ -1,0 +1,153 @@
+---
+# Bootstrap the first admin user on an NCL appliance and optionally set up
+# the default organisation.
+#
+# Usage (register only):
+#   ansible-playbook playbooks/user_registration.yml \
+#       --extra-vars "@vars/ncl.yml"
+#
+# Usage (register + org setup):
+#   ansible-playbook playbooks/user_registration.yml \
+#       --extra-vars "@vars/ncl.yml" \
+#       -e fetch_token=true
+
+- name: NCL user registration
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../vars/ncl.yml
+
+  vars:
+    ncl_console_url: "{{ lookup('env', 'NCL_CONSOLE_URL')    | default(ncl_console_url, true) }}"
+    ncl_validate_certs: "{{ lookup('env', 'NCL_VALIDATE_CERTS') | default(ncl_validate_certs, true) | bool }}"
+    fetch_token: true
+
+  pre_tasks:
+    - name: Check required variables
+      ansible.builtin.assert:
+        that:
+          - ncl_console_url | length > 0
+          - ncl_admin_full_name | length > 0
+          - ncl_admin_email | length > 0
+          - ncl_admin_password | length > 0
+        fail_msg: "Set ncl_console_url and admin credentials in vars/ncl.yml."
+
+  tasks:
+    - name: Register NCL admin user
+      netapp.console.local_bootstrap:
+        console_url: "{{ ncl_console_url }}"
+        full_name: "{{ ncl_admin_full_name }}"
+        email: "{{ ncl_admin_email }}"
+        password: "{{ ncl_admin_password }}"
+        company: "{{ ncl_admin_company | default('') }}"
+        fetch_token: "{{ fetch_token | bool }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: ncl_registration
+
+    - name: Registration result
+      ansible.builtin.debug:
+        msg: "{{ ncl_registration.msg }}"
+
+    - name: Store access token
+      ansible.builtin.set_fact:
+        ncl_access_token: "{{ ncl_registration.access_token }}"
+      when:
+        - fetch_token | bool
+        - ncl_registration.access_token is defined
+
+    - name: List existing organisations
+      netapp.console.local_organization_setup:
+        access_token: "{{ ncl_access_token }}"
+        state: query
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: ncl_orgs
+      when: fetch_token | bool
+
+    - name: Check if target org already exists
+      ansible.builtin.set_fact:
+        ncl_existing_org: >-
+          {{ ncl_orgs.organizations
+             | selectattr('name', 'equalto', ncl_target_org_name)
+             | list | first | default({}) }}
+      when: fetch_token | bool
+
+    - name: Org already exists
+      ansible.builtin.debug:
+        msg: "Organisation '{{ ncl_target_org_name }}' exists (id={{ ncl_existing_org.id }})."
+      when:
+        - fetch_token | bool
+        - ncl_existing_org | length > 0
+
+    - name: Create organisation
+      netapp.console.local_organization_setup:
+        access_token: "{{ ncl_access_token }}"
+        state: present
+        name: "{{ ncl_target_org_name }}"
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: ncl_org
+      ignore_errors: true
+      when:
+        - fetch_token | bool
+        - ncl_existing_org | default({}) | length == 0
+
+    - name: Organisation created successfully
+      ansible.builtin.debug:
+        msg: "Organisation '{{ ncl_target_org_name }}' created (id={{ ncl_org.organization.id }})."
+      when:
+        - fetch_token | bool
+        - ncl_existing_org | default({}) | length == 0
+        - ncl_org is not failed
+        - ncl_org.organization.id is defined
+
+    - name: Warn if org creation failed
+      ansible.builtin.debug:
+        msg: >
+          Organisation creation failed: {{ ncl_org.msg | default('unknown error') }}.
+          Complete the NCL setup wizard first, then re-run this playbook.
+      when:
+        - fetch_token | bool
+        - ncl_existing_org | default({}) | length == 0
+        - ncl_org is failed
+
+    - name: Store org id (existing)
+      ansible.builtin.set_fact:
+        _ncl_org_id: "{{ ncl_existing_org.id }}"
+        _ncl_org_name: "{{ ncl_existing_org.name }}"
+      when:
+        - fetch_token | bool
+        - ncl_existing_org | default({}) | length > 0
+
+    - name: Store org id (new)
+      ansible.builtin.set_fact:
+        _ncl_org_id: "{{ ncl_org.organization.id }}"
+        _ncl_org_name: "{{ ncl_org.organization.name | default(ncl_target_org_name) }}"
+      when:
+        - fetch_token | bool
+        - ncl_existing_org | default({}) | length == 0
+        - ncl_org is not skipped
+        - ncl_org is not failed
+        - ncl_org.organization.id is defined
+
+    - name: List projects in org
+      netapp.console.scope_management:
+        access_token: "{{ ncl_access_token }}"
+        org_id: "{{ _ncl_org_id }}"
+        state: query
+        console_url: "{{ ncl_console_url }}"
+        validate_certs: "{{ ncl_validate_certs }}"
+      register: ncl_projects
+      when:
+        - fetch_token | bool
+        - _ncl_org_id | default('') | length > 0
+
+    - name: Show projects
+      ansible.builtin.debug:
+        msg: "Projects: {{ ncl_projects.scopes | map(attribute='name') | list }}"
+      when:
+        - fetch_token | bool
+        - _ncl_org_id | default('') | length > 0
+        - ncl_projects is not skipped
+        - ncl_projects.scopes is defined

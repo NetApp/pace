@@ -1,0 +1,57 @@
+---
+# =============================================================================
+# NCL Capacity Policy — dedicated variable defaults
+# =============================================================================
+# Usage:
+#   ansible-playbook playbooks/capacity_policies.yml \
+#       --extra-vars "@vars/ncl_capacity_policy.yml" \
+#       -e ncl_admin_password=YOUR_PASSWORD
+#
+# Override any variable on the command line with -e, e.g.:
+#   -e ncl_capacity_policy_action=create
+#   -e ncl_capacity_policy_name="my-capacity-policy"
+#
+# For secrets in production, encrypt with Ansible Vault:
+#   ansible-vault encrypt vars/ncl_capacity_policy.yml
+# =============================================================================
+
+# ── NCL appliance ─────────────────────────────────────────────────────────────
+ncl_console_url: "" # REQUIRED: set your appliance URL
+ncl_validate_certs: false                  # set true in production
+
+# ── Admin credentials ─────────────────────────────────────────────────────────
+ncl_admin_email: ""
+ncl_admin_password: "" # REQUIRED: set via Vault or -e
+
+# ── Organisation ──────────────────────────────────────────────────────────────
+# The org_id from the API URL:
+#   /storage-management/v1/organizations/<org_id>/capacitypolicies
+ncl_org_id: ""
+
+# ── Action ────────────────────────────────────────────────────────────────────
+# Supported values: query | create | delete
+ncl_capacity_policy_action: "query"
+
+# ── Policy identity ───────────────────────────────────────────────────────────
+# Name used for create (state=present) and name-based delete (state=absent).
+ncl_capacity_policy_name: "ansible-capacity-policy-1"
+ncl_capacity_policy_description: "Managed by Ansible"
+
+# ID used for direct delete (state=absent with policy_id).
+# Leave empty to delete by ncl_capacity_policy_name instead.
+ncl_capacity_policy_id: ""
+
+# ── Capacity policy settings (required for create) ────────────────────────────
+# space_reserved   — space reservation mode for volumes governed by this policy.
+#                    Common values: SYSTEM_DEFAULT | NONE | VOLUME
+#                    Use SYSTEM_DEFAULT to inherit the cluster default.
+# auto_grow        — auto-grow behaviour for volumes governed by this policy.
+#                    Common values: GROW | GROW_SHRINK | OFF | SYSTEM_DEFAULT
+#                    Use GROW to allow volumes to expand automatically.
+# tiering          — FabricPool tiering policy for volumes.
+#                    Common values: AUTO | NONE | SNAPSHOT_ONLY | ALL |
+#                                   BEST_EFFORT | SYSTEM_DEFAULT
+#                    Use AUTO for fully automated capacity tiering.
+ncl_capacity_policy_space_reserved: "SYSTEM_DEFAULT"
+ncl_capacity_policy_auto_grow: "GROW"
+ncl_capacity_policy_tiering: "AUTO"
