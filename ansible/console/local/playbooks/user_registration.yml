@@ -1,3 +1,7 @@
+# © 2026 NetApp, Inc. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# See the NOTICE file in the repo root for trademark and attribution details.
+
 ---
 # Bootstrap the first admin user on an NCL appliance and optionally set up
 # the default organisation.
@@ -55,6 +59,15 @@
       when:
         - fetch_token | bool
         - ncl_registration.access_token is defined
+
+    - name: Show access token
+      ansible.builtin.debug:
+        msg: >-
+          ✅ Access token obtained. Set this in your environment to reuse it:
+          export NCL_ACCESS_TOKEN="{{ ncl_access_token }}"
+      when:
+        - fetch_token | bool
+        - ncl_access_token | default('') | length > 0
 
     - name: List existing organisations
       netapp.console.local_organization_setup:

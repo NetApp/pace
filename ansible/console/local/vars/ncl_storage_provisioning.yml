@@ -1,3 +1,7 @@
+# © 2026 NetApp, Inc. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# See the NOTICE file in the repo root for trademark and attribution details.
+
 ---
 # =============================================================================
 # vars/ncl_storage_provisioning.yml — variables for
@@ -21,13 +25,12 @@
 # =============================================================================
 
 # ── NCL appliance ─────────────────────────────────────────────────────────────
-ncl_console_url: ""
-ncl_validate_certs: false
+ncl_console_url: "" # REQUIRED: set your appliance URL
+ncl_validate_certs: false                  # set true in production
 
 # ── Admin credentials ─────────────────────────────────────────────────────────
-# Encrypt with: ansible-vault encrypt_string 'helloworld12345' --name ncl_admin_password
 ncl_admin_email: ""
-ncl_admin_password: "" # ── Organisation (leave empty to auto-discover) ───────────────────────────────
+ncl_admin_password: "" # REQUIRED: pass via -e or Vault
 ncl_org_id: ""
 
 # ── Global volume defaults (overridable per target) ───────────────────────────
@@ -55,7 +58,7 @@ ncl_storage_class_id: ""
 
 # ── Global fleet fallback ─────────────────────────────────────────────────────
 # Used when a target does not specify its own fleet_name / fleet_id.
-ncl_fleet_name: "Fleet-1"
+ncl_fleet_name: "Ansible-Managed-Fleet-1"
 ncl_fleet_id: ""
 
 # ── Cluster targets ───────────────────────────────────────────────────────────
@@ -80,7 +83,7 @@ ncl_storage_targets:
 #  - cluster_name: ""
   - cluster_ip: ""
     svm_name: "vs0"
-    fleet_name: "Fleet-1"
+    fleet_name: "Ansible-Managed-Fleet-1"
     volume_name: "ansible_vol_c1"
     lun_name: "ansible_lun_c1"
     # Optional per-target overrides:

@@ -1,3 +1,7 @@
+# © 2026 NetApp, Inc. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# See the NOTICE file in the repo root for trademark and attribution details.
+
 ---
 # =============================================================================
 # NetApp Console Local — shared variable defaults
@@ -22,13 +26,11 @@ ncl_managed_by: "Managed by Ansible"
 # Full URL including scheme is required — e.g. "https://ncl.corp.example.com"
 # A bare IP address (without https://) will NOT work.
 ncl_console_url: "" # REQUIRED: set your appliance URL
-ncl_validate_certs: false  # set true in production with valid TLS certs
+ncl_validate_certs: false                  # set true in production
 
-# ── Admin credentials ────────────────────────────────────────────────────────
-# Encrypt with Ansible Vault: ansible-vault encrypt_string 'MyPassword!' --name ncl_admin_password
-ncl_admin_full_name: "NCL Admin"
-ncl_admin_email: "" # REQUIRED: set your admin email
-ncl_admin_password: "" # REQUIRED: set via Vault or -e
+# ── Admin credentials ─────────────────────────────────────────────────────────
+ncl_admin_email: ""
+ncl_admin_password: "" # REQUIRED: pass via -e or Vault
 ncl_admin_company: "NetApp"
 
 # ── Organisation / fleet defaults ────────────────────────────────────────────
@@ -37,6 +39,7 @@ ncl_admin_company: "NetApp"
 #             Can also be passed via -e ncl_org_id=<id> or NCL_ORG_ID env var.
 ncl_org_id: ""
 ncl_target_org_name: "NetApp"
+ncl_admin_full_name: "NCL"
 ncl_fleet_name: "Ansible-Managed-Fleet-1"
 ncl_fleet_description: "Managed by Ansible"
 # Folder to create the fleet inside (used by ncl_fleet_management.yml).

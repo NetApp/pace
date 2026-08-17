@@ -1,3 +1,7 @@
+# © 2026 NetApp, Inc. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# See the NOTICE file in the repo root for trademark and attribution details.
+
 ---
 # =============================================================================
 # vars/ncl_storage_class.yml — variable defaults for
@@ -17,11 +21,11 @@
 
 # ── NCL appliance ─────────────────────────────────────────────────────────────
 ncl_console_url: "" # REQUIRED: set your appliance URL
-ncl_validate_certs: false                 # set true in production
+ncl_validate_certs: false                  # set true in production
 
 # ── Admin credentials ─────────────────────────────────────────────────────────
 ncl_admin_email: ""
-ncl_admin_password: "" # REQUIRED: set via Vault or -e
+ncl_admin_password: "" # REQUIRED: pass via -e or Vault
 
 # ── Organisation ──────────────────────────────────────────────────────────────
 # The org_id from the API URL:

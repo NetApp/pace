@@ -1,3 +1,7 @@
+# © 2026 NetApp, Inc. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# See the NOTICE file in the repo root for trademark and attribution details.
+
 ---
 # =============================================================================
 # vars/ncl_register_onprem.yml — variables for playbooks/register_onprem_system.yml
@@ -16,13 +20,12 @@
 # =============================================================================
 
 # ── NCL appliance ─────────────────────────────────────────────────────────────
-ncl_console_url: ""
-ncl_validate_certs: false
+ncl_console_url: "" # REQUIRED: set your appliance URL
+ncl_validate_certs: false                  # set true in production
 
 # ── Admin credentials ─────────────────────────────────────────────────────────
-# Encrypt with: ansible-vault encrypt_string 'helloworld12345' --name ncl_admin_password
 ncl_admin_email: ""
-ncl_admin_password: "" # ── Organisation (leave empty to auto-discover) ───────────────────────────────
+ncl_admin_password: "" # REQUIRED: pass via -e or Vault
 ncl_org_id: ""
 
 # ── Console Connector / agent ID ───────────────────────────────────────────────
