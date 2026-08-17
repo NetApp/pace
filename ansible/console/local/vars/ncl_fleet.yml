@@ -1,3 +1,7 @@
+# © 2026 NetApp, Inc. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# See the NOTICE file in the repo root for trademark and attribution details.
+
 ---
 # =============================================================================
 # vars/ncl_fleet.yml — variables for:
@@ -42,17 +46,16 @@
 # =============================================================================
 
 # ── NCL appliance ─────────────────────────────────────────────────────────────
-ncl_console_url: ""
-ncl_validate_certs: false
+ncl_console_url: "" # REQUIRED: set your appliance URL
+ncl_validate_certs: false                  # set true in production
 
 # ── Admin credentials ─────────────────────────────────────────────────────────
-# Encrypt with: ansible-vault encrypt_string 'helloworld12345' --name ncl_admin_password
 ncl_admin_email: ""
-ncl_admin_password: "" # ── Organisation (leave empty to auto-discover) ───────────────────────────────
+ncl_admin_password: "" # REQUIRED: pass via -e or Vault
 ncl_org_id: ""
 
 # ── Fleet ─────────────────────────────────────────────────────────────────────
-ncl_fleet_name: "Fleet-1"
+ncl_fleet_name: "Ansible-Managed-Fleet-1"
 ncl_fleet_description: "Managed by Ansible"
 # Used by playbooks/ncl_fleet_delete.yml when deleting by id instead of name:
 ncl_fleet_id: ""

@@ -477,3 +477,807 @@ use_cases:
           setup: "ansible-galaxy collection install -r requirements.yml"
         inputs: [source_volume, source_svm]
         outputs: [clone_deleted]
+
+  # ── NetApp Console Local examples ──────────────────────────────────────────
+
+  - id: console-local-user-registration
+    description: Bootstrap the first admin user on a NetApp Console Local appliance and optionally set up the default organisation
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, user-management, onboarding]
+    variants:
+      ansible:
+        path: ansible/console/local/playbooks/user_registration.yml
+        command: "ansible-playbook playbooks/user_registration.yml --extra-vars \"@vars/ncl.yml\""
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_admin_email, ncl_admin_password, ncl_org_name]
+        outputs: [user_registered, org_id]
+
+  - id: console-local-site
+    description: Full NetApp Console Local onboarding entry point that chains user registration and fleet management in sequence
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, onboarding, orchestration]
+    variants:
+      ansible:
+        path: ansible/console/local/playbooks/site.yml
+        command: "ansible-playbook playbooks/site.yml --extra-vars \"@vars/ncl.yml\" -e fleet_action=create"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_admin_email, ncl_admin_password, ncl_org_name, fleet_action]
+        outputs: [user_registered, fleet_id]
+
+  - id: console-local-fleet-management
+    description: List or create fleets in a NetApp Console Local organisation, with optional folder placement and cluster attachment
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, fleet, provisioning]
+    variants:
+      ansible:
+        path: ansible/console/local/playbooks/fleet_management.yml
+        command: "ansible-playbook playbooks/fleet_management.yml --extra-vars \"@vars/ncl_fleet.yml\" -e ncl_admin_password=SECRET --tags create"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_fleet_name, ncl_fleet_folder_name, ncl_onprem_clusters]
+        outputs: [fleet_id, fleet_name]
+
+  - id: console-local-fleet-delete
+    description: Detach all clusters from a fleet and permanently delete the fleet from NetApp Console Local
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, fleet, delete]
+    variants:
+      ansible:
+        path: ansible/console/local/playbooks/fleet_delete.yml
+        command: "ansible-playbook playbooks/fleet_delete.yml --extra-vars \"@vars/ncl_fleet.yml\" -e ncl_admin_password=SECRET -e ncl_fleet_name=Fleet-1"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_fleet_name, ncl_fleet_id]
+        outputs: [fleet_deleted]
+
+  - id: console-local-folder-management
+    description: List, create, or delete folders and projects inside a NetApp Console Local organisation
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, folder, organisation]
+    variants:
+      ansible:
+        path: ansible/console/local/playbooks/folder_management.yml
+        command: "ansible-playbook playbooks/folder_management.yml --extra-vars \"@vars/ncl.yml\" -e ncl_folder_action=create -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_folder_action, ncl_folder_name, ncl_folder_cascade]
+        outputs: [folder_id, folder_name]
+
+  - id: console-local-nested-folder-fleet
+    description: Create a two-level folder hierarchy with a fleet placed under the child folder in NetApp Console Local
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, folder, fleet, provisioning]
+    variants:
+      ansible:
+        path: ansible/console/local/playbooks/nested_folder_fleet.yml
+        command: "ansible-playbook playbooks/nested_folder_fleet.yml --extra-vars \"@vars/ncl.yml\" -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_parent_folder_name, ncl_child_folder_name, ncl_fleet_name, ncl_nested_action]
+        outputs: [parent_folder_id, child_folder_id, fleet_id]
+
+  - id: console-local-register-onprem-system
+    description: Register one or more on-premises ONTAP clusters with NetApp Console Local in single or multi-cluster mode
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, registration, onprem, ontap]
+    variants:
+      ansible:
+        path: ansible/console/local/playbooks/register_onprem_system.yml
+        command: "ansible-playbook playbooks/register_onprem_system.yml --extra-vars \"@vars/ncl_register_onprem.yml\" -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_onprem_cluster_ip, ncl_fleet_name, ncl_onprem_clusters]
+        outputs: [working_environment_id, agent_id]
+
+  - id: console-local-register-and-onboard
+    description: End-to-end NetApp Console Local onboarding — register user, create org, create fleet, and add an on-premises ONTAP system
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, onboarding, registration, fleet]
+    variants:
+      ansible:
+        path: ansible/console/local/playbooks/register_and_onboard.yml
+        command: "ansible-playbook playbooks/register_and_onboard.yml --extra-vars \"@vars/ncl_register_and_onboard.yml\" -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_admin_email, ncl_org_name, ncl_fleet_name, ncl_onprem_cluster_ip, ncl_folder_name]
+        outputs: [org_id, fleet_id, working_environment_id]
+
+  - id: console-local-deregister-system
+    description: Query fleet membership or permanently remove one or more ONTAP systems from a NetApp Console Local organisation
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, deregistration, onprem, ontap]
+    variants:
+      ansible:
+        path: ansible/console/local/playbooks/deregister_system.yml
+        command: "ansible-playbook playbooks/deregister_system.yml --extra-vars \"@vars/ncl_deregister_system.yml\" -e ncl_admin_password=SECRET -e ncl_deregister_action=query"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_deregister_action, ncl_deregister_force, ncl_systems]
+        outputs: [systems_deregistered]
+
+  - id: console-local-deregister-one-task
+    description: Reusable task file included by deregister_system.yml to deregister a single ONTAP system from NetApp Console Local
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, deregistration, tasks]
+    variants:
+      ansible:
+        path: ansible/console/local/playbooks/tasks/deregister_one.yml
+        command: "ansible-playbook playbooks/deregister_system.yml --extra-vars \"@vars/ncl_deregister_system.yml\" -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_deregister_action, ncl_deregister_force, ncl_systems]
+        outputs: [system_deregistered]
+
+  - id: console-local-active-directory
+    description: Manage Active Directory LDAP federation in NetApp Console Local — list, create, enable, disable, or delete
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, active-directory, ldap, identity]
+    variants:
+      ansible:
+        path: ansible/console/local/playbooks/active_directory.yml
+        command: "ansible-playbook playbooks/active_directory.yml --extra-vars \"@vars/ncl_active_directory.yml\" -e ncl_ad_action=list -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_ad_action, ncl_ad_name, ncl_ad_server_url, ncl_ad_bind_dn, ncl_ad_bind_password]
+        outputs: [federation_id, federation_state]
+
+  - id: console-local-org-users
+    description: Query, create, or delete local users in a NetApp Console Local organisation with role assignment
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, user-management, rbac]
+    variants:
+      ansible:
+        path: ansible/console/local/playbooks/org_users.yml
+        command: "ansible-playbook playbooks/org_users.yml --extra-vars \"@vars/ncl_org_users.yml\" -e ncl_user_action=query -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_user_action, ncl_user_email, ncl_role_name, ncl_role_category, ncl_roles]
+        outputs: [user_id, users_list]
+
+  - id: console-local-service-account
+    description: List, create, or delete service accounts in a NetApp Console Local organisation
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, service-account, automation]
+    variants:
+      ansible:
+        path: ansible/console/local/playbooks/service_account.yml
+        command: "ansible-playbook playbooks/service_account.yml --extra-vars \"@vars/ncl.yml\" -e ncl_sa_action=list -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_sa_action, ncl_sa_name, ncl_sa_id]
+        outputs: [service_account_id, service_accounts_list]
+
+  - id: console-local-email-config
+    description: Query, create/update, or delete the email server configuration on a NetApp Console Local appliance
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, email, configuration]
+    variants:
+      ansible:
+        path: ansible/console/local/playbooks/email_config.yml
+        command: "ansible-playbook playbooks/email_config.yml --extra-vars \"@vars/ncl_email_config.yml\" -e ncl_admin_password=SECRET -e ncl_email_action=query"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_email_action, ncl_smtp_host, ncl_smtp_port, ncl_smtp_user, ncl_smtp_password]
+        outputs: [email_config]
+
+  - id: console-local-llm-config
+    description: List, create, or delete LLM provider configurations on a NetApp Console Local appliance
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, llm, ai, configuration]
+    variants:
+      ansible:
+        path: ansible/console/local/playbooks/llm_config.yml
+        command: "ansible-playbook playbooks/llm_config.yml --extra-vars \"@vars/ncl_llm.yml\" -e ncl_admin_password=SECRET -e ncl_llm_action=list"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_llm_action, ncl_llm_provider, ncl_llm_api_key, ncl_llm_base_url]
+        outputs: [llm_config_id, llm_configs_list]
+
+  - id: console-local-capacity-policies
+    description: List, create, or delete capacity policies on a NetApp Console Local appliance
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, capacity, policy]
+    variants:
+      ansible:
+        path: ansible/console/local/playbooks/capacity_policies.yml
+        command: "ansible-playbook playbooks/capacity_policies.yml --extra-vars \"@vars/ncl_capacity_policy.yml\" -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_capacity_policy_action, ncl_capacity_policy_name]
+        outputs: [capacity_policy_id, capacity_policies_list]
+
+  - id: console-local-performance-policies
+    description: List, create, or delete adaptive QoS performance policies on a NetApp Console Local appliance
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, performance, qos, policy]
+    variants:
+      ansible:
+        path: ansible/console/local/playbooks/performance_policies.yml
+        command: "ansible-playbook playbooks/performance_policies.yml --extra-vars \"@vars/ncl_performance_policy.yml\" -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_policy_action, ncl_policy_name, ncl_policy_peak_iops, ncl_policy_expected_iops]
+        outputs: [performance_policy_id, performance_policies_list]
+
+  - id: console-local-protection-policies
+    description: List, create, or delete snapshot-based protection policies on a NetApp Console Local appliance
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, protection, snapshot, policy]
+    variants:
+      ansible:
+        path: ansible/console/local/playbooks/protection_policies.yml
+        command: "ansible-playbook playbooks/protection_policies.yml --extra-vars \"@vars/ncl_protection_policy.yml\" -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_protection_policy_action, ncl_protection_policy_name]
+        outputs: [protection_policy_id, protection_policies_list]
+
+  - id: console-local-security-policies
+    description: List, create, or delete security policies on a NetApp Console Local appliance
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, security, policy]
+    variants:
+      ansible:
+        path: ansible/console/local/playbooks/security_policies.yml
+        command: "ansible-playbook playbooks/security_policies.yml --extra-vars \"@vars/ncl_security_policy.yml\" -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_security_policy_action, ncl_security_policy_name]
+        outputs: [security_policy_id, security_policies_list]
+
+  - id: console-local-storage-classes
+    description: List, create, or delete storage classes on a NetApp Console Local appliance
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, storage-class, provisioning]
+    variants:
+      ansible:
+        path: ansible/console/local/playbooks/storage_classes.yml
+        command: "ansible-playbook playbooks/storage_classes.yml --extra-vars \"@vars/ncl_storage_class.yml\" -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_sc_action, ncl_sc_name, ncl_sc_capacity_policy_id, ncl_sc_performance_policy_id]
+        outputs: [storage_class_id, storage_classes_list]
+
+  - id: console-local-storage-provisioning
+    description: Provision volumes and LUNs in parallel across multiple ONTAP clusters via NetApp Console Local
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, provisioning, volume, lun, multi-cluster]
+    variants:
+      ansible:
+        path: ansible/console/local/playbooks/storage_provisioning.yml
+        command: "ansible-playbook playbooks/storage_provisioning.yml --extra-vars \"@vars/ncl_storage_provisioning.yml\""
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_storage_targets, ncl_volume_name, ncl_lun_name]
+        outputs: [volumes_created, luns_created]
+
+  - id: console-local-volumes-delete
+    description: List or delete ONTAP volumes via the NetApp Console Local proxy in single or multi-cluster mode
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, volume, delete, multi-cluster]
+    variants:
+      ansible:
+        path: ansible/console/local/playbooks/volumes_delete.yml
+        command: "ansible-playbook playbooks/volumes_delete.yml --extra-vars \"@vars/ncl_volume_delete.yml\" -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_volume_action, ncl_volume_name, ncl_svm_name, ncl_clusters]
+        outputs: [volumes_deleted, volumes_list]
+
+  - id: console-local-webhooks
+    description: List, create, or delete outbound webhook configurations on a NetApp Console Local appliance
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, webhook, notification]
+    variants:
+      ansible:
+        path: ansible/console/local/playbooks/webhooks.yml
+        command: "ansible-playbook playbooks/webhooks.yml --extra-vars \"@vars/ncl_webhook.yml\" -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_webhook_action, ncl_webhook_name, ncl_webhook_url, ncl_webhook_format]
+        outputs: [webhook_id, webhooks_list]
+
+  # ── Console Local vars-file entries (each vars file must be cataloged) ──────
+
+  - id: console-local-vars-shared
+    description: Shared variable defaults template used by all NetApp Console Local playbooks
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, vars, configuration]
+    variants:
+      ansible:
+        path: ansible/console/local/vars/ncl.yml
+        command: "ansible-playbook playbooks/site.yml --extra-vars \"@vars/ncl.yml\" -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_console_url, ncl_admin_email, ncl_org_name, ncl_fleet_name]
+        outputs: []
+
+  - id: console-local-vars-active-directory
+    description: Variables template for the active_directory.yml playbook managing LDAP federation on NetApp Console Local
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, vars, active-directory, ldap]
+    variants:
+      ansible:
+        path: ansible/console/local/vars/ncl_active_directory.yml
+        command: "ansible-playbook playbooks/active_directory.yml --extra-vars \"@vars/ncl_active_directory.yml\" -e ncl_ad_action=list -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_console_url, ncl_ad_name, ncl_ad_server_url, ncl_ad_action]
+        outputs: []
+
+  - id: console-local-vars-capacity-policy
+    description: Variables template for the capacity_policies.yml playbook managing capacity policies on NetApp Console Local
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, vars, capacity, policy]
+    variants:
+      ansible:
+        path: ansible/console/local/vars/ncl_capacity_policy.yml
+        command: "ansible-playbook playbooks/capacity_policies.yml --extra-vars \"@vars/ncl_capacity_policy.yml\" -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_console_url, ncl_capacity_policy_action, ncl_capacity_policy_name]
+        outputs: []
+
+  - id: console-local-vars-deregister-system
+    description: Variables template for the deregister_system.yml playbook removing ONTAP systems from NetApp Console Local
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, vars, deregistration]
+    variants:
+      ansible:
+        path: ansible/console/local/vars/ncl_deregister_system.yml
+        command: "ansible-playbook playbooks/deregister_system.yml --extra-vars \"@vars/ncl_deregister_system.yml\" -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_console_url, ncl_deregister_action, ncl_systems]
+        outputs: []
+
+  - id: console-local-vars-email-config
+    description: Variables template for the email_config.yml playbook configuring the SMTP email server on NetApp Console Local
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, vars, email, configuration]
+    variants:
+      ansible:
+        path: ansible/console/local/vars/ncl_email_config.yml
+        command: "ansible-playbook playbooks/email_config.yml --extra-vars \"@vars/ncl_email_config.yml\" -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_console_url, ncl_email_action, ncl_smtp_host, ncl_smtp_port]
+        outputs: []
+
+  - id: console-local-vars-fleet
+    description: Variables template for fleet_management.yml and fleet_delete.yml playbooks managing fleets on NetApp Console Local
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, vars, fleet]
+    variants:
+      ansible:
+        path: ansible/console/local/vars/ncl_fleet.yml
+        command: "ansible-playbook playbooks/fleet_management.yml --extra-vars \"@vars/ncl_fleet.yml\" -e ncl_admin_password=SECRET --tags list"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_console_url, ncl_fleet_name, ncl_fleet_folder_name]
+        outputs: []
+
+  - id: console-local-vars-llm
+    description: Variables template for the llm_config.yml playbook managing LLM provider configurations on NetApp Console Local
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, vars, llm, ai]
+    variants:
+      ansible:
+        path: ansible/console/local/vars/ncl_llm.yml
+        command: "ansible-playbook playbooks/llm_config.yml --extra-vars \"@vars/ncl_llm.yml\" -e ncl_admin_password=SECRET -e ncl_llm_action=list"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_console_url, ncl_llm_action, ncl_llm_provider, ncl_llm_api_key]
+        outputs: []
+
+  - id: console-local-vars-org-users
+    description: Variables template for the org_users.yml playbook managing local users in a NetApp Console Local organisation
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, vars, user-management]
+    variants:
+      ansible:
+        path: ansible/console/local/vars/ncl_org_users.yml
+        command: "ansible-playbook playbooks/org_users.yml --extra-vars \"@vars/ncl_org_users.yml\" -e ncl_user_action=query -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_console_url, ncl_user_action, ncl_user_email, ncl_role_name]
+        outputs: []
+
+  - id: console-local-vars-performance-policy
+    description: Variables template for the performance_policies.yml playbook managing adaptive QoS policies on NetApp Console Local
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, vars, performance, qos]
+    variants:
+      ansible:
+        path: ansible/console/local/vars/ncl_performance_policy.yml
+        command: "ansible-playbook playbooks/performance_policies.yml --extra-vars \"@vars/ncl_performance_policy.yml\" -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_console_url, ncl_policy_action, ncl_policy_name]
+        outputs: []
+
+  - id: console-local-vars-protection-policy
+    description: Variables template for the protection_policies.yml playbook managing snapshot protection policies on NetApp Console Local
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, vars, protection, snapshot]
+    variants:
+      ansible:
+        path: ansible/console/local/vars/ncl_protection_policy.yml
+        command: "ansible-playbook playbooks/protection_policies.yml --extra-vars \"@vars/ncl_protection_policy.yml\" -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_console_url, ncl_protection_policy_action, ncl_protection_policy_name]
+        outputs: []
+
+  - id: console-local-vars-register-and-onboard
+    description: Variables template for the register_and_onboard.yml end-to-end NetApp Console Local onboarding playbook
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, vars, onboarding]
+    variants:
+      ansible:
+        path: ansible/console/local/vars/ncl_register_and_onboard.yml
+        command: "ansible-playbook playbooks/register_and_onboard.yml --extra-vars \"@vars/ncl_register_and_onboard.yml\" -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_console_url, ncl_admin_email, ncl_org_name, ncl_fleet_name, ncl_onprem_cluster_ip]
+        outputs: []
+
+  - id: console-local-vars-register-onprem
+    description: Variables template for the register_onprem_system.yml playbook registering on-premises ONTAP systems with NetApp Console Local
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, vars, registration, onprem]
+    variants:
+      ansible:
+        path: ansible/console/local/vars/ncl_register_onprem.yml
+        command: "ansible-playbook playbooks/register_onprem_system.yml --extra-vars \"@vars/ncl_register_onprem.yml\" -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_console_url, ncl_onprem_cluster_ip, ncl_fleet_name]
+        outputs: []
+
+  - id: console-local-vars-security-policy
+    description: Variables template for the security_policies.yml playbook managing security policies on NetApp Console Local
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, vars, security, policy]
+    variants:
+      ansible:
+        path: ansible/console/local/vars/ncl_security_policy.yml
+        command: "ansible-playbook playbooks/security_policies.yml --extra-vars \"@vars/ncl_security_policy.yml\" -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_console_url, ncl_security_policy_action, ncl_security_policy_name]
+        outputs: []
+
+  - id: console-local-vars-storage-class
+    description: Variables template for the storage_classes.yml playbook managing storage classes on NetApp Console Local
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, vars, storage-class]
+    variants:
+      ansible:
+        path: ansible/console/local/vars/ncl_storage_class.yml
+        command: "ansible-playbook playbooks/storage_classes.yml --extra-vars \"@vars/ncl_storage_class.yml\" -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_console_url, ncl_sc_action, ncl_sc_name]
+        outputs: []
+
+  - id: console-local-vars-storage-provisioning
+    description: Variables template for the storage_provisioning.yml playbook provisioning volumes and LUNs via NetApp Console Local
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, vars, provisioning, volume, lun]
+    variants:
+      ansible:
+        path: ansible/console/local/vars/ncl_storage_provisioning.yml
+        command: "ansible-playbook playbooks/storage_provisioning.yml --extra-vars \"@vars/ncl_storage_provisioning.yml\""
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_console_url, ncl_storage_targets, ncl_volume_name, ncl_lun_name]
+        outputs: []
+
+  - id: console-local-vars-volume-delete
+    description: Variables template for the volumes_delete.yml playbook listing or deleting ONTAP volumes via NetApp Console Local
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, vars, volume, delete]
+    variants:
+      ansible:
+        path: ansible/console/local/vars/ncl_volume_delete.yml
+        command: "ansible-playbook playbooks/volumes_delete.yml --extra-vars \"@vars/ncl_volume_delete.yml\" -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_console_url, ncl_volume_action, ncl_volume_name, ncl_clusters]
+        outputs: []
+
+  - id: console-local-vars-webhook
+    description: Variables template for the webhooks.yml playbook managing outbound webhook configurations on NetApp Console Local
+    products: [Console]
+    product: console
+    deployment: local
+    ontap_min: "9.8"
+    owners: [priyams]
+    status: draft
+    tags: [console, vars, webhook]
+    variants:
+      ansible:
+        path: ansible/console/local/vars/ncl_webhook.yml
+        command: "ansible-playbook playbooks/webhooks.yml --extra-vars \"@vars/ncl_webhook.yml\" -e ncl_admin_password=SECRET"
+        cwd: ansible/console/local
+        prerequisites:
+          env: [ncl_console_url, ncl_admin_password]
+          setup: "ansible-galaxy collection install -r requirements.yml"
+        inputs: [ncl_console_url, ncl_webhook_action, ncl_webhook_name, ncl_webhook_url]
+        outputs: []
