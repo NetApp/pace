@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<!--
+   © 2026 NetApp, Inc. All Rights Reserved.
+   SPDX-License-Identifier: Apache-2.0
+   See the NOTICE file in the repo root for trademark and attribution details.
+
+   AUTO-GENERATED from catalog.yaml + scripts/catalog/templates/index.html.j2 — do not edit by hand.
+   Generated at 2026-08-24T08:02:53Z UTC.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pace Catalog Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+<script src="vendor/vis-network.min.js"></script>
+<style>
+* , *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+:root{
+  --bg:#06080f; --bg-1:#0a0d17; --bg-2:#0f1421;
+  --bg-card:rgba(15,20,33,0.7); --bg-glass:rgba(8,12,22,0.82);
+  --border:rgba(255,255,255,0.08); --border-strong:rgba(255,255,255,0.16);
+  --text:#e6edf3; --text-soft:#c9d1d9; --text-muted:#8b949e; --text-faint:#54606c;
+  --code-bg:#0a0e16;
+
+  --pace:#3b82f6; --pace-2:#6366f1;
+  --python:#3b82f6; --ansible:#ef4444; --terraform:#a855f7; --go:#22d3ee;
+
+  --ok:#34d399; --warn:#fbbf24; --gone:#94a3b8;
+
+  --radius-sm:8px; --radius-md:14px; --radius-lg:20px;
+  --shadow-1:0 1px 2px rgba(0,0,0,.25), 0 4px 16px rgba(0,0,0,.25);
+  --shadow-2:0 12px 40px -12px rgba(0,0,0,.5);
+
+  --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --font-display:'Space Grotesk',var(--font-sans);
+  --font-mono:'JetBrains Mono',ui-monospace,SFMono-Regular,monospace;
+}
+
+html,body{ height:100%; }
+body{
+  font-family:var(--font-sans); background:var(--bg); color:var(--text);
+  min-height:100vh; position:relative; overflow-x:hidden;
+}
+
+body::before{
+  content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(600px circle at 15% -5%, rgba(59,130,246,.16), transparent 60%),
+    radial-gradient(600px circle at 100% 10%, rgba(168,85,247,.13), transparent 55%),
+    radial-gradient(800px circle at 50% 100%, rgba(99,102,241,.10), transparent 60%);
+}
+body::after{
+  content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+  background-image:
+    linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+  background-size:48px 48px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 90%);
+}
+
+.wrap{ position:relative; z-index:1; max-width:1360px; margin:0 auto; padding:0 28px 80px; }
+
+header.top{
+  padding:36px 0 24px; display:flex; flex-direction:column; gap:18px;
+  border-bottom:1px solid var(--border);
+}
+.brand-row{ display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+.brand{ display:flex; align-items:center; gap:12px; }
+.brand .mark{
+  width:38px; height:38px; border-radius:10px;
+  background:linear-gradient(135deg,var(--pace),var(--pace-2));
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--font-display); font-weight:700; font-size:18px; color:#fff;
+  box-shadow:0 6px 20px -6px rgba(99,102,241,.7);
+}
+.brand h1{ font-family:var(--font-display); font-size:22px; font-weight:700; letter-spacing:-0.02em; }
+.brand p{ font-size:13px; color:var(--text-muted); margin-top:2px; }
+
+.stats{ display:flex; gap:10px; flex-wrap:wrap; }
+.stat{
+  background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-sm);
+  padding:8px 14px; text-align:center; min-width:74px;
+}
+.stat b{ display:block; font-family:var(--font-display); font-size:18px; }
+.stat span{ font-size:10.5px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.06em; }
+
+.controls{ display:flex; gap:12px; flex-wrap:wrap; align-items:center; padding:20px 0; }
+.search-box{ flex:1 1 280px; position:relative; }
+.search-box input{
+  width:100%; background:var(--bg-card); border:1px solid var(--border); color:var(--text);
+  border-radius:var(--radius-sm); padding:11px 14px 11px 38px; font-size:14px; font-family:var(--font-sans);
+  outline:none; transition:border-color .2s;
+}
+.search-box input:focus{ border-color:var(--pace); }
+.search-box::before{
+  content:"⌕"; position:absolute; left:13px; top:50%; transform:translateY(-50%) scaleX(1.3);
+  color:var(--text-muted); font-size:16px; font-weight:700;
+}
+.filter-group{ display:flex; gap:8px; flex-wrap:wrap; }
+select{
+  background:var(--bg-card); border:1px solid var(--border); color:var(--text-soft);
+  border-radius:var(--radius-sm); padding:10px 12px; font-size:13px; font-family:var(--font-sans);
+  outline:none; cursor:pointer;
+}
+select:focus{ border-color:var(--pace); }
+
+.view-switch{ display:flex; gap:4px; padding:4px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-sm); }
+.view-btn{
+  font-family:var(--font-sans); font-size:12.5px; font-weight:600; padding:7px 12px; border-radius:6px;
+  border:0; cursor:pointer; background:transparent; color:var(--text-muted);
+}
+.view-btn.active{ background:rgba(59,130,246,.2); color:var(--text); }
+
+.chip-row{ display:flex; gap:8px; flex-wrap:wrap; padding-bottom:8px; }
+.chip{
+  border:1px solid var(--border); background:var(--bg-card); color:var(--text-muted);
+  padding:6px 12px; border-radius:999px; font-size:12px; cursor:pointer; user-select:none;
+  transition:all .15s; font-weight:500;
+}
+.chip:hover{ border-color:var(--border-strong); color:var(--text); }
+.chip.active{ background:var(--pace); border-color:var(--pace); color:#fff; }
+
+.result-line{ font-size:12.5px; color:var(--text-muted); padding:4px 0 14px; }
+.result-line b{ color:var(--text); }
+
+.grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:16px; }
+.card{
+  background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-md);
+  padding:18px; display:flex; flex-direction:column; gap:12px; box-shadow:var(--shadow-1);
+  transition:border-color .2s, transform .2s;
+  backdrop-filter:blur(10px);
+}
+.card:hover{ border-color:var(--border-strong); }
+.card-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+.card-head h3{ font-family:var(--font-display); font-size:16.5px; font-weight:600; letter-spacing:-.01em; }
+.badge{
+  font-size:10.5px; padding:3px 9px; border-radius:999px; font-weight:600; letter-spacing:.03em;
+  text-transform:uppercase; white-space:nowrap; border:1px solid transparent;
+}
+.badge.verified{ background:rgba(52,211,153,.14); color:var(--ok); border-color:rgba(52,211,153,.3); }
+.badge.draft{ background:rgba(251,191,36,.14); color:var(--warn); border-color:rgba(251,191,36,.3); }
+.badge.deprecated{ background:rgba(148,163,184,.14); color:var(--gone); border-color:rgba(148,163,184,.3); }
+
+.card p.desc{ font-size:13px; color:var(--text-soft); line-height:1.5; }
+
+.meta-row{ display:flex; gap:8px; flex-wrap:wrap; font-size:11px; color:var(--text-muted); }
+.meta-row span.pill{
+  border:1px solid var(--border); padding:3px 9px; border-radius:6px; background:rgba(255,255,255,.02);
+}
+
+.tags{ display:flex; gap:6px; flex-wrap:wrap; }
+.tag{
+  font-size:10.5px; color:var(--text-muted); background:rgba(255,255,255,.03);
+  border:1px solid var(--border); padding:2px 8px; border-radius:5px;
+}
+
+.variant-row{ display:flex; gap:6px; flex-wrap:wrap; margin-top:2px; }
+.variant-btn{
+  font-family:var(--font-mono); font-size:11px; font-weight:600; padding:5px 10px; border-radius:6px;
+  border:1px solid var(--border-strong); cursor:pointer; background:transparent; color:var(--text-soft);
+  transition:all .15s;
+}
+.variant-btn[data-tool="python"]{ color:var(--python); border-color:rgba(59,130,246,.4); }
+.variant-btn[data-tool="ansible"]{ color:var(--ansible); border-color:rgba(239,68,68,.4); }
+.variant-btn[data-tool="terraform"]{ color:var(--terraform); border-color:rgba(168,85,247,.4); }
+.variant-btn[data-tool="go"]{ color:var(--go); border-color:rgba(34,211,238,.4); }
+.variant-btn.active{ color:#fff !important; }
+.variant-btn[data-tool="python"].active{ background:var(--python); }
+.variant-btn[data-tool="ansible"].active{ background:var(--ansible); }
+.variant-btn[data-tool="terraform"].active{ background:var(--terraform); }
+.variant-btn[data-tool="go"].active{ background:var(--go); color:#052; }
+
+.detail{ display:none; border-top:1px dashed var(--border); padding-top:12px; font-size:12.5px; }
+.detail.open{ display:block; }
+.detail .row{ margin-bottom:8px; }
+.detail .row .k{ color:var(--text-muted); font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; margin-bottom:3px; }
+.detail code.cmd{
+  display:block; font-family:var(--font-mono); font-size:11.5px; background:var(--code-bg);
+  border:1px solid var(--border); border-radius:6px; padding:8px 10px; color:#c9f2d8;
+  overflow-x:auto; white-space:pre; position:relative; cursor:pointer;
+}
+.detail code.cmd:hover{ border-color:var(--pace); }
+.detail .kv{ display:flex; flex-wrap:wrap; gap:6px; }
+.detail .kv span{ background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:5px; padding:2px 7px; font-family:var(--font-mono); font-size:11px; color:var(--text-soft); }
+
+.table-wrap{ overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--bg-card); }
+table.catalog{
+  width:100%; border-collapse:collapse; font-size:13px;
+}
+table.catalog th, table.catalog td{
+  text-align:left; padding:10px 12px; border-bottom:1px solid var(--border); vertical-align:top;
+}
+table.catalog th{
+  font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);
+  cursor:pointer; user-select:none; white-space:nowrap; background:rgba(0,0,0,.2);
+}
+table.catalog th:hover{ color:var(--text); }
+table.catalog th.sort-asc::after{ content:" ↑"; color:var(--pace); }
+table.catalog th.sort-desc::after{ content:" ↓"; color:var(--pace); }
+table.catalog td{ color:var(--text-soft); }
+table.catalog td.id{ font-family:var(--font-display); color:var(--text); font-weight:600; white-space:nowrap; }
+.var-icons{ display:flex; gap:6px; flex-wrap:wrap; }
+.var-icon{
+  font-family:var(--font-mono); font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px;
+  border:1px solid var(--border); color:var(--text-faint); opacity:.35;
+}
+.var-icon.on[data-tool="python"]{ color:var(--python); border-color:rgba(59,130,246,.4); opacity:1; }
+.var-icon.on[data-tool="ansible"]{ color:var(--ansible); border-color:rgba(239,68,68,.4); opacity:1; }
+.var-icon.on[data-tool="terraform"]{ color:var(--terraform); border-color:rgba(168,85,247,.4); opacity:1; }
+.var-icon.on[data-tool="go"]{ color:var(--go); border-color:rgba(34,211,238,.4); opacity:1; }
+
+.graph-wrap{
+  border:1px solid var(--border); border-radius:var(--radius-md); background:var(--bg-card);
+  height:640px; position:relative; overflow:hidden;
+}
+#graph{ width:100%; height:100%; }
+.graph-legend{
+  position:absolute; top:12px; left:12px; z-index:2; display:flex; gap:10px; flex-wrap:wrap;
+  background:var(--bg-glass); border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 10px;
+  font-size:11px; color:var(--text-muted);
+}
+.graph-legend span{ display:flex; align-items:center; gap:6px; }
+.swatch{ width:10px; height:10px; border-radius:50%; display:inline-block; }
+
+footer{ text-align:center; padding:40px 0 10px; color:var(--text-faint); font-size:12px; }
+footer a{ color:var(--text-muted); }
+
+.empty-state{ text-align:center; padding:60px 20px; color:var(--text-muted); grid-column:1/-1; }
+.empty-state b{ display:block; font-size:16px; color:var(--text); margin-bottom:6px; }
+
+.hidden{ display:none !important; }
+
+.toast{
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+  background:var(--bg-2); border:1px solid var(--border-strong); color:var(--text);
+  padding:10px 18px; border-radius:999px; font-size:13px; opacity:0; pointer-events:none;
+  transition:all .25s; z-index:50; box-shadow:var(--shadow-2);
+}
+.toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+@media (max-width:640px){
+  .wrap{ padding:0 16px 60px; }
+  .grid{ grid-template-columns:1fr; }
+  .graph-wrap{ height:480px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand-row">
+      <div class="brand">
+        <div class="mark">P</div>
+        <div>
+          <h1>Pace Catalog Explorer</h1>
+          <p>Browse every NetApp storage automation example — Python, Ansible, Terraform &amp; Go</p>
+        </div>
+      </div>
+      <div class="stats" id="stats"></div>
+    </div>
+
+    <div class="controls">
+      <div class="search-box">
+        <input type="text" id="search" placeholder="Search by id, description, owner, tag, or path…" autocomplete="off" />
+      </div>
+      <div class="filter-group">
+        <select id="filter-product">
+          <option value="">All products</option>
+        </select>
+        <select id="filter-tool">
+          <option value="">All tools</option>
+          <option value="python">Python</option>
+          <option value="ansible">Ansible</option>
+          <option value="terraform">Terraform</option>
+          <option value="go">Go</option>
+        </select>
+        <select id="filter-status">
+          <option value="">All statuses</option>
+          <option value="verified">Verified</option>
+          <option value="draft">Draft</option>
+          <option value="deprecated">Deprecated</option>
+        </select>
+        <select id="filter-owner">
+          <option value="">All owners</option>
+        </select>
+      </div>
+      <div class="view-switch" role="tablist" aria-label="View">
+        <button type="button" class="view-btn active" data-view="cards">Cards</button>
+        <button type="button" class="view-btn" data-view="table">Table</button>
+        <button type="button" class="view-btn" data-view="graph">Graph</button>
+      </div>
+    </div>
+    <div class="chip-row" id="tag-chips"></div>
+    <div class="result-line" id="result-line"></div>
+  </header>
+
+  <main>
+    <div class="grid" id="grid"></div>
+    <div class="table-wrap hidden" id="table-wrap">
+      <table class="catalog" id="table">
+        <thead>
+          <tr>
+            <th data-col="id">id</th>
+            <th data-col="description">description</th>
+            <th data-col="products">product(s)</th>
+            <th data-col="owners">owners</th>
+            <th data-col="status">status</th>
+            <th data-col="tags">tags</th>
+            <th data-col="variants">variants</th>
+            <th data-col="ontap_min">ontap_min</th>
+          </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+    <div class="graph-wrap hidden" id="graph-wrap">
+      <div class="graph-legend">
+        <span><i class="swatch" style="background:#818cf8"></i> Owner</span>
+        <span><i class="swatch" style="background:#3b82f6"></i> Use case</span>
+        <span><i class="swatch" style="background:#22d3ee"></i> Variant</span>
+      </div>
+      <div id="graph"></div>
+    </div>
+  </main>
+
+  <footer>
+    Generated from <code>catalog.yaml</code> at 2026-08-24T08:02:53Z · Pace repository
+  </footer>
+</div>
+
+<div class="toast" id="toast">Copied to clipboard</div>
+
+<script>
+const CATALOG = [{"description": "Retrieve cluster version and list nodes with serial numbers", "id": "cluster-info", "ontap_min": "9.8", "owners": ["57388sp", "kxvya-git", "mahatvagarg"], "product": "ontap", "products": ["ONTAP"], "status": "verified", "tags": ["cluster", "read-only"], "variants": {"ansible": {"command": "ansible-playbook -i inventory/hosts.yml cluster_info.yml", "cwd": "ansible/ontap", "inputs": [], "outputs": ["cluster_version", "nodes"], "path": "ansible/ontap/cluster_info.yml", "prerequisites": {"env": ["ontap_hostname", "ontap_username", "ontap_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}, "python": {"command": "python cluster_info.py", "cwd": "python/ontap", "inputs": [], "outputs": ["cluster_version", "nodes"], "path": "python/ontap/cluster_info.py", "prerequisites": {"env": ["ONTAP_HOST", "ONTAP_PASS", "ONTAP_USER"], "setup": "pip install -r requirements.txt"}}, "terraform": {"command": "terraform init \u0026\u0026 terraform apply", "cwd": "terraform/ontap/cluster-info", "inputs": ["ontap_host", "ontap_username", "ontap_password", "validate_certs"], "outputs": ["cluster_name", "cluster_version", "nodes"], "path": "terraform/ontap/cluster-info", "prerequisites": {"env": [], "setup": "cp terraform.tfvars.example terraform.tfvars \u0026\u0026 terraform init"}}}, "verification": {"environment": "other", "notes": "Python: 57388sp, Ansible: kxvya-git, Terraform: mahatvagarg", "ontap_version": "9.8", "tested_at": "2026-05-29", "verified_by": "57388sp"}}, {"description": "Create an NFS volume with a dedicated export policy and client rule", "id": "nfs-provision", "ontap_min": "9.8", "owners": ["57388sp", "kxvya-git", "mahatvagarg"], "product": "ontap", "products": ["ONTAP"], "status": "verified", "tags": ["nfs", "provisioning"], "variants": {"ansible": {"command": "ansible-playbook -i inventory/hosts.yml nfs_provision.yml", "cwd": "ansible/ontap", "inputs": ["svm_name", "volume_name", "volume_size", "volume_size_unit", "aggregate_name", "client_match"], "outputs": ["volume_name", "mount_path", "export_policy"], "path": "ansible/ontap/nfs_provision.yml", "prerequisites": {"env": ["ontap_hostname", "ontap_username", "ontap_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}, "python": {"command": "python nfs_provision.py --svm vs0 --volume vol_nfs_test_01 --size 100MB --aggregate aggr1 --client-match 10.0.0.0/8", "cwd": "python/ontap", "inputs": ["svm", "volume", "size", "aggregate", "client_match"], "outputs": ["volume_name", "mount_path", "export_policy"], "path": "python/ontap/nfs_provision.py", "prerequisites": {"env": ["ONTAP_HOST", "ONTAP_PASS", "ONTAP_USER"], "setup": "pip install -r requirements.txt"}}, "terraform": {"command": "terraform init \u0026\u0026 terraform apply", "cwd": "terraform/ontap/nfs-provision", "inputs": ["ontap_host", "ontap_username", "ontap_password", "validate_certs", "svm_name", "volume_name", "volume_size", "volume_size_unit", "aggregate_name", "client_match"], "outputs": ["volume_name", "mount_path", "export_policy", "client_match"], "path": "terraform/ontap/nfs-provision", "prerequisites": {"env": [], "setup": "cp terraform.tfvars.example terraform.tfvars \u0026\u0026 terraform init"}}}, "verification": {"environment": "other", "notes": "Python: 57388sp, Ansible: kxvya-git, Terraform: mahatvagarg", "ontap_version": "9.8", "tested_at": "2026-05-29", "verified_by": "57388sp"}}, {"description": "Create a CIFS share with FlexVol volume and share ACL", "id": "cifs-provision", "ontap_min": "9.8", "owners": ["57388sp", "kxvya-git", "mahatvagarg"], "product": "ontap", "products": ["ONTAP"], "status": "verified", "tags": ["cifs", "smb", "provisioning"], "variants": {"ansible": {"command": "ansible-playbook -i inventory/hosts.yml cifs_provision.yml", "cwd": "ansible/ontap", "inputs": ["svm_name", "volume_name", "volume_size", "volume_size_unit", "aggregate_name", "share_name", "share_comment", "acl_user", "acl_permission"], "outputs": ["volume_name", "share_name", "mount_path"], "path": "ansible/ontap/cifs_provision.yml", "prerequisites": {"env": ["ontap_hostname", "ontap_username", "ontap_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}, "python": {"command": "python cifs_provision.py", "cwd": "python/ontap", "inputs": ["svm", "volume", "size", "aggregate", "share_name", "acl_user", "acl_permission"], "outputs": ["volume_name", "share_name", "mount_path"], "path": "python/ontap/cifs_provision.py", "prerequisites": {"env": ["ONTAP_HOST", "ONTAP_PASS", "ONTAP_USER"], "setup": "pip install -r requirements.txt"}}, "terraform": {"command": "terraform init \u0026\u0026 terraform apply", "cwd": "terraform/ontap/cifs-provision", "inputs": ["ontap_host", "ontap_username", "ontap_password", "validate_certs", "svm_name", "volume_name", "volume_size", "volume_size_unit", "aggregate_name", "share_name", "share_comment", "acl_user", "acl_permission"], "outputs": ["volume_name", "mount_path", "share_name", "share_path"], "path": "terraform/ontap/cifs-provision", "prerequisites": {"env": [], "setup": "cp terraform.tfvars.example terraform.tfvars \u0026\u0026 terraform init"}}}, "verification": {"environment": "other", "notes": "Python: 57388sp, Ansible: kxvya-git, Terraform: mahatvagarg", "ontap_version": "9.8", "tested_at": "2026-05-29", "verified_by": "57388sp"}}, {"description": "Create a storage cluster from two pre-cluster nodes", "id": "cluster-setup", "ontap_min": "9.8", "owners": ["57388sp", "kxvya-git"], "product": "ontap", "products": ["ONTAP"], "status": "verified", "tags": ["cluster", "setup"], "variants": {"ansible": {"command": "ansible-playbook -i inventory/hosts.yml cluster_setup.yml", "cwd": "ansible/ontap", "inputs": ["cluster_name", "cluster_pass", "cluster_mgmt_ip", "cluster_netmask", "cluster_gateway", "partner_mgmt_ip"], "outputs": ["cluster_name", "job_status"], "path": "ansible/ontap/cluster_setup.yml", "prerequisites": {"env": ["ontap_hostname", "ontap_username", "ontap_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}, "go": {"command": "go run .", "cwd": "go/ontap/cluster_setup_basic", "inputs": ["cluster_name", "cluster_pass", "cluster_mgmt_ip", "cluster_netmask", "cluster_gateway", "partner_mgmt_ip"], "outputs": ["cluster_name", "job_status"], "path": "go/ontap/cluster_setup_basic/main.go", "prerequisites": {"env": ["ONTAP_HOST", "ONTAP_USER", "ONTAP_PASS", "CLUSTER_NAME", "CLUSTER_PASS", "CLUSTER_MGMT_IP", "CLUSTER_NETMASK", "CLUSTER_GATEWAY", "PARTNER_MGMT_IP"], "setup": "cd go \u0026\u0026 go mod download"}}, "python": {"command": "python cluster_setup_basic.py", "cwd": "python/ontap", "inputs": ["cluster_name", "cluster_pass", "cluster_mgmt_ip", "cluster_netmask", "cluster_gateway", "partner_mgmt_ip"], "outputs": ["cluster_name", "job_status"], "path": "python/ontap/cluster_setup_basic.py", "prerequisites": {"env": ["ONTAP_HOST", "ONTAP_USER", "ONTAP_PASS", "CLUSTER_NAME", "CLUSTER_PASS", "CLUSTER_MGMT_IP", "CLUSTER_NETMASK", "CLUSTER_GATEWAY", "PARTNER_MGMT_IP"], "setup": "pip install -r requirements.txt"}}}, "verification": {"environment": "other", "notes": "Python: 57388sp, Ansible: kxvya-git", "ontap_version": "9.8", "tested_at": "2026-05-29", "verified_by": "57388sp"}}, {"description": "Provision a SnapMirror relationship from the source-managed view", "id": "snapmirror-provision-src", "ontap_min": "9.8", "owners": ["57388sp", "kxvya-git"], "product": "ontap", "products": ["ONTAP"], "status": "verified", "tags": ["snapmirror", "replication", "provisioning"], "variants": {"ansible": {"command": "ansible-playbook snapmirror_provision_src_managed.yml", "cwd": "ansible/ontap", "inputs": ["source_svm", "source_volume", "dest_svm", "sm_policy"], "outputs": ["relationship_uuid", "relationship_state", "relationship_healthy"], "path": "ansible/ontap/snapmirror_provision_src_managed.yml", "prerequisites": {"env": ["SOURCE_HOST", "SOURCE_USER", "SOURCE_PASS", "SOURCE_SVM", "SOURCE_VOLUME", "DEST_HOST", "DEST_USER", "DEST_PASS", "DEST_SVM"], "setup": "ansible-galaxy collection install -r requirements.yml"}}, "go": {"command": "go run .", "cwd": "go/ontap/snapmirror_provision_src_managed", "inputs": ["source_svm", "source_volume", "dest_svm", "sm_policy"], "outputs": ["relationship_uuid", "relationship_state", "relationship_healthy"], "path": "go/ontap/snapmirror_provision_src_managed/main.go", "prerequisites": {"env": ["SOURCE_HOST", "SOURCE_USER", "SOURCE_PASS", "SOURCE_SVM", "SOURCE_VOLUME", "DEST_HOST", "DEST_USER", "DEST_PASS", "DEST_SVM"], "setup": "cd go \u0026\u0026 go mod download"}}, "python": {"command": "python snapmirror_provision_src_managed.py", "cwd": "python/ontap", "inputs": ["source_svm", "source_volume", "dest_svm", "sm_policy"], "outputs": ["relationship_uuid", "relationship_state", "relationship_healthy"], "path": "python/ontap/snapmirror_provision_src_managed.py", "prerequisites": {"env": ["SOURCE_HOST", "SOURCE_USER", "SOURCE_PASS", "SOURCE_SVM", "SOURCE_VOLUME", "DEST_HOST", "DEST_USER", "DEST_PASS", "DEST_SVM"], "setup": "pip install -r requirements.txt"}}}, "verification": {"environment": "other", "notes": "Python: 57388sp, Ansible: kxvya-git", "ontap_version": "9.8", "tested_at": "2026-05-29", "verified_by": "57388sp"}}, {"description": "Provision a SnapMirror relationship from the destination-managed view", "id": "snapmirror-provision-dest", "ontap_min": "9.8", "owners": ["57388sp", "kxvya-git"], "product": "ontap", "products": ["ONTAP"], "status": "verified", "tags": ["snapmirror", "replication", "provisioning"], "variants": {"ansible": {"command": "ansible-playbook snapmirror_provision_dest_managed.yml", "cwd": "ansible/ontap", "inputs": ["source_svm", "source_volume", "dest_svm", "sm_policy"], "outputs": ["relationship_uuid", "relationship_state", "relationship_healthy"], "path": "ansible/ontap/snapmirror_provision_dest_managed.yml", "prerequisites": {"env": ["SOURCE_HOST", "SOURCE_USER", "SOURCE_PASS", "SOURCE_SVM", "SOURCE_VOLUME", "DEST_HOST", "DEST_USER", "DEST_PASS", "DEST_SVM"], "setup": "ansible-galaxy collection install -r requirements.yml"}}, "go": {"command": "go run .", "cwd": "go/ontap/snapmirror_provision_dest_managed", "inputs": ["source_svm", "source_volume", "dest_svm", "sm_policy"], "outputs": ["relationship_uuid", "relationship_state", "relationship_healthy"], "path": "go/ontap/snapmirror_provision_dest_managed/main.go", "prerequisites": {"env": ["SOURCE_HOST", "SOURCE_USER", "SOURCE_PASS", "SOURCE_SVM", "SOURCE_VOLUME", "DEST_HOST", "DEST_USER", "DEST_PASS", "DEST_SVM"], "setup": "cd go \u0026\u0026 go mod download"}}, "python": {"command": "python snapmirror_provision_dest_managed.py", "cwd": "python/ontap", "inputs": ["source_svm", "source_volume", "dest_svm", "sm_policy"], "outputs": ["relationship_uuid", "relationship_state", "relationship_healthy"], "path": "python/ontap/snapmirror_provision_dest_managed.py", "prerequisites": {"env": ["SOURCE_HOST", "SOURCE_USER", "SOURCE_PASS", "SOURCE_SVM", "SOURCE_VOLUME", "DEST_HOST", "DEST_USER", "DEST_PASS", "DEST_SVM"], "setup": "pip install -r requirements.txt"}}}, "verification": {"environment": "other", "notes": "Python: 57388sp, Ansible: kxvya-git", "ontap_version": "9.8", "tested_at": "2026-05-29", "verified_by": "57388sp"}}, {"description": "Create a writable FlexClone of a SnapMirror destination volume for test failover", "id": "snapmirror-test-failover", "ontap_min": "9.8", "owners": ["57388sp", "kxvya-git"], "product": "ontap", "products": ["ONTAP"], "status": "verified", "tags": ["snapmirror", "failover", "disaster-recovery"], "variants": {"ansible": {"command": "ansible-playbook snapmirror_test_failover.yml", "cwd": "ansible/ontap", "inputs": ["source_volume"], "outputs": ["clone_volume", "relationship_uuid", "relationship_state"], "path": "ansible/ontap/snapmirror_test_failover.yml", "prerequisites": {"env": ["CLUSTER_A", "CLUSTER_B", "DEST_USER", "DEST_PASS"], "setup": "ansible-galaxy collection install -r requirements.yml"}}, "go": {"command": "go run .", "cwd": "go/ontap/snapmirror_test_failover", "inputs": ["source_volume"], "outputs": ["clone_volume", "relationship_uuid", "relationship_state"], "path": "go/ontap/snapmirror_test_failover/main.go", "prerequisites": {"env": ["CLUSTER_A", "CLUSTER_B", "DEST_USER", "DEST_PASS"], "setup": "cd go \u0026\u0026 go mod download"}}, "python": {"command": "python snapmirror_test_failover.py", "cwd": "python/ontap", "inputs": ["source_volume"], "outputs": ["clone_volume", "relationship_uuid", "relationship_state"], "path": "python/ontap/snapmirror_test_failover.py", "prerequisites": {"env": ["CLUSTER_A", "CLUSTER_B", "DEST_USER", "DEST_PASS"], "setup": "pip install -r requirements.txt"}}}, "verification": {"environment": "other", "notes": "Python: 57388sp, Ansible: kxvya-git", "ontap_version": "9.8", "tested_at": "2026-05-29", "verified_by": "57388sp"}}, {"description": "Delete the FlexClone created by snapmirror test failover", "id": "snapmirror-cleanup-failover", "ontap_min": "9.8", "owners": ["57388sp", "kxvya-git"], "product": "ontap", "products": ["ONTAP"], "status": "verified", "tags": ["snapmirror", "failover", "cleanup"], "variants": {"ansible": {"command": "ansible-playbook snapmirror_cleanup_test_failover.yml", "cwd": "ansible/ontap", "inputs": ["source_volume", "source_svm"], "outputs": ["clone_deleted"], "path": "ansible/ontap/snapmirror_cleanup_test_failover.yml", "prerequisites": {"env": ["CLUSTER_A", "CLUSTER_B", "DEST_USER", "DEST_PASS", "SOURCE_VOLUME", "SOURCE_SVM"], "setup": "ansible-galaxy collection install -r requirements.yml"}}, "go": {"command": "go run .", "cwd": "go/ontap/snapmirror_cleanup_test_failover", "inputs": ["source_volume", "source_svm"], "outputs": ["clone_deleted"], "path": "go/ontap/snapmirror_cleanup_test_failover/main.go", "prerequisites": {"env": ["CLUSTER_A", "CLUSTER_B", "DEST_USER", "DEST_PASS", "SOURCE_VOLUME", "SOURCE_SVM"], "setup": "cd go \u0026\u0026 go mod download"}}, "python": {"command": "python snapmirror_cleanup_test_failover.py", "cwd": "python/ontap", "inputs": ["source_volume", "source_svm"], "outputs": ["clone_deleted"], "path": "python/ontap/snapmirror_cleanup_test_failover.py", "prerequisites": {"env": ["CLUSTER_A", "CLUSTER_B", "DEST_USER", "DEST_PASS", "SOURCE_VOLUME", "SOURCE_SVM"], "setup": "pip install -r requirements.txt"}}}, "verification": {"environment": "other", "notes": "Python: 57388sp, Ansible: kxvya-git", "ontap_version": "9.8", "tested_at": "2026-05-29", "verified_by": "57388sp"}}, {"deployment": "local", "description": "Bootstrap the first admin user on a NetApp Console Local appliance and optionally set up the default organisation", "id": "console-local-user-registration", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "user-management", "onboarding"], "variants": {"ansible": {"command": "ansible-playbook playbooks/user_registration.yml --extra-vars \"@vars/ncl.yml\"", "cwd": "ansible/console/local", "inputs": ["ncl_admin_email", "ncl_admin_password", "ncl_org_name"], "outputs": ["user_registered", "org_id"], "path": "ansible/console/local/playbooks/user_registration.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Full NetApp Console Local onboarding entry point that chains user registration and fleet management in sequence", "id": "console-local-site", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "onboarding", "orchestration"], "variants": {"ansible": {"command": "ansible-playbook playbooks/site.yml --extra-vars \"@vars/ncl.yml\" -e fleet_action=create", "cwd": "ansible/console/local", "inputs": ["ncl_admin_email", "ncl_admin_password", "ncl_org_name", "fleet_action"], "outputs": ["user_registered", "fleet_id"], "path": "ansible/console/local/playbooks/site.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "List or create fleets in a NetApp Console Local organisation, with optional folder placement and cluster attachment", "id": "console-local-fleet-management", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "fleet", "provisioning"], "variants": {"ansible": {"command": "ansible-playbook playbooks/fleet_management.yml --extra-vars \"@vars/ncl_fleet.yml\" -e ncl_admin_password=SECRET --tags create", "cwd": "ansible/console/local", "inputs": ["ncl_fleet_name", "ncl_fleet_folder_name", "ncl_onprem_clusters"], "outputs": ["fleet_id", "fleet_name"], "path": "ansible/console/local/playbooks/fleet_management.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Detach all clusters from a fleet and permanently delete the fleet from NetApp Console Local", "id": "console-local-fleet-delete", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "fleet", "delete"], "variants": {"ansible": {"command": "ansible-playbook playbooks/fleet_delete.yml --extra-vars \"@vars/ncl_fleet.yml\" -e ncl_admin_password=SECRET -e ncl_fleet_name=Fleet-1", "cwd": "ansible/console/local", "inputs": ["ncl_fleet_name", "ncl_fleet_id"], "outputs": ["fleet_deleted"], "path": "ansible/console/local/playbooks/fleet_delete.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "List, create, or delete folders and projects inside a NetApp Console Local organisation", "id": "console-local-folder-management", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "folder", "organisation"], "variants": {"ansible": {"command": "ansible-playbook playbooks/folder_management.yml --extra-vars \"@vars/ncl.yml\" -e ncl_folder_action=create -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_folder_action", "ncl_folder_name", "ncl_folder_cascade"], "outputs": ["folder_id", "folder_name"], "path": "ansible/console/local/playbooks/folder_management.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Create a two-level folder hierarchy with a fleet placed under the child folder in NetApp Console Local", "id": "console-local-nested-folder-fleet", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "folder", "fleet", "provisioning"], "variants": {"ansible": {"command": "ansible-playbook playbooks/nested_folder_fleet.yml --extra-vars \"@vars/ncl.yml\" -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_parent_folder_name", "ncl_child_folder_name", "ncl_fleet_name", "ncl_nested_action"], "outputs": ["parent_folder_id", "child_folder_id", "fleet_id"], "path": "ansible/console/local/playbooks/nested_folder_fleet.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Register one or more on-premises ONTAP clusters with NetApp Console Local in single or multi-cluster mode", "id": "console-local-register-onprem-system", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "registration", "onprem", "ontap"], "variants": {"ansible": {"command": "ansible-playbook playbooks/register_onprem_system.yml --extra-vars \"@vars/ncl_register_onprem.yml\" -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_onprem_cluster_ip", "ncl_fleet_name", "ncl_onprem_clusters"], "outputs": ["working_environment_id", "agent_id"], "path": "ansible/console/local/playbooks/register_onprem_system.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "End-to-end NetApp Console Local onboarding \u2014 register user, create org, create fleet, and add an on-premises ONTAP system", "id": "console-local-register-and-onboard", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "onboarding", "registration", "fleet"], "variants": {"ansible": {"command": "ansible-playbook playbooks/register_and_onboard.yml --extra-vars \"@vars/ncl_register_and_onboard.yml\" -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_admin_email", "ncl_org_name", "ncl_fleet_name", "ncl_onprem_cluster_ip", "ncl_folder_name"], "outputs": ["org_id", "fleet_id", "working_environment_id"], "path": "ansible/console/local/playbooks/register_and_onboard.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Query fleet membership or permanently remove one or more ONTAP systems from a NetApp Console Local organisation", "id": "console-local-deregister-system", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "deregistration", "onprem", "ontap"], "variants": {"ansible": {"command": "ansible-playbook playbooks/deregister_system.yml --extra-vars \"@vars/ncl_deregister_system.yml\" -e ncl_admin_password=SECRET -e ncl_deregister_action=query", "cwd": "ansible/console/local", "inputs": ["ncl_deregister_action", "ncl_deregister_force", "ncl_systems"], "outputs": ["systems_deregistered"], "path": "ansible/console/local/playbooks/deregister_system.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Reusable task file included by deregister_system.yml to deregister a single ONTAP system from NetApp Console Local", "id": "console-local-deregister-one-task", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "deregistration", "tasks"], "variants": {"ansible": {"command": "ansible-playbook playbooks/deregister_system.yml --extra-vars \"@vars/ncl_deregister_system.yml\" -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_deregister_action", "ncl_deregister_force", "ncl_systems"], "outputs": ["system_deregistered"], "path": "ansible/console/local/playbooks/tasks/deregister_one.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Manage Active Directory LDAP federation in NetApp Console Local \u2014 list, create, enable, disable, or delete", "id": "console-local-active-directory", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "active-directory", "ldap", "identity"], "variants": {"ansible": {"command": "ansible-playbook playbooks/active_directory.yml --extra-vars \"@vars/ncl_active_directory.yml\" -e ncl_ad_action=list -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_ad_action", "ncl_ad_name", "ncl_ad_server_url", "ncl_ad_bind_dn", "ncl_ad_bind_password"], "outputs": ["federation_id", "federation_state"], "path": "ansible/console/local/playbooks/active_directory.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Query, create, or delete local users in a NetApp Console Local organisation with role assignment", "id": "console-local-org-users", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "user-management", "rbac"], "variants": {"ansible": {"command": "ansible-playbook playbooks/org_users.yml --extra-vars \"@vars/ncl_org_users.yml\" -e ncl_user_action=query -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_user_action", "ncl_user_email", "ncl_role_name", "ncl_role_category", "ncl_roles"], "outputs": ["user_id", "users_list"], "path": "ansible/console/local/playbooks/org_users.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "List, create, or delete service accounts in a NetApp Console Local organisation", "id": "console-local-service-account", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "service-account", "automation"], "variants": {"ansible": {"command": "ansible-playbook playbooks/service_account.yml --extra-vars \"@vars/ncl.yml\" -e ncl_sa_action=list -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_sa_action", "ncl_sa_name", "ncl_sa_id"], "outputs": ["service_account_id", "service_accounts_list"], "path": "ansible/console/local/playbooks/service_account.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Query, create/update, or delete the email server configuration on a NetApp Console Local appliance", "id": "console-local-email-config", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "email", "configuration"], "variants": {"ansible": {"command": "ansible-playbook playbooks/email_config.yml --extra-vars \"@vars/ncl_email_config.yml\" -e ncl_admin_password=SECRET -e ncl_email_action=query", "cwd": "ansible/console/local", "inputs": ["ncl_email_action", "ncl_smtp_host", "ncl_smtp_port", "ncl_smtp_user", "ncl_smtp_password"], "outputs": ["email_config"], "path": "ansible/console/local/playbooks/email_config.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "List, create, or delete LLM provider configurations on a NetApp Console Local appliance", "id": "console-local-llm-config", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "llm", "ai", "configuration"], "variants": {"ansible": {"command": "ansible-playbook playbooks/llm_config.yml --extra-vars \"@vars/ncl_llm.yml\" -e ncl_admin_password=SECRET -e ncl_llm_action=list", "cwd": "ansible/console/local", "inputs": ["ncl_llm_action", "ncl_llm_provider", "ncl_llm_api_key", "ncl_llm_base_url"], "outputs": ["llm_config_id", "llm_configs_list"], "path": "ansible/console/local/playbooks/llm_config.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "List, create, or delete capacity policies on a NetApp Console Local appliance", "id": "console-local-capacity-policies", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "capacity", "policy"], "variants": {"ansible": {"command": "ansible-playbook playbooks/capacity_policies.yml --extra-vars \"@vars/ncl_capacity_policy.yml\" -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_capacity_policy_action", "ncl_capacity_policy_name"], "outputs": ["capacity_policy_id", "capacity_policies_list"], "path": "ansible/console/local/playbooks/capacity_policies.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "List, create, or delete adaptive QoS performance policies on a NetApp Console Local appliance", "id": "console-local-performance-policies", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "performance", "qos", "policy"], "variants": {"ansible": {"command": "ansible-playbook playbooks/performance_policies.yml --extra-vars \"@vars/ncl_performance_policy.yml\" -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_policy_action", "ncl_policy_name", "ncl_policy_peak_iops", "ncl_policy_expected_iops"], "outputs": ["performance_policy_id", "performance_policies_list"], "path": "ansible/console/local/playbooks/performance_policies.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "List, create, or delete snapshot-based protection policies on a NetApp Console Local appliance", "id": "console-local-protection-policies", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "protection", "snapshot", "policy"], "variants": {"ansible": {"command": "ansible-playbook playbooks/protection_policies.yml --extra-vars \"@vars/ncl_protection_policy.yml\" -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_protection_policy_action", "ncl_protection_policy_name"], "outputs": ["protection_policy_id", "protection_policies_list"], "path": "ansible/console/local/playbooks/protection_policies.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "List, create, or delete security policies on a NetApp Console Local appliance", "id": "console-local-security-policies", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "security", "policy"], "variants": {"ansible": {"command": "ansible-playbook playbooks/security_policies.yml --extra-vars \"@vars/ncl_security_policy.yml\" -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_security_policy_action", "ncl_security_policy_name"], "outputs": ["security_policy_id", "security_policies_list"], "path": "ansible/console/local/playbooks/security_policies.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "List, create, or delete storage classes on a NetApp Console Local appliance", "id": "console-local-storage-classes", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "storage-class", "provisioning"], "variants": {"ansible": {"command": "ansible-playbook playbooks/storage_classes.yml --extra-vars \"@vars/ncl_storage_class.yml\" -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_sc_action", "ncl_sc_name", "ncl_sc_capacity_policy_id", "ncl_sc_performance_policy_id"], "outputs": ["storage_class_id", "storage_classes_list"], "path": "ansible/console/local/playbooks/storage_classes.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Provision volumes and LUNs in parallel across multiple ONTAP clusters via NetApp Console Local", "id": "console-local-storage-provisioning", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "provisioning", "volume", "lun", "multi-cluster"], "variants": {"ansible": {"command": "ansible-playbook playbooks/storage_provisioning.yml --extra-vars \"@vars/ncl_storage_provisioning.yml\"", "cwd": "ansible/console/local", "inputs": ["ncl_storage_targets", "ncl_volume_name", "ncl_lun_name"], "outputs": ["volumes_created", "luns_created"], "path": "ansible/console/local/playbooks/storage_provisioning.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "List or delete ONTAP volumes via the NetApp Console Local proxy in single or multi-cluster mode", "id": "console-local-volumes-delete", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "volume", "delete", "multi-cluster"], "variants": {"ansible": {"command": "ansible-playbook playbooks/volumes_delete.yml --extra-vars \"@vars/ncl_volume_delete.yml\" -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_volume_action", "ncl_volume_name", "ncl_svm_name", "ncl_clusters"], "outputs": ["volumes_deleted", "volumes_list"], "path": "ansible/console/local/playbooks/volumes_delete.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "List, create, or delete outbound webhook configurations on a NetApp Console Local appliance", "id": "console-local-webhooks", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "webhook", "notification"], "variants": {"ansible": {"command": "ansible-playbook playbooks/webhooks.yml --extra-vars \"@vars/ncl_webhook.yml\" -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_webhook_action", "ncl_webhook_name", "ncl_webhook_url", "ncl_webhook_format"], "outputs": ["webhook_id", "webhooks_list"], "path": "ansible/console/local/playbooks/webhooks.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Shared variable defaults template used by all NetApp Console Local playbooks", "id": "console-local-vars-shared", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "vars", "configuration"], "variants": {"ansible": {"command": "ansible-playbook playbooks/site.yml --extra-vars \"@vars/ncl.yml\" -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_console_url", "ncl_admin_email", "ncl_org_name", "ncl_fleet_name"], "outputs": [], "path": "ansible/console/local/vars/ncl.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Variables template for the active_directory.yml playbook managing LDAP federation on NetApp Console Local", "id": "console-local-vars-active-directory", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "vars", "active-directory", "ldap"], "variants": {"ansible": {"command": "ansible-playbook playbooks/active_directory.yml --extra-vars \"@vars/ncl_active_directory.yml\" -e ncl_ad_action=list -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_console_url", "ncl_ad_name", "ncl_ad_server_url", "ncl_ad_action"], "outputs": [], "path": "ansible/console/local/vars/ncl_active_directory.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Variables template for the capacity_policies.yml playbook managing capacity policies on NetApp Console Local", "id": "console-local-vars-capacity-policy", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "vars", "capacity", "policy"], "variants": {"ansible": {"command": "ansible-playbook playbooks/capacity_policies.yml --extra-vars \"@vars/ncl_capacity_policy.yml\" -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_console_url", "ncl_capacity_policy_action", "ncl_capacity_policy_name"], "outputs": [], "path": "ansible/console/local/vars/ncl_capacity_policy.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Variables template for the deregister_system.yml playbook removing ONTAP systems from NetApp Console Local", "id": "console-local-vars-deregister-system", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "vars", "deregistration"], "variants": {"ansible": {"command": "ansible-playbook playbooks/deregister_system.yml --extra-vars \"@vars/ncl_deregister_system.yml\" -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_console_url", "ncl_deregister_action", "ncl_systems"], "outputs": [], "path": "ansible/console/local/vars/ncl_deregister_system.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Variables template for the email_config.yml playbook configuring the SMTP email server on NetApp Console Local", "id": "console-local-vars-email-config", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "vars", "email", "configuration"], "variants": {"ansible": {"command": "ansible-playbook playbooks/email_config.yml --extra-vars \"@vars/ncl_email_config.yml\" -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_console_url", "ncl_email_action", "ncl_smtp_host", "ncl_smtp_port"], "outputs": [], "path": "ansible/console/local/vars/ncl_email_config.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Variables template for fleet_management.yml and fleet_delete.yml playbooks managing fleets on NetApp Console Local", "id": "console-local-vars-fleet", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "vars", "fleet"], "variants": {"ansible": {"command": "ansible-playbook playbooks/fleet_management.yml --extra-vars \"@vars/ncl_fleet.yml\" -e ncl_admin_password=SECRET --tags list", "cwd": "ansible/console/local", "inputs": ["ncl_console_url", "ncl_fleet_name", "ncl_fleet_folder_name"], "outputs": [], "path": "ansible/console/local/vars/ncl_fleet.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Variables template for the llm_config.yml playbook managing LLM provider configurations on NetApp Console Local", "id": "console-local-vars-llm", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "vars", "llm", "ai"], "variants": {"ansible": {"command": "ansible-playbook playbooks/llm_config.yml --extra-vars \"@vars/ncl_llm.yml\" -e ncl_admin_password=SECRET -e ncl_llm_action=list", "cwd": "ansible/console/local", "inputs": ["ncl_console_url", "ncl_llm_action", "ncl_llm_provider", "ncl_llm_api_key"], "outputs": [], "path": "ansible/console/local/vars/ncl_llm.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Variables template for the org_users.yml playbook managing local users in a NetApp Console Local organisation", "id": "console-local-vars-org-users", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "vars", "user-management"], "variants": {"ansible": {"command": "ansible-playbook playbooks/org_users.yml --extra-vars \"@vars/ncl_org_users.yml\" -e ncl_user_action=query -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_console_url", "ncl_user_action", "ncl_user_email", "ncl_role_name"], "outputs": [], "path": "ansible/console/local/vars/ncl_org_users.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Variables template for the performance_policies.yml playbook managing adaptive QoS policies on NetApp Console Local", "id": "console-local-vars-performance-policy", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "vars", "performance", "qos"], "variants": {"ansible": {"command": "ansible-playbook playbooks/performance_policies.yml --extra-vars \"@vars/ncl_performance_policy.yml\" -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_console_url", "ncl_policy_action", "ncl_policy_name"], "outputs": [], "path": "ansible/console/local/vars/ncl_performance_policy.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Variables template for the protection_policies.yml playbook managing snapshot protection policies on NetApp Console Local", "id": "console-local-vars-protection-policy", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "vars", "protection", "snapshot"], "variants": {"ansible": {"command": "ansible-playbook playbooks/protection_policies.yml --extra-vars \"@vars/ncl_protection_policy.yml\" -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_console_url", "ncl_protection_policy_action", "ncl_protection_policy_name"], "outputs": [], "path": "ansible/console/local/vars/ncl_protection_policy.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Variables template for the register_and_onboard.yml end-to-end NetApp Console Local onboarding playbook", "id": "console-local-vars-register-and-onboard", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "vars", "onboarding"], "variants": {"ansible": {"command": "ansible-playbook playbooks/register_and_onboard.yml --extra-vars \"@vars/ncl_register_and_onboard.yml\" -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_console_url", "ncl_admin_email", "ncl_org_name", "ncl_fleet_name", "ncl_onprem_cluster_ip"], "outputs": [], "path": "ansible/console/local/vars/ncl_register_and_onboard.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Variables template for the register_onprem_system.yml playbook registering on-premises ONTAP systems with NetApp Console Local", "id": "console-local-vars-register-onprem", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "vars", "registration", "onprem"], "variants": {"ansible": {"command": "ansible-playbook playbooks/register_onprem_system.yml --extra-vars \"@vars/ncl_register_onprem.yml\" -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_console_url", "ncl_onprem_cluster_ip", "ncl_fleet_name"], "outputs": [], "path": "ansible/console/local/vars/ncl_register_onprem.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Variables template for the security_policies.yml playbook managing security policies on NetApp Console Local", "id": "console-local-vars-security-policy", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "vars", "security", "policy"], "variants": {"ansible": {"command": "ansible-playbook playbooks/security_policies.yml --extra-vars \"@vars/ncl_security_policy.yml\" -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_console_url", "ncl_security_policy_action", "ncl_security_policy_name"], "outputs": [], "path": "ansible/console/local/vars/ncl_security_policy.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Variables template for the storage_classes.yml playbook managing storage classes on NetApp Console Local", "id": "console-local-vars-storage-class", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "vars", "storage-class"], "variants": {"ansible": {"command": "ansible-playbook playbooks/storage_classes.yml --extra-vars \"@vars/ncl_storage_class.yml\" -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_console_url", "ncl_sc_action", "ncl_sc_name"], "outputs": [], "path": "ansible/console/local/vars/ncl_storage_class.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Variables template for the storage_provisioning.yml playbook provisioning volumes and LUNs via NetApp Console Local", "id": "console-local-vars-storage-provisioning", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "vars", "provisioning", "volume", "lun"], "variants": {"ansible": {"command": "ansible-playbook playbooks/storage_provisioning.yml --extra-vars \"@vars/ncl_storage_provisioning.yml\"", "cwd": "ansible/console/local", "inputs": ["ncl_console_url", "ncl_storage_targets", "ncl_volume_name", "ncl_lun_name"], "outputs": [], "path": "ansible/console/local/vars/ncl_storage_provisioning.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Variables template for the volumes_delete.yml playbook listing or deleting ONTAP volumes via NetApp Console Local", "id": "console-local-vars-volume-delete", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "vars", "volume", "delete"], "variants": {"ansible": {"command": "ansible-playbook playbooks/volumes_delete.yml --extra-vars \"@vars/ncl_volume_delete.yml\" -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_console_url", "ncl_volume_action", "ncl_volume_name", "ncl_clusters"], "outputs": [], "path": "ansible/console/local/vars/ncl_volume_delete.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}, {"deployment": "local", "description": "Variables template for the webhooks.yml playbook managing outbound webhook configurations on NetApp Console Local", "id": "console-local-vars-webhook", "ontap_min": "9.8", "owners": ["priyams"], "product": "console", "products": ["Console"], "status": "draft", "tags": ["console", "vars", "webhook"], "variants": {"ansible": {"command": "ansible-playbook playbooks/webhooks.yml --extra-vars \"@vars/ncl_webhook.yml\" -e ncl_admin_password=SECRET", "cwd": "ansible/console/local", "inputs": ["ncl_console_url", "ncl_webhook_action", "ncl_webhook_name", "ncl_webhook_url"], "outputs": [], "path": "ansible/console/local/vars/ncl_webhook.yml", "prerequisites": {"env": ["ncl_console_url", "ncl_admin_password"], "setup": "ansible-galaxy collection install -r requirements.yml"}}}}];
+const TOOLS = ["python", "ansible", "terraform", "go"];
+const TOOL_LABEL = { python:"Python", ansible:"Ansible", terraform:"Terraform", go:"Go" };
+
+const state = {
+  search:"", product:"", tool:"", status:"", owner:"", tag:"",
+  view:"cards", sortCol:"id", sortDir:"asc",
+  openCards:new Set(), openVariant:{}
+};
+
+let network = null;
+
+function escapeHtml(s){
+  return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function badgeClass(status){
+  if (status === "verified") return "verified";
+  if (status === "deprecated") return "deprecated";
+  return "draft";
+}
+
+function allTags(){
+  const s = new Set();
+  CATALOG.forEach(u => (u.tags||[]).forEach(t => s.add(t)));
+  return Array.from(s).sort();
+}
+
+function allProducts(){
+  const s = new Set();
+  CATALOG.forEach(u => s.add(u.product));
+  return Array.from(s).sort();
+}
+
+function allOwners(){
+  const s = new Set();
+  CATALOG.forEach(u => (u.owners||[]).forEach(o => s.add(o)));
+  return Array.from(s).sort((a,b) => a.localeCompare(b));
+}
+
+function initFilters(){
+  const productSel = document.getElementById("filter-product");
+  allProducts().forEach(p => {
+    const opt = document.createElement("option");
+    opt.value = p; opt.textContent = p.toUpperCase();
+    productSel.appendChild(opt);
+  });
+
+  const ownerSel = document.getElementById("filter-owner");
+  allOwners().forEach(o => {
+    const opt = document.createElement("option");
+    opt.value = o; opt.textContent = o;
+    ownerSel.appendChild(opt);
+  });
+
+  const tagWrap = document.getElementById("tag-chips");
+  allTags().forEach(tag => {
+    const chip = document.createElement("div");
+    chip.className = "chip";
+    chip.textContent = tag;
+    chip.dataset.tag = tag;
+    chip.addEventListener("click", () => {
+      state.tag = state.tag === tag ? "" : tag;
+      render();
+    });
+    tagWrap.appendChild(chip);
+  });
+}
+
+function renderStats(){
+  const total = CATALOG.length;
+  const verified = CATALOG.filter(u => u.status === "verified").length;
+  const draft = CATALOG.filter(u => u.status === "draft").length;
+  const products = allProducts().length;
+  document.getElementById("stats").innerHTML = `
+    <div class="stat"><b>${total}</b><span>Use cases</span></div>
+    <div class="stat"><b>${verified}</b><span>Verified</span></div>
+    <div class="stat"><b>${draft}</b><span>Draft</span></div>
+    <div class="stat"><b>${products}</b><span>Products</span></div>
+  `;
+}
+
+function variantHay(u){
+  const parts = [];
+  Object.values(u.variants || {}).forEach(v => {
+    parts.push(v.path || "", v.command || "", v.cwd || "");
+  });
+  return parts.join(" ");
+}
+
+function matchesFilters(u){
+  const q = state.search.trim().toLowerCase();
+  if (q){
+    const hay = [
+      u.id, u.description, ...(u.tags||[]), ...(u.owners||[]), variantHay(u)
+    ].join(" ").toLowerCase();
+    if (!hay.includes(q)) return false;
+  }
+  if (state.product && u.product !== state.product) return false;
+  if (state.tool && !(u.variants && u.variants[state.tool])) return false;
+  if (state.status && u.status !== state.status) return false;
+  if (state.owner && !(u.owners||[]).includes(state.owner)) return false;
+  if (state.tag && !(u.tags||[]).includes(state.tag)) return false;
+  return true;
+}
+
+function variantDetailHtml(u, tool){
+  const v = (u.variants || {})[tool];
+  if (!v) return "";
+  const pre = v.prerequisites || {};
+  const env = pre.env || [];
+  const inputs = v.inputs || [];
+  const outputs = v.outputs || [];
+  return `
+    <div class="row">
+      <div class="k">Path</div>
+      <code class="cmd" style="cursor:default">${escapeHtml(v.path || "")}</code>
+    </div>
+    <div class="row">
+      <div class="k">Run command (cwd: ${escapeHtml(v.cwd || "")})</div>
+      <code class="cmd copy-cmd" title="Click to copy">${escapeHtml(v.command || "")}</code>
+    </div>
+    ${pre.setup ? `<div class="row"><div class="k">Setup</div><code class="cmd copy-cmd" title="Click to copy">${escapeHtml(pre.setup)}</code></div>` : ""}
+    ${env.length ? `<div class="row"><div class="k">Required env vars</div><div class="kv">${env.map(e=>`<span>${escapeHtml(e)}</span>`).join("")}</div></div>` : ""}
+    ${inputs.length ? `<div class="row"><div class="k">Inputs</div><div class="kv">${inputs.map(e=>`<span>${escapeHtml(e)}</span>`).join("")}</div></div>` : ""}
+    ${outputs.length ? `<div class="row"><div class="k">Outputs</div><div class="kv">${outputs.map(e=>`<span>${escapeHtml(e)}</span>`).join("")}</div></div>` : ""}
+  `;
+}
+
+function cardHtml(u){
+  const variants = Object.keys(u.variants || {});
+  const openTool = state.openVariant[u.id] || variants[0];
+  const isOpen = state.openCards.has(u.id);
+  return `
+    <div class="card" data-id="${escapeHtml(u.id)}">
+      <div class="card-head">
+        <h3>${escapeHtml(u.id)}</h3>
+        <span class="badge ${badgeClass(u.status)}">${escapeHtml(u.status)}</span>
+      </div>
+      <p class="desc">${escapeHtml(u.description)}</p>
+      <div class="meta-row">
+        <span class="pill">${escapeHtml((u.products||[]).join(", "))}</span>
+        ${u.ontap_min ? `<span class="pill">ONTAP ≥ ${escapeHtml(u.ontap_min)}</span>` : ""}
+        ${u.deployment ? `<span class="pill">${escapeHtml(u.deployment)}</span>` : ""}
+        ${(u.owners||[]).map(o => `<span class="pill">${escapeHtml(o)}</span>`).join("")}
+      </div>
+      <div class="tags">${(u.tags||[]).map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join("")}</div>
+      <div class="variant-row">
+        ${variants.map(v => `<button class="variant-btn ${isOpen && openTool===v ? "active":""}" data-tool="${v}" data-id="${escapeHtml(u.id)}">${TOOL_LABEL[v]||v}</button>`).join("")}
+      </div>
+      <div class="detail ${isOpen ? "open":""}" data-id="${escapeHtml(u.id)}">
+        ${variantDetailHtml(u, openTool)}
+      </div>
+    </div>
+  `;
+}
+
+function variantIcons(u){
+  return TOOLS.map(t => {
+    const on = u.variants && u.variants[t] ? "on" : "";
+    return `<span class="var-icon ${on}" data-tool="${t}" title="${TOOL_LABEL[t]}">${t.slice(0,2)}</span>`;
+  }).join("");
+}
+
+function colValue(u, col){
+  switch (col){
+    case "id": return u.id || "";
+    case "description": return u.description || "";
+    case "products": return (u.products||[]).join(", ");
+    case "owners": return (u.owners||[]).join(", ");
+    case "status": return u.status || "";
+    case "tags": return (u.tags||[]).join(", ");
+    case "variants": return Object.keys(u.variants || {}).sort().join(",");
+    case "ontap_min": return u.ontap_min || "";
+    default: return "";
+  }
+}
+
+function sortedRows(rows){
+  const col = state.sortCol;
+  const dir = state.sortDir === "desc" ? -1 : 1;
+  return [...rows].sort((a,b) => {
+    const av = String(colValue(a, col)).toLowerCase();
+    const bv = String(colValue(b, col)).toLowerCase();
+    if (av < bv) return -1 * dir;
+    if (av > bv) return 1 * dir;
+    return 0;
+  });
+}
+
+function renderTable(filtered){
+  const body = document.getElementById("table-body");
+  document.querySelectorAll("table.catalog th").forEach(th => {
+    th.classList.toggle("sort-asc", th.dataset.col === state.sortCol && state.sortDir === "asc");
+    th.classList.toggle("sort-desc", th.dataset.col === state.sortCol && state.sortDir === "desc");
+  });
+  if (!filtered.length){
+    body.innerHTML = `<tr><td colspan="8"><div class="empty-state"><b>No matches</b>Try clearing a filter or search term.</div></td></tr>`;
+    return;
+  }
+  body.innerHTML = sortedRows(filtered).map(u => `
+    <tr>
+      <td class="id">${escapeHtml(u.id)}</td>
+      <td>${escapeHtml(u.description)}</td>
+      <td>${escapeHtml((u.products||[]).join(", "))}${u.deployment ? ` <span class="pill">${escapeHtml(u.deployment)}</span>` : ""}</td>
+      <td>${escapeHtml((u.owners||[]).join(", "))}</td>
+      <td><span class="badge ${badgeClass(u.status)}">${escapeHtml(u.status)}</span></td>
+      <td>${(u.tags||[]).map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join(" ")}</td>
+      <td><div class="var-icons">${variantIcons(u)}</div></td>
+      <td>${escapeHtml(u.ontap_min || "")}</td>
+    </tr>
+  `).join("");
+}
+
+function renderGraph(filtered){
+  const container = document.getElementById("graph");
+  const nodes = [];
+  const edges = [];
+  const seenOwner = new Set();
+
+  filtered.forEach(u => {
+    const ucId = `uc:${u.id}`;
+    nodes.push({
+      id: ucId,
+      label: u.id,
+      title: `${u.description}\n${(u.owners||[]).join(", ")}`,
+      group: "usecase",
+      shape: "box"
+    });
+    (u.owners || []).forEach(owner => {
+      const oid = `owner:${owner}`;
+      if (!seenOwner.has(oid)){
+        seenOwner.add(oid);
+        nodes.push({ id: oid, label: owner, group: "owner", shape: "dot", size: 18 });
+      }
+      edges.push({ from: oid, to: ucId });
+    });
+    Object.entries(u.variants || {}).forEach(([tool, v]) => {
+      const vid = `var:${u.id}:${tool}`;
+      nodes.push({
+        id: vid,
+        label: tool,
+        title: v.path || "",
+        group: "variant",
+        shape: "ellipse",
+        color: { background: tool === "python" ? "#1e3a8a" : tool === "ansible" ? "#7f1d1d" : tool === "terraform" ? "#4c1d95" : "#134e4a", border: "#64748b", highlight: { background: "#334155" } }
+      });
+      edges.push({ from: ucId, to: vid });
+    });
+  });
+
+  const data = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
+  const options = {
+    autoResize: true,
+    nodes: { font: { color: "#e6edf3", size: 13, face: "Inter" }, borderWidth: 1 },
+    edges: { color: { color: "rgba(255,255,255,0.22)" }, arrows: { to: { enabled: true, scaleFactor: 0.5 } }, smooth: { type: "cubicBezier" } },
+    groups: {
+      owner: { color: { background: "#818cf8", border: "#6366f1" } },
+      usecase: { color: { background: "#1e3a8a", border: "#3b82f6" } },
+      variant: { color: { background: "#164e63", border: "#22d3ee" } }
+    },
+    physics: { barnesHut: { gravitationalConstant: -2800, springLength: 110 }, stabilization: { iterations: 120 } },
+    interaction: { hover: true, tooltipDelay: 80 }
+  };
+
+  if (network){
+    network.destroy();
+    network = null;
+  }
+  if (!filtered.length){
+    container.innerHTML = `<div class="empty-state"><b>No matches</b>Try clearing a filter or search term.</div>`;
+    return;
+  }
+  container.innerHTML = "";
+  network = new vis.Network(container, data, options);
+}
+
+function bindCardEvents(){
+  const grid = document.getElementById("grid");
+  grid.querySelectorAll(".variant-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.id;
+      const tool = btn.dataset.tool;
+      if (state.openCards.has(id) && state.openVariant[id] === tool){
+        state.openCards.delete(id);
+      } else {
+        state.openCards.add(id);
+        state.openVariant[id] = tool;
+      }
+      render();
+    });
+  });
+  grid.querySelectorAll(".copy-cmd").forEach(el => {
+    el.addEventListener("click", () => {
+      navigator.clipboard.writeText(el.textContent).then(showToast);
+    });
+  });
+}
+
+function setView(view){
+  state.view = view;
+  document.querySelectorAll(".view-btn").forEach(b => b.classList.toggle("active", b.dataset.view === view));
+  document.getElementById("grid").classList.toggle("hidden", view !== "cards");
+  document.getElementById("table-wrap").classList.toggle("hidden", view !== "table");
+  document.getElementById("graph-wrap").classList.toggle("hidden", view !== "graph");
+}
+
+function render(){
+  renderStats();
+  document.querySelectorAll(".chip").forEach(c => {
+    c.classList.toggle("active", c.dataset.tag === state.tag);
+  });
+
+  const filtered = CATALOG.filter(matchesFilters);
+  document.getElementById("result-line").innerHTML =
+    `Showing <b>${filtered.length}</b> of <b>${CATALOG.length}</b> use cases`;
+
+  setView(state.view);
+
+  const grid = document.getElementById("grid");
+  if (!filtered.length && state.view === "cards"){
+    grid.innerHTML = `<div class="empty-state"><b>No matches</b>Try clearing a filter or search term.</div>`;
+  } else if (state.view === "cards"){
+    grid.innerHTML = filtered.map(cardHtml).join("");
+    bindCardEvents();
+  }
+
+  if (state.view === "table") renderTable(filtered);
+  if (state.view === "graph") renderGraph(filtered);
+}
+
+function showToast(){
+  const t = document.getElementById("toast");
+  t.classList.add("show");
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove("show"), 1400);
+}
+
+document.getElementById("search").addEventListener("input", e => { state.search = e.target.value; render(); });
+document.getElementById("filter-product").addEventListener("change", e => { state.product = e.target.value; render(); });
+document.getElementById("filter-tool").addEventListener("change", e => { state.tool = e.target.value; render(); });
+document.getElementById("filter-status").addEventListener("change", e => { state.status = e.target.value; render(); });
+document.getElementById("filter-owner").addEventListener("change", e => { state.owner = e.target.value; render(); });
+document.querySelectorAll(".view-btn").forEach(btn => {
+  btn.addEventListener("click", () => { state.view = btn.dataset.view; render(); });
+});
+document.querySelectorAll("table.catalog th").forEach(th => {
+  th.addEventListener("click", () => {
+    const col = th.dataset.col;
+    if (state.sortCol === col){
+      state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
+    } else {
+      state.sortCol = col;
+      state.sortDir = "asc";
+    }
+    render();
+  });
+});
+
+initFilters();
+render();
+</script>
+</body>
+</html>

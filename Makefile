@@ -21,6 +21,10 @@ install: $(VENV)/bin/activate ## Create venv and install dev deps
 validate-catalog: ## Validate catalog.yaml against repo examples
 	$(PYTHON) scripts/validate_catalog.py
 
+.PHONY: catalog-site
+catalog-site: ## Generate docs/catalog/index.html from catalog.yaml
+	$(PYTHON) scripts/catalog/build_catalog_site.py
+
 .PHONY: lint
 lint: ## Ruff lint + format check (python examples)
 	$(PYTHON) -m ruff check python/
