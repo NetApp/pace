@@ -19,6 +19,7 @@ frontmatter::
     ai/ontap/conventions.md            kind: product -> globs **/ontap/**
     ai/ontap/generate-python.md        kind: task    -> /ontap-generate-python
     ai/console/local/conventions.md    kind: product -> globs **/console/local/**
+    ai/console/local/prompt-catalog.md kind: doc     -> docs/console-local-prompt-catalog.md
 
 Product subfolders are preserved in the instruction and rule trees, which both
 support recursive discovery. They are flattened into ``<product>-<task>`` names
@@ -336,6 +337,7 @@ def self_test() -> int:
         ".github/instructions/ontap/conventions.instructions.md": "../../../",
         ".cursor/rules/console/local/conventions.mdc": "../../../../",
         "docs/ai-prompt-catalog.md": "../",
+        "docs/console-local-prompt-catalog.md": "../",
     }
     failures = 0
     for path, want in cases.items():

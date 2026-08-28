@@ -24,7 +24,8 @@ ai/
 │   ├── conventions.md           # kind: product - attached under **/ontap/**
 │   └── generate-python.md       # kind: task    - /ontap-generate-python
 └── console/local/
-    └── conventions.md           # kind: product - attached under **/console/local/**
+    ├── conventions.md           # kind: product - attached under **/console/local/**
+    └── prompt-catalog.md        # kind: doc    - docs/console-local-prompt-catalog.md
 ```
 
 ## Frontmatter
