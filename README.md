@@ -163,6 +163,7 @@ Once CA-signed certificates are in place, we recommend turning it on.
 | [Project website](https://netapp.github.io/pace/)                     | Guided tour, prompts, full contribution guide  |
 | [Choosing an approach](docs/choosing-an-approach.md)                  | Decision guide and feature matrix              |
 | [AI prompt catalog](docs/ai-prompt-catalog.md)                        | Prompts for planning, generating, reviewing    |
+| [Console prompt catalog](docs/console-local-prompt-catalog.md)        | Console (local) observability and provisioning |
 | [Platform API patterns](docs/ontap-api-patterns.md)                   | REST conventions, auth, async jobs             |
 | [Troubleshooting](docs/troubleshooting.md)                            | Common errors and fixes                        |
 | [Testing](TESTING.md)                                                 | What to run and capture in the PR Test Report  |

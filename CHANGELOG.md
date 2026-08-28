@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Product-scoped directory layout: examples now live under `<tool>/<product>/`,
   with placeholder `<tool>/console/local/` directories for NetApp Console
+- Publication-ready Console (local) prompt catalog
+  (`docs/console-local-prompt-catalog.md`, sourced from
+  `ai/console/local/prompt-catalog.md`)
 - `product` field in `catalog.yaml` (and optional `deployment`), enforced by
   `scripts/validate_catalog.py` to agree with each variant's path
 - `ontap` and `console` PR labels
