@@ -184,9 +184,10 @@ ansible/console/local/
 > they are part of the Galaxy collection artifact or internal dev tooling only.
 
 > **`ansible.cfg` in PACE** is minimal — it sets `host_key_checking = False` and
-> `stdout_callback = yaml` only. It intentionally does **not** set
-> `collections_path`, so Ansible resolves `netapp.console` from the Galaxy
-> default (`~/.ansible/collections`) after `ansible-galaxy collection install`.
+> YAML stdout via `ansible.builtin.default` (`result_format = yaml`). It
+> intentionally does **not** set `collections_path`, so Ansible resolves
+> `netapp.console` from the Galaxy default (`~/.ansible/collections`) after
+> `ansible-galaxy collection install`.
 
 ---
 
